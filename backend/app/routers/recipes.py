@@ -2,14 +2,14 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import get_db
 from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
-from ..schemas import IngredientLine, RecipeIn, RecipeOut, RecipePatch, RecipeSummary, StepOut, image_url
-from ..services import images
+from ..schemas import ImageFromUrl, ImageSearchProgress, IngredientLine, RecipeIn, RecipeOut, RecipePatch, RecipeSummary, StepOut, image_url
+from ..services import fetcher, image_search, images
 from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, normalize_name
 
@@ -84,6 +84,25 @@ def list_recipes(
         ))
         query = query.filter(has_it)
     return [to_summary(r) for r in query.order_by(Recipe.created_at.desc(), Recipe.id.desc())]
+
+
+def _search_progress(db: Session) -> ImageSearchProgress:
+    missing = db.query(Recipe).filter(Recipe.image.is_(None)).count()
+    return ImageSearchProgress(**image_search.progress, missing=missing)
+
+
+@router.get("/image-search", response_model=ImageSearchProgress)
+def image_search_status(db: Session = Depends(get_db)):
+    """Postęp hurtowego szukania zdjęć."""
+    return _search_progress(db)
+
+
+@router.post("/image-search", response_model=ImageSearchProgress, status_code=202)
+def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Szuka w internecie zdjęć dla wszystkich przepisów bez zdjęcia (w tle)."""
+    if not image_search.progress["running"]:
+        background.add_task(image_search.fill_missing)
+    return _search_progress(db)
 
 
 @router.get("/{recipe_id}", response_model=RecipeOut)
@@ -167,6 +186,25 @@ def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
     db.commit()
     for filename in files:
         images.delete_image(filename)
+
+
+@router.get("/{recipe_id}/image-candidates", response_model=list[str])
+def image_candidates(recipe_id: int, db: Session = Depends(get_db)):
+    """Kilka zdjęć z internetu pasujących do przepisu - do wyboru przez użytkownika."""
+    return image_search.find_candidates(_get(db, recipe_id))
+
+
+@router.post("/{recipe_id}/image-from-url", response_model=RecipeOut)
+def image_from_url(recipe_id: int, data: ImageFromUrl, db: Session = Depends(get_db)):
+    recipe = _get(db, recipe_id)
+    try:
+        filename = images.save_image_bytes(fetcher.fetch_image(data.url))
+    except Exception as exc:
+        raise HTTPException(400, "Nie udało się pobrać tego zdjęcia - wybierz inne") from exc
+    images.delete_image(recipe.image)
+    recipe.image = filename
+    db.commit()
+    return to_out(recipe)
 
 
 @router.post("/{recipe_id}/image", response_model=RecipeOut)

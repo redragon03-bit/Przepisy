@@ -128,6 +128,19 @@ class MealPlanOut(BaseModel):
     recipe: "RecipeSummary"
 
 
+class ImageFromUrl(BaseModel):
+    url: str
+
+
+class ImageSearchProgress(BaseModel):
+    running: bool
+    done: int
+    found: int
+    total: int
+    # Ile przepisów nadal nie ma zdjęcia
+    missing: int
+
+
 class CategoryOut(BaseModel):
     name: str
     recipe_count: int

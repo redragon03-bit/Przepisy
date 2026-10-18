@@ -87,6 +87,14 @@ export interface AuthStatus {
   ha_enabled: boolean;
 }
 
+export interface ImageSearchProgress {
+  running: boolean;
+  done: number;
+  found: number;
+  total: number;
+  missing: number;
+}
+
 export interface ShoppingItem {
   id: number;
   text: string;
@@ -159,6 +167,10 @@ export const api = {
   // Ulubione / ocena (0 = usuń) / notatki bez wysyłania całego formularza
   patchRecipe: (id: number, data: { favorite?: boolean; rating?: number; notes?: string }) =>
     request<Recipe>("PATCH", `/api/recipes/${id}`, data),
+  imageCandidates: (id: number) => request<string[]>("GET", `/api/recipes/${id}/image-candidates`),
+  setImageFromUrl: (id: number, url: string) => request<Recipe>("POST", `/api/recipes/${id}/image-from-url`, { url }),
+  imageSearchStatus: () => request<ImageSearchProgress>("GET", "/api/recipes/image-search"),
+  startImageSearch: () => request<ImageSearchProgress>("POST", "/api/recipes/image-search"),
   markCooked: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/cooked`),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();

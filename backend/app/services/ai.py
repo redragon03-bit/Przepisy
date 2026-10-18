@@ -13,6 +13,7 @@ Funkcje _ask_claude i _ask_gemini zamieniają ją na format danego dostawcy.
 import base64
 import json
 import logging
+import re
 import time
 from dataclasses import asdict
 
@@ -272,3 +273,71 @@ def categorize(recipes: list[tuple[int, str, list[str]]], categories: list[str])
     text = "Przepisy:\n" + "\n".join(lines) + "\n\n" + _categories_hint(categories)
     result = _ask_provider([text], CATEGORIZE_PROMPT, AiCategorization)
     return {item.id: item.categories for item in result.recipes}
+
+
+SEARCH_PROMPT = """Znajdź w internecie strony z przepisem na podane danie (najlepiej polskie \
+blogi i serwisy kulinarne ze zdjęciem gotowego dania). Odpowiedz wyłącznie listą adresów \
+stron, po jednym w linii, najbardziej pasujące pierwsze. Bez komentarzy."""
+
+_URL = re.compile(r"https?://[^\s)\]>\"']+")
+
+
+def _search_claude(query: str) -> list[str]:
+    settings = get_settings()
+    try:
+        response = anthropic.Anthropic(api_key=settings.anthropic_api_key).messages.create(
+            model=settings.claude_model,
+            max_tokens=4000,
+            system=SEARCH_PROMPT,
+            output_config={"effort": "low"},
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 2}],
+            messages=[{"role": "user", "content": query}],
+        )
+    except anthropic.APIError as exc:
+        raise AiError(f"Błąd wyszukiwania: {exc}") from exc
+    urls: list[str] = []
+    for block in response.content:
+        if block.type == "text":
+            urls += _URL.findall(block.text)
+        elif block.type == "web_search_tool_result" and isinstance(block.content, list):
+            # Wyniki wyszukiwania (lista); przy błędzie content jest obiektem, nie listą
+            urls += [result.url for result in block.content]
+    return urls
+
+
+def _search_gemini(query: str) -> list[str]:
+    settings = get_settings()
+    client = genai.Client(api_key=settings.gemini_api_key)
+    try:
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=query,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=SEARCH_PROMPT,
+                # Gemini sam wyszukuje w Google ("grounding")
+                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+            ),
+        )
+    except genai_errors.APIError as exc:
+        raise AiError(f"Błąd wyszukiwania: {exc.message}") from exc
+    urls = _URL.findall(response.text or "")
+    # Źródła wyszukiwania - adresy przekierowujące Google, prowadzą do właściwych stron
+    for candidate in response.candidates or []:
+        metadata = candidate.grounding_metadata
+        for chunk in (metadata.grounding_chunks or []) if metadata else []:
+            if chunk.web and chunk.web.uri:
+                urls.append(chunk.web.uri)
+    return urls
+
+
+def search_recipe_pages(title: str, ingredients: list[str]) -> list[str]:
+    """Adresy stron z przepisem na to danie (AI szuka w internecie). Bez powtórzeń."""
+    query = f"Danie: {title}\nGłówne składniki: {', '.join(ingredients[:8]) or 'brak'}"
+    provider = get_settings().active_ai_provider
+    if provider == "anthropic":
+        urls = _search_claude(query)
+    elif provider == "gemini":
+        urls = _search_gemini(query)
+    else:
+        raise AiError("Brak klucza API do AI - wyszukiwanie zdjęć wymaga AI.")
+    return list(dict.fromkeys(u.rstrip(".,") for u in urls))

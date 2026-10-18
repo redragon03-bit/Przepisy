@@ -64,6 +64,7 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 | Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
 | Ulubione, ocena, „Ugotowane”, notatki | `PATCH /api/recipes/{id}`, `POST .../cooked` | `pages/RecipePage.tsx` |
 | Minutniki w krokach („10 min” → przycisk) | – | `lib/timers.ts` |
+| Szukanie zdjęć w internecie dla przepisów bez zdjęcia (AI wyszukuje strony, bierzemy ich `og:image`; zapas: Openverse). Automatycznie po imporcie, hurtowo z listy, ręcznie w przepisie | `services/image_search.py`, `ai.search_recipe_pages` | `RecipePage.tsx`, `RecipesPage.tsx` |
 | Wykrywanie duplikatów linków | `routers/imports.py` (status `duplicate`) | `pages/ImportPage.tsx` |
 
 Wysyłka do HA: jako dodatek HA działa sama (`homeassistant_api: true` daje token).
