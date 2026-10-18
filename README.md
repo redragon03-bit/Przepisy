@@ -150,8 +150,10 @@ GitHub → Twój profil → *Packages* → `przepisy` → *Package settings* →
 4. Zakładka *Konfiguracja*: ustaw `app_password` i klucz AI (`gemini_api_key` albo `anthropic_api_key`).
 5. Uruchom. Aplikacja działa pod `http://<adres-HA>:8000`.
 
-Aktualizacja: po zmianach w kodzie podnieś `version` w `ha-addon/config.yaml` –
-HA pokaże wtedy przycisk „Aktualizuj”.
+Aktualizacja: po zmianach w kodzie podnieś `version` w `ha-addon/config.yaml`.
+GitHub Actions zbuduje obraz z tym numerem (np. `przepisy:0.2.1`), a HA pokaże przycisk
+„Aktualizuj”. **Aktualizuj dopiero, gdy build na GitHubie (zakładka Actions) jest zielony** –
+wcześniej obrazu z nowym numerem jeszcze nie ma i instalacja się nie uda.
 
 Dane dodatku (baza i zdjęcia) są w jego folderze `/data` i **wchodzą do kopii
 zapasowych Home Assistant**.
