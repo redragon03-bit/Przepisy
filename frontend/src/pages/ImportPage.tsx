@@ -122,7 +122,8 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
             startUrlImport(url);
           }}
         >
-          <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" inputMode="url" />
+          {/* Zwykła klawiatura zamiast "url" - ma spację, którą przesuwa się kursor w linku */}
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
           {"clipboard" in navigator && "readText" in navigator.clipboard && (
             <button type="button" onClick={paste}>
               Wklej
