@@ -53,6 +53,10 @@ DEFAULT_STAPLES = [
 # bazie dodajemy sami. Nową kolumnę w models.py dopisz też tutaj.
 ADDED_COLUMNS = [
     ("import_jobs", "recipe_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("recipes", "favorite", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("recipes", "rating", "INTEGER"),
+    ("recipes", "cooked_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("recipes", "last_cooked_at", "DATETIME"),
 ]
 
 

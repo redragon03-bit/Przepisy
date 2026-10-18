@@ -403,9 +403,14 @@ button.small,
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
   margin-top: 24px;
+}
+
+.recipe .actions > * {
+  flex: 1 1 100%;
 }
 
 /* Formularz edycji */
@@ -485,4 +490,153 @@ button.small,
 .tabbar a.active {
   color: var(--accent);
   font-weight: 600;
+}
+
+/* Ulubione, ocena, porcje */
+.favorite {
+  font-size: 24px;
+}
+
+.settings-link {
+  font-size: 22px;
+  text-decoration: none;
+}
+
+.stars {
+  color: #f5a623;
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.stars .link {
+  padding: 0 2px;
+  font-size: inherit;
+  color: inherit;
+}
+
+.stars.small {
+  font-size: 13px;
+}
+
+.servings {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper button {
+  min-width: 40px;
+  padding: 6px 10px;
+}
+
+.stepper button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Minutniki */
+.timer-button {
+  margin-top: 6px;
+  margin-right: 6px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.timers {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+}
+
+.timer span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+}
+
+.timer.finished {
+  background: var(--accent);
+  color: #fff;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.7;
+  }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 12px);
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text, #222);
+  color: var(--surface, #fff);
+  z-index: 20;
+  white-space: nowrap;
+}
+
+/* Lista zakupów i plan */
+.grow {
+  flex: 1;
+}
+
+.shopping li {
+  align-items: center;
+}
+
+.plan-day .row {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.plan-day h2 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.plan-day.today {
+  border-color: var(--accent);
+}
+
+.plan-entry {
+  padding: 6px 0;
+}
+
+.shopping .icon,
+.plan-entry .icon {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  color: var(--muted, #8a7a6c);
 }

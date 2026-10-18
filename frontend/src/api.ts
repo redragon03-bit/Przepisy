@@ -16,6 +16,8 @@ export interface RecipeSummary {
   total_minutes: number | null;
   source_type: "url" | "image" | "manual";
   categories: string[];
+  favorite: boolean;
+  rating: number | null;
   created_at: string;
 }
 
@@ -27,6 +29,8 @@ export interface Recipe extends RecipeSummary {
   source_url: string;
   original_language: string;
   notes: string;
+  cooked_count: number;
+  last_cooked_at: string | null;
   ingredients: IngredientLine[];
   steps: { text: string; image_url: string | null }[];
   step_images: (string | null)[];
@@ -68,7 +72,7 @@ export interface ImportJob {
   id: number;
   kind: "url" | "image";
   source: string;
-  status: "pending" | "running" | "done" | "failed";
+  status: "pending" | "running" | "done" | "failed" | "duplicate";
   error: string;
   recipe_id: number | null;
   recipe_count: number;
@@ -80,6 +84,20 @@ export interface AuthStatus {
   auth_required: boolean;
   ai_enabled: boolean;
   ai_provider: "anthropic" | "gemini" | null;
+  ha_enabled: boolean;
+}
+
+export interface ShoppingItem {
+  id: number;
+  text: string;
+  recipes: string;
+  checked: boolean;
+}
+
+export interface PlanEntry {
+  id: number;
+  day: string; // "2026-10-20"
+  recipe: RecipeSummary;
 }
 
 export class ApiError extends Error {
@@ -132,12 +150,16 @@ export const api = {
   logout: () => request<void>("POST", "/api/auth/logout"),
 
   // category: nazwa kategorii, "-" = przepisy bez kategorii, "" = wszystkie
-  listRecipes: (q: string, ingredients: string[], category = "") =>
-    request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients, category })}`),
+  listRecipes: (q: string, ingredients: string[], category = "", favorite = false) =>
+    request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients, category, favorite: favorite ? "true" : "" })}`),
   getRecipe: (id: number) => request<Recipe>("GET", `/api/recipes/${id}`),
   createRecipe: (data: RecipeInput) => request<Recipe>("POST", "/api/recipes", data),
   updateRecipe: (id: number, data: RecipeInput) => request<Recipe>("PUT", `/api/recipes/${id}`, data),
   deleteRecipe: (id: number) => request<void>("DELETE", `/api/recipes/${id}`),
+  // Ulubione / ocena (0 = usuń) / notatki bez wysyłania całego formularza
+  patchRecipe: (id: number, data: { favorite?: boolean; rating?: number; notes?: string }) =>
+    request<Recipe>("PATCH", `/api/recipes/${id}`, data),
+  markCooked: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/cooked`),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();
     form.append("file", file);
@@ -155,7 +177,25 @@ export const api = {
   whatCanICook: (ingredients: string[], maxMissing: number) =>
     request<CookMatch[]>("POST", "/api/cook", { ingredients, max_missing: maxMissing }),
 
-  importUrl: (url: string) => request<ImportJob>("POST", "/api/imports/url", { url }),
+  listShopping: () => request<ShoppingItem[]>("GET", "/api/shopping"),
+  addShoppingItem: (text: string) => request<ShoppingItem>("POST", "/api/shopping", { text }),
+  addRecipeToShopping: (recipeId: number, factor = 1) =>
+    request<{ added: number }>("POST", "/api/shopping/from-recipe", { recipe_id: recipeId, factor }),
+  addPlanToShopping: (start: string, end: string) =>
+    request<{ added: number }>("POST", "/api/shopping/from-plan", { start, end }),
+  setShoppingChecked: (id: number, checked: boolean) =>
+    request<ShoppingItem>("PATCH", `/api/shopping/${id}`, { checked }),
+  deleteShoppingItem: (id: number) => request<void>("DELETE", `/api/shopping/${id}`),
+  clearShopping: (onlyChecked: boolean) =>
+    request<void>("POST", `/api/shopping/clear${query({ only_checked: onlyChecked ? "true" : "false" })}`),
+  sendShoppingToHa: () => request<{ added: number }>("POST", "/api/shopping/send-to-ha"),
+
+  listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
+  addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),
+  removeFromPlan: (id: number) => request<void>("DELETE", `/api/plan/${id}`),
+
+  // force = importuj, nawet jeśli link już jest w bazie
+  importUrl: (url: string, force = false) => request<ImportJob>("POST", "/api/imports/url", { url, force }),
   importImages: (files: File[]) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
@@ -171,4 +211,10 @@ export function formatMinutes(minutes: number | null): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return h ? `${h} h${m ? ` ${m} min` : ""}` : `${m} min`;
+}
+
+// Data w formacie "2026-10-20" w strefie czasowej telefonu (nie UTC)
+export function isoDay(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }

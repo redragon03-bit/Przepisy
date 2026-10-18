@@ -55,6 +55,20 @@ kategorii, które już są w bazie (domyślna lista: `services/categories.py`). 
 kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na liście
 (`POST /api/categories/auto`), a ręcznie - w edycji przepisu.
 
+**Pozostałe funkcje** (gdzie szukać kodu):
+
+| Funkcja | Backend | Frontend |
+|---|---|---|
+| Lista zakupów (łączy te same składniki, wysyłka do HA `todo.add_item`) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
+| Plan posiłków na tydzień | `routers/plan.py` | `pages/PlanPage.tsx` |
+| Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
+| Ulubione, ocena, „Ugotowane”, notatki | `PATCH /api/recipes/{id}`, `POST .../cooked` | `pages/RecipePage.tsx` |
+| Minutniki w krokach („10 min” → przycisk) | – | `lib/timers.ts` |
+| Wykrywanie duplikatów linków | `routers/imports.py` (status `duplicate`) | `pages/ImportPage.tsx` |
+
+Wysyłka do HA: jako dodatek HA działa sama (`homeassistant_api: true` daje token).
+Poza HA ustaw `HA_URL` i `HA_TOKEN` (token długoterminowy z profilu użytkownika HA).
+
 Gdy **Gemini jest przeciążony** (błąd 503 „high demand”), `ai.py` ponawia zapytanie dwa razy
 (po 2 i 6 s), a potem próbuje modelu zapasowego (`GEMINI_FALLBACK_MODEL`). Jeśli i to
 zawiedzie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
@@ -125,6 +139,8 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
+| `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
+| `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
 | `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |

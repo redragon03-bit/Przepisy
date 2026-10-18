@@ -22,6 +22,7 @@ HA_OPTION_TO_ENV = {
     "gemini_api_key": "GEMINI_API_KEY",
     "gemini_model": "GEMINI_MODEL",
     "gemini_fallback_model": "GEMINI_FALLBACK_MODEL",
+    "ha_todo_entity": "HA_TODO_ENTITY",
 }
 
 
@@ -58,6 +59,13 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-flash-latest"
     # Model próbowany, gdy główny jest przeciążony. Puste = bez zapasowego.
     gemini_fallback_model: str = "gemini-flash-lite-latest"
+    # Wysyłanie listy zakupów do Home Assistant (lista "Do zrobienia").
+    # Jako dodatek HA adres i token są ustawiane automatycznie (SUPERVISOR_TOKEN).
+    # Poza HA: adres, np. http://homeassistant.local:8123, i token długoterminowy
+    # (profil użytkownika HA -> Bezpieczeństwo -> Tokeny długoterminowe).
+    ha_url: str = ""
+    ha_token: str = ""
+    ha_todo_entity: str = "todo.shopping_list"
     # Folder ze zbudowanym frontendem (frontend/dist). Puste = nie serwujemy frontendu.
     static_dir: Path | None = None
 
@@ -84,6 +92,16 @@ class Settings(BaseSettings):
     @property
     def ai_enabled(self) -> bool:
         return self.active_ai_provider is not None
+
+    @property
+    def home_assistant(self) -> tuple[str, str] | None:
+        """(adres API HA, token) albo None, gdy wysyłka do HA nie jest skonfigurowana."""
+        supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+        if supervisor_token:
+            return "http://supervisor/core", supervisor_token
+        if self.ha_url and self.ha_token:
+            return self.ha_url.rstrip("/"), self.ha_token
+        return None
 
 
 @lru_cache

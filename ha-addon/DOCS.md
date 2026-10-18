@@ -10,6 +10,10 @@
 - **anthropic_api_key** - klucz z https://console.anthropic.com (płatny za użycie).
 - **claude_model** - model Claude. Domyślny `claude-opus-5-5`; tańszy: `claude-haiku-5-5`.
 
+- **ha_todo_entity** - lista w HA, do której trafia lista zakupów po kliknięciu „Wyślij do HA”.
+  Domyślnie `todo.shopping_list` - tworzy ją integracja **Lista zakupów** (Ustawienia →
+  Urządzenia i usługi → Dodaj integrację → „Lista zakupów”). Możesz podać też inną listę `todo.*`.
+
 Bez żadnego klucza nie działa tłumaczenie ani import ze zdjęć.
 
 ## Jak otworzyć

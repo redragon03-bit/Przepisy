@@ -9,6 +9,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [q, setQ] = useState("");
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [category, setCategory] = useState("");
+  const [favorites, setFavorites] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [uncategorized, setUncategorized] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
@@ -24,10 +25,10 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      api.listRecipes(q, ingredients, category).then(setRecipes);
+      api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
     }, 250);
     return () => clearTimeout(timer);
-  }, [q, ingredients, category, sorting]);
+  }, [q, ingredients, category, favorites, sorting]);
 
   const autoCategorize = async () => {
     setSorting(true);
@@ -49,6 +50,9 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   return (
     <>
       <header className="topbar">
+        <Link to="/ustawienia" className="link settings-link" aria-label="Ustawienia">
+          ⚙️
+        </Link>
         <h1>Przepisy</h1>
         <Link to="/nowy" className="button small">
           + Ręcznie
@@ -60,10 +64,13 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           🥕{ingredients.length ? ` ${ingredients.length}` : ""}
         </button>
       </div>
-      {visible.length > 0 && (
+      {recipes !== null && (recipes.length > 0 || category || favorites) && (
         <div className="category-bar">
-          <button type="button" className={`chip ${category === "" ? "selected" : ""}`} onClick={() => setCategory("")}>
+          <button type="button" className={`chip ${category === "" && !favorites ? "selected" : ""}`} onClick={() => { setCategory(""); setFavorites(false); }}>
             Wszystkie
+          </button>
+          <button type="button" className={`chip ${favorites ? "selected" : ""}`} onClick={() => setFavorites(!favorites)}>
+            ❤️ Ulubione
           </button>
           {visible.map((c) => (
             <button key={c.name} type="button" className={`chip ${category === c.name ? "selected" : ""}`} onClick={() => setCategory(category === c.name ? "" : c.name)}>
@@ -95,7 +102,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         <p className="muted center">Ładowanie…</p>
       ) : recipes.length === 0 ? (
         <p className="muted center">
-          {q || ingredients.length || category ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
+          {q || ingredients.length || category || favorites ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
         </p>
       ) : (
         <div className="grid">

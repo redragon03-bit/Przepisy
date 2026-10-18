@@ -7,6 +7,7 @@ const STATUS_LABEL: Record<ImportJob["status"], string> = {
   running: "⏳ czytam przepis…",
   done: "✅ gotowe",
   failed: "❌ nie udało się",
+  duplicate: "♻️ już masz ten przepis",
 };
 
 // Polska odmiana: 2-4 przepisy, 5-21 przepisów, 22-24 przepisy...
@@ -32,11 +33,11 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
 
   const refresh = () => api.listImports().then(setJobs);
 
-  const startUrlImport = async (link: string) => {
+  const startUrlImport = async (link: string, force = false) => {
     setError("");
     setBusy(true);
     try {
-      await api.importUrl(link.trim());
+      await api.importUrl(link.trim(), force);
       setUrl("");
       await refresh();
     } catch (e) {
@@ -166,7 +167,16 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
                     </>
                   )}
                 </div>
-                {job.error && <div className="error small">{job.error}</div>}
+                {job.status === "duplicate" && job.recipe_id && (
+                  <div className="small">
+                    <Link to={`/przepis/${job.recipe_id}`}>otwórz</Link>
+                    {" · "}
+                    <button type="button" className="link" onClick={() => startUrlImport(job.source, true)}>
+                      importuj mimo to
+                    </button>
+                  </div>
+                )}
+                {job.error && job.status !== "duplicate" && <div className="error small">{job.error}</div>}
                 {job.status === "failed" && (
                   <button className="small-button" onClick={() => retry(job.id)}>
                     Ponów
