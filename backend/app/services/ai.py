@@ -315,18 +315,26 @@ def _search_claude(query: str) -> list[str]:
 def _search_gemini(query: str) -> list[str]:
     settings = get_settings()
     client = genai.Client(api_key=settings.gemini_api_key)
-    try:
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=query,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=SEARCH_PROMPT,
-                # Gemini sam wyszukuje w Google ("grounding")
-                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
-            ),
-        )
-    except genai_errors.APIError as exc:
-        raise AiError(f"Błąd wyszukiwania: {exc.message}") from exc
+    # Zapasowy model ma osobny dzienny limit - próbujemy go, gdy główny wyczerpał swój
+    models = [settings.gemini_model]
+    if settings.gemini_fallback_model and settings.gemini_fallback_model != settings.gemini_model:
+        models.append(settings.gemini_fallback_model)
+    for number, model in enumerate(models):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=query,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=SEARCH_PROMPT,
+                    # Gemini sam wyszukuje w Google ("grounding")
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                ),
+            )
+            break
+        except genai_errors.APIError as exc:
+            if not _is_temporary(exc) or number == len(models) - 1:
+                raise AiError(f"Błąd wyszukiwania: {exc.message}") from exc
+            log.warning("Wyszukiwanie Gemini %s: %s - próbuję zapasowy model", model, exc.code)
     urls = _URL.findall(response.text or "")
     # Źródła wyszukiwania - adresy przekierowujące Google, prowadzą do właściwych stron
     for candidate in response.candidates or []:

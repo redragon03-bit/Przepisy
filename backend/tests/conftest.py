@@ -30,5 +30,6 @@ def no_image_search(monkeypatch):
     """Testy nie szukają zdjęć w internecie (chyba że test sam to podmieni)."""
     from app.services import image_search
 
+    monkeypatch.setattr(image_search.web_search, "search_pages", lambda query: [])
     monkeypatch.setattr(image_search.ai, "search_recipe_pages", lambda title, names: [])
     monkeypatch.setattr(image_search, "_openverse", lambda query, limit: [])
