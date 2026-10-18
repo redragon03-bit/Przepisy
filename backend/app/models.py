@@ -56,6 +56,11 @@ class Recipe(Base):
     # Ile razy przycisk "Ugotowane" został wciśnięty i kiedy ostatnio
     cooked_count: Mapped[int] = mapped_column(default=0, server_default="0")
     last_cooked_at: Mapped[datetime | None]
+    # Szacunek AI na 1 porcję: kalorie i gramy białka, tłuszczu, węglowodanów
+    kcal: Mapped[int | None]
+    protein: Mapped[int | None]
+    fat: Mapped[int | None]
+    carbs: Mapped[int | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -90,6 +95,8 @@ class Ingredient(Base):
     name: Mapped[str] = mapped_column(String(200), unique=True)
     # Podstawowe składniki (sól, woda...) ignorowane przy "co mogę ugotować"
     is_staple: Mapped[bool] = mapped_column(default=False)
+    # Spiżarnia: produkt jest teraz w domu (pomijany na liście zakupów)
+    in_pantry: Mapped[bool] = mapped_column(default=False, server_default="0")
 
 
 class RecipeIngredient(Base):

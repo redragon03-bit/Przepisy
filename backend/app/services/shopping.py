@@ -6,7 +6,8 @@ import httpx
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import Recipe, ShoppingItem
+from ..models import Ingredient, Recipe, ShoppingItem
+from .matching import covers
 
 
 class ShoppingError(Exception):
@@ -42,17 +43,29 @@ def _merged_text(item: ShoppingItem) -> str:
     return f"{format_amount(item.amount)} {item.unit} {item.name}".replace("  ", " ")
 
 
-def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: bool = True) -> int:
+def pantry_names(db: Session) -> list[str]:
+    return [i.name for i in db.query(Ingredient).filter_by(in_pantry=True).order_by(Ingredient.name)]
+
+
+def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: bool = True,
+               skipped: list[str] | None = None) -> int:
     """Dopisuje składniki przepisu do listy. Zwraca liczbę dodanych/zmienionych pozycji.
 
     Ten sam składnik w tej samej jednostce (np. "mąka pszenna" w gramach) z kilku
     przepisów łączymy w jedną pozycję i sumujemy ilości.
+    Składniki ze spiżarni pomijamy i dopisujemy do listy `skipped` (jeśli podana).
     """
     open_items = db.query(ShoppingItem).filter_by(checked=False).all()
+    pantry = pantry_names(db)
     changed = 0
     for line in recipe.ingredients:
         name = line.ingredient.name
         if skip_staples and line.ingredient.is_staple:
+            continue
+        # "ser" w spiżarni pokrywa "ser żółty" w przepisie
+        if any(covers(have, name) for have in pantry):
+            if skipped is not None and name not in skipped:
+                skipped.append(name)
             continue
         amount = line.amount * factor if line.amount is not None else None
         same = next((i for i in open_items if i.name == name and i.unit == line.unit), None)

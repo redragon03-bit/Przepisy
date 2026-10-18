@@ -5,7 +5,12 @@ odczytuje przepis, tłumaczy go na polski, przelicza miary na metryczne i zapisu
 instrukcję krok po kroku (razem ze zdjęciami ze strony). Potem możesz:
 
 - szukać przepisów po nazwie i po składnikach,
-- wpisać, co masz w lodówce, i zobaczyć, co z tego ugotujesz („Co ugotuję?”).
+- wpisać, co masz w domu (spiżarnia), i zobaczyć, co z tego ugotujesz („Co ugotuję?”),
+- zapytać czat („mam ochotę na coś ostrego, ale bez ryżu”) – poleca Twoje przepisy albo
+  wymyśla nowy, który zapisujesz jednym przyciskiem,
+- gotować w trybie krok po kroku (duża czcionka, minutniki, ekran nie gaśnie),
+- planować tydzień, robić listę zakupów (pomija to, co masz w domu) i wysyłać ją do HA,
+- zobaczyć szacunkowe kalorie i makro na porcję, udostępnić przepis jako tekst.
 
 Działa w przeglądarce (Safari na iPhonie, Chrome na Androidzie) i można ją dodać do ekranu
 głównego jak zwykłą aplikację (PWA).
@@ -265,7 +270,11 @@ backend/
       categories.py    ←   /api/categories   lista kategorii, automatyczne przypisanie przez AI
       imports.py       ←   /api/imports      import z linku/zdjęć
       auth.py          ←   /api/auth         logowanie
-      backup.py        ←   /api/backup       kopia ZIP
+      shopping.py      ←   /api/shopping     lista zakupów, wysyłka do Home Assistant
+      plan.py          ←   /api/plan         plan posiłków na tydzień
+      pantry.py        ←   /api/pantry       spiżarnia (co jest w domu)
+      chat.py          ←   /api/chat         czat z asystentem, zapis wymyślonego przepisu
+      backup.py        ←   /api/backup(s)    kopia ZIP i kopie automatyczne
     services/          ← LOGIKA, bez wiedzy o HTTP
       importer.py      ←   cały proces importu (koordynuje pozostałe)
       fetcher.py       ←   pobieranie stron i obrazków
@@ -275,6 +284,9 @@ backend/
       ingredients.py   ←   normalizacja nazw składników
       categories.py    ←   kategorie: domyślna lista, normalizacja nazw
       matching.py      ←   algorytm „Co ugotuję?”
+      shopping.py      ←   łączenie składników na liście zakupów, wysyłka do HA
+      image_search.py  ←   szukanie zdjęcia dla przepisu bez zdjęcia
+      backup.py        ←   tworzenie ZIP-a, cotygodniowa kopia automatyczna
   tests/               ← testy (pytest); AI i internet są w nich podmienione
 frontend/
   src/
@@ -329,6 +341,9 @@ danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać ko
 - **Pobranie:** *Ustawienia → Pobierz kopię* – plik ZIP z bazą (`przepisy.db`) i folderem `images/`.
 - **Przywrócenie:** zatrzymaj aplikację, rozpakuj ZIP do folderu danych (`DATA_DIR`,
   w Dockerze `/data`), uruchom ponownie.
+- **Automatycznie:** raz w tygodniu aplikacja sama zapisuje ZIP w `DATA_DIR/backups`
+  i trzyma 3 ostatnie (lista do pobrania w *Ustawieniach*). Chroni przed przypadkowym
+  usunięciem przepisów; przed awarią dysku chroni kopia pobrana albo kopia HA.
 - W Home Assistant dane dodatku są też w zwykłych kopiach zapasowych HA.
 
 ---

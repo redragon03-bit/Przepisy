@@ -60,6 +60,11 @@ class AiRecipe(BaseModel):
         description="1-3 kategorie, np. 'Deser'. Wybieraj z listy istniejących kategorii; "
         "nową (krótką, z dużej litery) dodaj tylko, gdy żadna nie pasuje"
     )
+    # Szacunek AI na 1 porcję (gdy porcji nie podano - na 1/4 całości)
+    kcal: int | None = Field(default=None, description="Szacunkowe kalorie na 1 porcję, null gdy nie da się ocenić")
+    protein: int | None = Field(default=None, description="Szacunkowe białko na 1 porcję w gramach")
+    fat: int | None = Field(default=None, description="Szacunkowy tłuszcz na 1 porcję w gramach")
+    carbs: int | None = Field(default=None, description="Szacunkowe węglowodany na 1 porcję w gramach")
 
 
 class AiResult(BaseModel):
@@ -86,7 +91,9 @@ pokazujące konkretne kroki. Gdy nie masz pewności, daj null.
 - Jeśli materiał zawiera kilka osobnych przepisów (np. "5 pomysłów na..."), zwróć każdy \
 jako osobny element listy recipes, z jego własnymi składnikami i krokami. Wspólne kroki \
 (np. przygotowanie bazy) dopisz do każdego przepisu, który ich wymaga.
-- Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes."""
+- Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes.
+- Oszacuj kalorie, białko, tłuszcz i węglowodany na 1 porcję na podstawie składników \
+i ich ilości. Gdy przepis nie podaje liczby porcji, przyjmij 4."""
 
 
 class AiRecipeCategories(BaseModel):
@@ -341,3 +348,57 @@ def search_recipe_pages(title: str, ingredients: list[str]) -> list[str]:
     else:
         raise AiError("Brak klucza API do AI - wyszukiwanie zdjęć wymaga AI.")
     return list(dict.fromkeys(u.rstrip(".,") for u in urls))
+
+
+class AiNutrition(BaseModel):
+    kcal: int | None = Field(description="Kalorie na 1 porcję")
+    protein: int | None = Field(description="Białko na 1 porcję w gramach")
+    fat: int | None = Field(description="Tłuszcz na 1 porcję w gramach")
+    carbs: int | None = Field(description="Węglowodany na 1 porcję w gramach")
+
+
+NUTRITION_PROMPT = """Jesteś dietetykiem. Na podstawie składników i ich ilości oszacuj \
+wartości odżywcze na 1 porcję dania. Gdy liczba porcji nie jest podana, przyjmij 4. \
+Gdy ilości nie są podane, przyjmij typowe dla takiego dania."""
+
+
+def estimate_nutrition(title: str, servings: str, lines: list[str]) -> AiNutrition:
+    """Kalorie i makro na porcję dla przepisu, który już jest w bazie."""
+    text = f"Danie: {title}\nPorcje: {servings or 'nie podano'}\nSkładniki:\n" + "\n".join(lines)
+    return _ask_provider([text], NUTRITION_PROMPT, AiNutrition)
+
+
+class ChatAnswer(BaseModel):
+    text: str = Field(description="Odpowiedź dla użytkownika po polsku, krótko (1-4 zdania)")
+    recipe_ids: list[int] = Field(
+        description="Numery przepisów z listy użytkownika, które polecasz (0-3); pusta lista, gdy żaden"
+    )
+    new_recipe: AiRecipe | None = Field(
+        description="Nowy przepis, gdy żaden z zapisanych nie pasuje albo użytkownik prosi "
+        "o coś nowego lub o zmianę zaproponowanego przepisu; inaczej null"
+    )
+
+
+CHAT_PROMPT = """Jesteś przyjaznym asystentem kulinarnym w aplikacji z przepisami. \
+Widzisz przepisy zapisane przez użytkownika i produkty, które ma w domu.
+
+Zasady:
+- Gdy użytkownik pyta, co zjeść ("mam ochotę na...", "zaproponuj coś"), najpierw szukaj \
+wśród jego przepisów i podaj ich numery w recipe_ids (najwyżej 3), z krótkim uzasadnieniem.
+- Zawsze przestrzegaj tego, czego użytkownik nie chce (np. "bez ryżu", "nie chcę mięsa") \
+i tego, co wcześniej powiedział w rozmowie.
+- Gdy żaden zapisany przepis nie pasuje albo użytkownik prosi o nowy przepis, wymyśl \
+jeden w new_recipe: po polsku, miary metryczne, temperatury w °C, kroki jako krótkie \
+polecenia, original_text jak text, original_language "pl", obrazki null, kategorie \
+z listy kategorii użytkownika. Najlepiej z produktów, które ma w domu.
+- Gdy użytkownik prosi o zmianę zaproponowanego wcześniej przepisu ("zamień kurczaka \
+na indyka", "na 2 osoby"), zwróć cały zmieniony przepis w new_recipe.
+- W text nie przepisuj składników ani kroków - aplikacja pokazuje je sama.
+- Pisz krótko i naturalnie, jak znajomy, który dobrze gotuje.
+- Na pytania niezwiązane z jedzeniem odpowiedz krótko, że pomagasz w gotowaniu."""
+
+
+def chat(context: str, conversation: str) -> ChatAnswer:
+    """Jedna odpowiedź czatu. `context` - przepisy i spiżarnia, `conversation` - dotychczasowa rozmowa."""
+    text = f"{context}\n\nRozmowa:\n{conversation}\n\nOdpowiedz na ostatnią wiadomość użytkownika."
+    return _ask_provider([text], CHAT_PROMPT, ChatAnswer)

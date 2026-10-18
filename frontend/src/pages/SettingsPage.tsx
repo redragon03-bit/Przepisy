@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { api, AuthStatus, Ingredient } from "../api";
+import { api, AuthStatus, BackupFile, Ingredient } from "../api";
 
 export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onLogout: () => void }) {
   const [staples, setStaples] = useState<Ingredient[]>([]);
   const [newStaple, setNewStaple] = useState("");
+  const [backups, setBackups] = useState<BackupFile[]>([]);
 
   const refresh = () => api.listIngredients("", true).then(setStaples);
   useEffect(() => {
     refresh();
+    api.listBackups().then(setBackups);
   }, []);
 
   const add = async (e: React.FormEvent) => {
@@ -51,6 +53,23 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         <a className="button wide" href="/api/backup" download>
           Pobierz kopię
         </a>
+        <p className="muted small">
+          Aplikacja sama robi kopię raz w tygodniu i trzyma 3 ostatnie (w folderze danych aplikacji).
+        </p>
+        {backups.length === 0 ? (
+          <p className="muted small">Pierwsza automatyczna kopia powstanie kilka minut po uruchomieniu.</p>
+        ) : (
+          <ul className="small">
+            {backups.map((b) => (
+              <li key={b.name}>
+                <a href={`/api/backups/${b.name}`} download>
+                  {new Date(b.created_at).toLocaleString("pl-PL", { dateStyle: "medium", timeStyle: "short" })}
+                </a>{" "}
+                <span className="muted">({(b.size / 1024 / 1024).toFixed(1)} MB)</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="box small">

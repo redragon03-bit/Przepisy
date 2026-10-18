@@ -14,10 +14,10 @@
   Domyślnie `todo.shopping_list` - tworzy ją integracja **Lista zakupów** (Ustawienia →
   Urządzenia i usługi → Dodaj integrację → „Lista zakupów”). Możesz podać też inną listę `todo.*`.
 
-Bez żadnego klucza nie działa tłumaczenie ani import ze zdjęć.
+Bez żadnego klucza nie działa tłumaczenie, import ze zdjęć, czat ani liczenie kalorii.
 
 ## Jak otworzyć
 
-W przeglądarce telefonu: `http://<adres-HA>:8000`. Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA.
+W przeglądarce telefonu: `http://<adres-HA>:8000`. Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).
 
 Więcej w README repozytorium.

@@ -28,7 +28,7 @@ def _pick(urls: list[str], index: int | None) -> str | None:
     return urls[index]
 
 
-def _save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url: str,
+def save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url: str,
                     image_sources: list, load_image) -> Recipe:
     """Zapisuje przepis od AI. `load_image(źródło)` zwraca nazwę zapisanego pliku albo None."""
     recipe = Recipe(
@@ -41,6 +41,10 @@ def _save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url
         source_type=source_type,
         source_url=source_url,
         original_language=data.original_language[:10],
+        kcal=data.kcal,
+        protein=data.protein,
+        fat=data.fat,
+        carbs=data.carbs,
     )
     main = _pick(image_sources, data.main_image_index)
     recipe.image = load_image(main) if main is not None else None
@@ -88,7 +92,7 @@ def _save_scraped_recipe(db: Session, data: scraper.ScrapedRecipe, url: str) -> 
     return recipe
 
 
-def _add_missing_images(db: Session, recipes: list[Recipe]) -> None:
+def add_missing_images(db: Session, recipes: list[Recipe]) -> None:
     """Przepisom bez zdjęcia szukamy zdjęcia w internecie (już po zakończeniu importu)."""
     if not get_settings().ai_enabled:
         return
@@ -118,7 +122,7 @@ def _run(job_id: int, work) -> None:
             job.recipe_count = len(recipes)
             job.status = "done"
             db.commit()
-            _add_missing_images(db, recipes)
+            add_missing_images(db, recipes)
         except (fetcher.FetchError, ai.AiError) as exc:
             db.rollback()
             job.status, job.error = "failed", str(exc)
@@ -137,7 +141,7 @@ def _import_url(db: Session, job: ImportJob) -> list[Recipe]:
         # Każdy przepis dostaje własne kopie zdjęć, żeby usunięcie jednego
         # przepisu nie skasowało zdjęcia drugiemu
         return [
-            _save_ai_recipe(db, data, "url", job.source, page.image_urls, images.download_image)
+            save_ai_recipe(db, data, "url", job.source, page.image_urls, images.download_image)
             for data in ai.recipes_from_page(page, category_names(db))
         ]
     if page.recipe:
@@ -158,7 +162,7 @@ def _import_images(db: Session, job: ImportJob) -> list[Recipe]:
         raise ai.AiError("Zdjęcia z tego importu już nie istnieją - wgraj je jeszcze raz.")
     raw = [f.read_bytes() for f in sorted(folder.iterdir())]
     recipes = [
-        _save_ai_recipe(db, data, "image", "", raw, images.save_image_bytes)
+        save_ai_recipe(db, data, "image", "", raw, images.save_image_bytes)
         for data in ai.recipes_from_images([images.image_for_ai(b) for b in raw], category_names(db))
     ]
     # Zdjęcia usuwamy dopiero po udanym imporcie, żeby nieudany dało się ponowić

@@ -602,8 +602,10 @@ button.small,
   border-radius: 999px;
   background: var(--text, #222);
   color: var(--surface, #fff);
-  z-index: 20;
-  white-space: nowrap;
+  z-index: 30;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  text-align: center;
 }
 
 /* Lista zakupów i plan */
@@ -671,4 +673,124 @@ button.small,
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Czat z asystentem */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 64px;
+}
+
+.bubble {
+  max-width: 90%;
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+
+.bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: white;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  width: 90%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* Polecane przepisy w dymku - po dwa w rzędzie, żeby nie zajmowały całego ekranu */
+.bubble .grid {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 10px;
+}
+
+.new-recipe summary {
+  margin: 6px 0;
+  color: var(--accent);
+}
+
+.new-recipe ul,
+.new-recipe ol {
+  padding-left: 20px;
+}
+
+/* Pole wpisywania przyklejone nad paskiem zakładek */
+.chat-input {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tryb gotowania: pełny ekran nad paskiem zakładek */
+.cooking {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 12px);
+  background: var(--bg);
+}
+
+.cooking-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cooking-step {
+  font-size: 26px;
+  line-height: 1.4;
+}
+
+.cooking-ingredients {
+  font-size: 21px;
+  line-height: 1.6;
+  padding-left: 22px;
+}
+
+.cooking-body img {
+  width: 100%;
+  border-radius: var(--radius);
+  margin-top: 12px;
+}
+
+.timer-button.big {
+  font-size: 18px;
+  padding: 10px 16px;
+}
+
+.cooking-nav {
+  display: flex;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.cooking-nav button {
+  flex: 1;
+  padding: 16px;
+  font-size: 18px;
+}
+
+.cooking .timers {
+  bottom: calc(env(safe-area-inset-bottom) + 84px);
 }

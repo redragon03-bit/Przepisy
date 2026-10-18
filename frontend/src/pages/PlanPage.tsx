@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
+import { shoppingMessage } from "../lib/shopping";
 
 // Poniedziałek tygodnia, w którym jest `date`
 function mondayOf(date: Date): Date {
@@ -50,7 +51,7 @@ export default function PlanPage() {
 
   const toShopping = async () => {
     const result = await api.addPlanToShopping(start, end);
-    setMessage(result.added ? `Dodano do listy zakupów (${result.added}).` : "W tym tygodniu nic nie jest zaplanowane.");
+    setMessage(result.added || result.skipped.length ? shoppingMessage(result) : "W tym tygodniu nic nie jest zaplanowane.");
   };
 
   const today = isoDay(new Date());

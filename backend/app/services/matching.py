@@ -20,7 +20,7 @@ class Match:
     missing: list[str]
 
 
-def _covers(have: str, needed: str) -> bool:
+def covers(have: str, needed: str) -> bool:
     """'ser' pokrywa 'ser żółty', ale 'ser' nie pokrywa 'serek'."""
     return needed == have or needed.startswith(have + " ")
 
@@ -37,7 +37,7 @@ def find_recipes(db: Session, have_names: list[str], max_missing: int = 2) -> li
         needed = sorted({ri.ingredient.name for ri in recipe.ingredients if not ri.ingredient.is_staple})
         if not needed:
             continue
-        got = [n for n in needed if any(_covers(h, n) for h in have)]
+        got = [n for n in needed if any(covers(h, n) for h in have)]
         missing = [n for n in needed if n not in got]
         if got and len(missing) <= max_missing:
             matches.append(Match(recipe=recipe, have=got, missing=missing))
