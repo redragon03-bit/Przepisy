@@ -1,0 +1,13 @@
+# Najprostsze uruchomienie na dowolnym komputerze/serwerze z Dockerem
+# (np. później na Synology):  docker compose up -d
+services:
+  przepisy:
+    build: .
+    # albo gotowy obraz z GitHuba:
+    # image: ghcr.io/redragon03-bit/przepisy:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    env_file: .env
+    restart: unless-stopped

@@ -1,0 +1,141 @@
+"""API przepisów: lista, wyszukiwanie, szczegóły, dodawanie, edycja, usuwanie."""
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from sqlalchemy.orm import Session
+
+from ..auth import require_auth
+from ..database import get_db
+from ..models import Ingredient, Recipe, RecipeIngredient, Step
+from ..schemas import IngredientLine, RecipeIn, RecipeOut, RecipeSummary, StepOut, image_url
+from ..services import images
+from ..services.ingredients import get_or_create_ingredient, normalize_name
+
+router = APIRouter(prefix="/api/recipes", tags=["przepisy"], dependencies=[Depends(require_auth)])
+
+
+def to_summary(recipe: Recipe) -> RecipeSummary:
+    return RecipeSummary(
+        id=recipe.id,
+        title=recipe.title,
+        image_url=image_url(recipe.image),
+        total_minutes=recipe.total_minutes,
+        source_type=recipe.source_type,
+        created_at=recipe.created_at,
+    )
+
+
+def to_out(recipe: Recipe) -> RecipeOut:
+    return RecipeOut(
+        **to_summary(recipe).model_dump(),
+        description=recipe.description,
+        servings=recipe.servings,
+        prep_minutes=recipe.prep_minutes,
+        cook_minutes=recipe.cook_minutes,
+        source_url=recipe.source_url,
+        original_language=recipe.original_language,
+        notes=recipe.notes,
+        ingredients=[
+            IngredientLine(text=ri.text, name=ri.ingredient.name, amount=ri.amount,
+                           unit=ri.unit, original_text=ri.original_text)
+            for ri in recipe.ingredients
+        ],
+        steps=[StepOut(text=s.text, image_url=image_url(s.image)) for s in recipe.steps],
+        step_images=[s.image for s in recipe.steps],
+    )
+
+
+def _get(db: Session, recipe_id: int) -> Recipe:
+    recipe = db.get(Recipe, recipe_id)
+    if recipe is None:
+        raise HTTPException(404, "Nie ma takiego przepisu")
+    return recipe
+
+
+@router.get("", response_model=list[RecipeSummary])
+def list_recipes(
+    q: str = "",
+    ingredients: list[str] = Query(default=[], description="Przepis musi mieć WSZYSTKIE te składniki"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Recipe)
+    if q.strip():
+        query = query.filter(Recipe.title.ilike(f"%{q.strip()}%"))
+    for name in ingredients:
+        name = normalize_name(name)
+        # "ser" znajduje też "ser żółty" (tak samo jak w "co mogę ugotować")
+        has_it = Recipe.ingredients.any(RecipeIngredient.ingredient.has(
+            (Ingredient.name == name) | Ingredient.name.like(f"{name} %")
+        ))
+        query = query.filter(has_it)
+    return [to_summary(r) for r in query.order_by(Recipe.created_at.desc(), Recipe.id.desc())]
+
+
+@router.get("/{recipe_id}", response_model=RecipeOut)
+def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
+    return to_out(_get(db, recipe_id))
+
+
+def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
+    """Przepisuje dane z formularza do obiektu przepisu (składniki i kroki w całości)."""
+    for field in ("title", "description", "servings", "prep_minutes", "cook_minutes",
+                  "total_minutes", "source_url", "notes"):
+        setattr(recipe, field, getattr(data, field))
+
+    old_images = {s.image for s in recipe.steps if s.image}
+    kept_images = {s.image for s in data.steps if s.image}
+    for filename in old_images - kept_images:
+        images.delete_image(filename)
+    # Nie pozwalamy podpiąć cudzego pliku - tylko obrazki, które ten przepis już miał
+    recipe.steps = [
+        Step(position=i, text=s.text, image=s.image if s.image in old_images else None)
+        for i, s in enumerate(data.steps) if s.text.strip()
+    ]
+    recipe.ingredients = [
+        RecipeIngredient(
+            position=i, text=line.text, amount=line.amount, unit=line.unit,
+            original_text=line.original_text,
+            ingredient=get_or_create_ingredient(db, line.name or line.text),
+        )
+        for i, line in enumerate(data.ingredients) if line.text.strip()
+    ]
+
+
+@router.post("", response_model=RecipeOut, status_code=201)
+def create_recipe(data: RecipeIn, db: Session = Depends(get_db)):
+    recipe = Recipe(source_type="manual")
+    db.add(recipe)
+    _apply(db, recipe, data)
+    db.commit()
+    return to_out(recipe)
+
+
+@router.put("/{recipe_id}", response_model=RecipeOut)
+def update_recipe(recipe_id: int, data: RecipeIn, db: Session = Depends(get_db)):
+    recipe = _get(db, recipe_id)
+    _apply(db, recipe, data)
+    db.commit()
+    db.refresh(recipe)
+    return to_out(recipe)
+
+
+@router.delete("/{recipe_id}", status_code=204)
+def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
+    recipe = _get(db, recipe_id)
+    files = [recipe.image] + [s.image for s in recipe.steps]
+    db.delete(recipe)
+    db.commit()
+    for filename in files:
+        images.delete_image(filename)
+
+
+@router.post("/{recipe_id}/image", response_model=RecipeOut)
+def upload_main_image(recipe_id: int, file: UploadFile, db: Session = Depends(get_db)):
+    recipe = _get(db, recipe_id)
+    try:
+        filename = images.save_image_bytes(file.file.read())
+    except Exception as exc:
+        raise HTTPException(400, "Nie udało się odczytać obrazka") from exc
+    images.delete_image(recipe.image)
+    recipe.image = filename
+    db.commit()
+    return to_out(recipe)
