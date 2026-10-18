@@ -55,7 +55,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
 
       <section className="box small">
         <h2>Informacje</h2>
-        <p>AI: {auth.ai_enabled ? "włączone ✅" : "wyłączone (brak klucza API)"}</p>
+        <p>AI: {auth.ai_provider === "gemini" ? "Gemini (Google) ✅" : auth.ai_provider === "anthropic" ? "Claude (Anthropic) ✅" : "wyłączone (brak klucza API)"}</p>
         <p className="muted">
           Na iPhonie: w Safari stuknij „Udostępnij” → „Do ekranu początkowego”, żeby mieć aplikację jako ikonę.
         </p>

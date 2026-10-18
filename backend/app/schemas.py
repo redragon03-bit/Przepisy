@@ -119,3 +119,5 @@ class AuthStatus(BaseModel):
     authenticated: bool
     auth_required: bool
     ai_enabled: bool
+    # "anthropic", "gemini" albo None (AI wyłączone)
+    ai_provider: str | None

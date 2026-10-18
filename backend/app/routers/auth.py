@@ -16,6 +16,7 @@ def status(request: Request):
         authenticated=is_authenticated(request),
         auth_required=bool(settings.app_password),
         ai_enabled=settings.ai_enabled,
+        ai_provider=settings.active_ai_provider,
     )
 
 

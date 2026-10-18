@@ -33,7 +33,7 @@ Telefon (Safari / PWA)  ──HTTP(S)──▶  Jeden kontener Docker (port 8000
                                        ├─ frontend/  React + TypeScript (zbudowany do plików statycznych)
                                        ├─ backend/   Python + FastAPI (API pod /api)
                                        │    ├─ recipe-scrapers → czyta dane przepisu ze strony
-                                       │    └─ Claude (AI)     → tłumaczy, przelicza miary, czyta zdjęcia
+                                       │    └─ AI: Gemini albo Claude → tłumaczy, przelicza miary, czyta zdjęcia
                                        └─ /data      baza SQLite (przepisy.db) + folder images/
 ```
 
@@ -108,14 +108,26 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | Zmienna             | Co robi                                                           | Domyślnie         |
 |---------------------|-------------------------------------------------------------------|-------------------|
 | `APP_PASSWORD`      | Hasło do aplikacji. Puste = brak logowania (tylko do testów!)     | puste             |
-| `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com. Puste = bez AI             | puste             |
-| `CLAUDE_MODEL`      | Model AI. Tańsza opcja: `claude-haiku-5-5`                        | `claude-opus-5-5` |
+| `AI_PROVIDER`       | `auto` (ten, do którego jest klucz), `gemini` albo `anthropic`    | `auto`            |
+| `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
+| `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
+| `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
+| `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
 | `STATIC_DIR`        | Folder ze zbudowanym frontendem (ustawiony w Dockerze)            | puste             |
 
-**Koszt AI**: płacisz za użycie w konsoli Anthropic. Import jednego przepisu na domyślnym
-modelu to zwykle kilkanaście–kilkadziesiąt groszy; `claude-haiku-5-5` jest wielokrotnie
-tańszy, ale może częściej mylić się przy przeliczaniu miar.
+**Które AI wybrać?** Wystarczy jeden klucz.
+
+- **Gemini (Google)** – klucz z Google AI Studio ma **darmowy limit** zapytań, który przy
+  kilku przepisach dziennie zwykle wystarcza. Subskrypcja Gemini Pro/Advanced nie daje
+  dostępu do API – to osobna usługa. Na darmowym planie Google może używać wysłanych
+  treści do ulepszania modeli.
+- **Claude (Anthropic)** – konto API doładowujesz kwotą i płacisz za użycie (subskrypcja
+  Claude nie obejmuje API). Import przepisu na domyślnym modelu to zwykle kilkanaście–
+  kilkadziesiąt groszy; `claude-haiku-5-5` jest wielokrotnie tańszy.
+
+Jak zdobyć klucz Gemini: https://aistudio.google.com → zaloguj się kontem Google →
+*Get API key* → *Create API key* → skopiuj.
 
 ---
 
@@ -135,7 +147,7 @@ GitHub → Twój profil → *Packages* → `przepisy` → *Package settings* →
 1. *Ustawienia → Dodatki → Sklep z dodatkami → ⋮ (prawy górny róg) → Repozytoria*.
 2. Wklej `https://github.com/redragon03-bit/Przepisy` i dodaj.
 3. Odśwież stronę, znajdź dodatek **Przepisy**, zainstaluj.
-4. Zakładka *Konfiguracja*: ustaw `app_password` i `anthropic_api_key`.
+4. Zakładka *Konfiguracja*: ustaw `app_password` i klucz AI (`gemini_api_key` albo `anthropic_api_key`).
 5. Uruchom. Aplikacja działa pod `http://<adres-HA>:8000`.
 
 Aktualizacja: po zmianach w kodzie podnieś `version` w `ha-addon/config.yaml` –
@@ -224,7 +236,7 @@ backend/
       importer.py      ←   cały proces importu (koordynuje pozostałe)
       fetcher.py       ←   pobieranie stron i obrazków
       scraper.py       ←   czytanie przepisu z HTML
-      ai.py            ←   rozmowa z Claude + prompt + format odpowiedzi
+      ai.py            ←   rozmowa z AI (Gemini / Claude) + prompt + format odpowiedzi
       images.py        ←   zapis/zmniejszanie zdjęć
       ingredients.py   ←   normalizacja nazw składników
       matching.py      ←   algorytm „Co ugotuję?”
@@ -267,7 +279,8 @@ Przykład: chcesz dodać do przepisu **ocenę w gwiazdkach (1–5)**.
 6. Sprawdź w przeglądarce (`npm run dev`) i na http://localhost:8000/docs.
 
 Zmiana zachowania AI (np. inne zaokrąglanie miar) = edycja `SYSTEM_PROMPT` i opisów pól
-w `backend/app/services/ai.py`.
+w `backend/app/services/ai.py` – działa dla obu dostawców. Nowego dostawcę AI dodajesz,
+pisząc funkcję `_ask_<nazwa>(content)` obok `_ask_gemini` i dopisując ją w `_ask()`.
 
 ---
 
