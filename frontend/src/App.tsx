@@ -26,7 +26,7 @@ export default function App() {
     <>
       <main className="page">
         <Routes>
-          <Route path="/" element={<RecipesPage />} />
+          <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/przepis/:id" element={<RecipePage />} />
           <Route path="/przepis/:id/edytuj" element={<EditRecipePage />} />
           <Route path="/nowy" element={<EditRecipePage />} />

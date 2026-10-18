@@ -67,6 +67,15 @@ export default function RecipePage() {
 
       {recipe.image_url && <img className="hero" src={recipe.image_url} alt="" />}
       <h1>{recipe.title}</h1>
+      {recipe.categories.length > 0 && (
+        <div className="chips">
+          {recipe.categories.map((c) => (
+            <span key={c} className="chip">
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
       {recipe.description && <p>{recipe.description}</p>}
       <p className="muted small">
         {[recipe.servings, ...times].filter(Boolean).join(" · ")}

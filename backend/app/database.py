@@ -68,6 +68,7 @@ def _add_missing_columns() -> None:
 def init_db() -> None:
     """Tworzy tabele (jeśli ich nie ma) i dodaje podstawowe składniki."""
     from . import models  # noqa: F401  - rejestruje tabele w Base.metadata
+    from .services.categories import DEFAULT_CATEGORIES, get_or_create_category
     from .services.ingredients import get_or_create_ingredient
 
     Base.metadata.create_all(engine)
@@ -75,6 +76,10 @@ def init_db() -> None:
     with SessionLocal() as db:
         for name in DEFAULT_STAPLES:
             get_or_create_ingredient(db, name, is_staple=True)
+        # Domyślne kategorie dodajemy tylko do pustej tabeli, żeby usunięte nie wracały
+        if db.query(models.Category).count() == 0:
+            for name in DEFAULT_CATEGORIES:
+                get_or_create_category(db, name)
         # Zadania importu przerwane restartem serwera oznaczamy jako nieudane
         db.query(models.ImportJob).filter(
             models.ImportJob.status.in_(["pending", "running"])

@@ -10,7 +10,7 @@ from app.services import ai
 RECIPE = ai.AiRecipe(
     title="Placki", description="", servings="", prep_minutes=None,
     cook_minutes=None, total_minutes=None, original_language="pl", ingredients=[], steps=[],
-    main_image_index=None,
+    main_image_index=None, categories=["Śniadanie"],
 )
 RESULT = ai.AiResult(recipes=[RECIPE])
 
@@ -66,7 +66,7 @@ def test_gemini_gets_text_and_image_parts(monkeypatch):
 def test_not_a_recipe_is_an_error(monkeypatch):
     monkeypatch.setattr(ai.get_settings(), "ai_provider", "gemini")
     monkeypatch.setattr(ai.get_settings(), "gemini_api_key", "test")
-    monkeypatch.setattr(ai, "_ask_gemini", lambda content: ai.AiResult(recipes=[]))
+    monkeypatch.setattr(ai, "_ask_gemini", lambda content, system, schema: ai.AiResult(recipes=[]))
     with pytest.raises(ai.AiError, match="Nie znaleziono"):
         ai.recipes_from_images([b"jpeg"])
 
@@ -120,3 +120,17 @@ def test_gemini_bad_key_is_not_retried(monkeypatch):
     with pytest.raises(ai.AiError, match="klucz"):
         ai.recipes_from_images([b"jpeg"])
     assert models == ["main"]
+
+
+def test_categorize_maps_ids(monkeypatch):
+    monkeypatch.setattr(ai.get_settings(), "ai_provider", "gemini")
+    monkeypatch.setattr(ai.get_settings(), "gemini_api_key", "test")
+    sent = {}
+
+    def fake(content, system, schema):
+        sent["text"] = content[0]
+        return ai.AiCategorization(recipes=[ai.AiRecipeCategories(id=7, categories=["Deser"])])
+
+    monkeypatch.setattr(ai, "_ask_gemini", fake)
+    assert ai.categorize([(7, "Pudding chia", ["chia", "mleko"])], ["Deser", "Zupa"]) == {7: ["Deser"]}
+    assert "7. Pudding chia" in sent["text"] and "Deser, Zupa" in sent["text"]

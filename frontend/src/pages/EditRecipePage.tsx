@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, IngredientLine, RecipeInput } from "../api";
+import { api, Category, IngredientLine, RecipeInput } from "../api";
 
 const EMPTY: RecipeInput = {
   title: "",
@@ -13,6 +13,7 @@ const EMPTY: RecipeInput = {
   notes: "",
   ingredients: [],
   steps: [],
+  categories: [],
 };
 
 const emptyIngredient = (): IngredientLine => ({ text: "", name: "", amount: null, unit: "", original_text: "" });
@@ -25,6 +26,12 @@ export default function EditRecipePage() {
   const [form, setForm] = useState<RecipeInput | null>(id ? null : { ...EMPTY, ingredients: [emptyIngredient()], steps: [{ text: "", image: null }] });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [newCategory, setNewCategory] = useState("");
+
+  useEffect(() => {
+    api.listCategories().then(setAllCategories);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -40,6 +47,7 @@ export default function EditRecipePage() {
         notes: r.notes,
         ingredients: r.ingredients,
         steps: r.steps.map((s, i) => ({ text: s.text, image: r.step_images[i] })),
+        categories: r.categories,
       }),
     );
   }, [id]);
@@ -53,6 +61,16 @@ export default function EditRecipePage() {
     set("ingredients", form.ingredients.map((ing, i) => (i === index ? { ...ing, ...patch } : ing)));
   const setStep = (index: number, text: string) =>
     set("steps", form.steps.map((s, i) => (i === index ? { ...s, text } : s)));
+
+  const toggleCategory = (name: string) =>
+    set("categories", form.categories.includes(name) ? form.categories.filter((c) => c !== name) : [...form.categories, name]);
+  const addCategory = () => {
+    const name = newCategory.trim();
+    if (name && !form.categories.includes(name)) set("categories", [...form.categories, name]);
+    setNewCategory("");
+  };
+  // Kategorie z bazy + nowe, wpisane w tym formularzu
+  const categoryOptions = [...new Set([...allCategories.map((c) => c.name), ...form.categories])];
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +115,31 @@ export default function EditRecipePage() {
           Czas razem (min)
           <input type="number" inputMode="numeric" value={form.total_minutes ?? ""} onChange={(e) => set("total_minutes", minutes(e.target.value))} />
         </label>
+      </div>
+
+      <h2>Kategorie</h2>
+      <div className="chips">
+        {categoryOptions.map((name) => (
+          <button key={name} type="button" className={`chip ${form.categories.includes(name) ? "selected" : ""}`} onClick={() => toggleCategory(name)}>
+            {name}
+          </button>
+        ))}
+      </div>
+      <div className="row">
+        <input
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addCategory();
+            }
+          }}
+          placeholder="Nowa kategoria"
+        />
+        <button type="button" onClick={addCategory} disabled={!newCategory.trim()}>
+          Dodaj
+        </button>
       </div>
 
       <h2>Składniki</h2>

@@ -241,6 +241,31 @@ button.small,
   font-size: 14px;
 }
 
+.chip.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.chip.selected .muted {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* Kategorie na liście przepisów: jeden rząd przewijany palcem w bok */
+.category-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.category-bar .chip {
+  flex: none;
+  white-space: nowrap;
+}
+
 .suggestions {
   list-style: none;
   margin: 4px 0 0;

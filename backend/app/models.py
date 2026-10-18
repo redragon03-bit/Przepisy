@@ -8,10 +8,28 @@ to ten sam składnik przy wyszukiwaniu.
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import Column, ForeignKey, String, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+
+
+# Tabela łącząca przepisy z kategoriami (przepis może mieć kilka kategorii)
+recipe_categories = Table(
+    "recipe_categories",
+    Base.metadata,
+    Column("recipe_id", ForeignKey("recipes.id", ondelete="CASCADE"), primary_key=True),
+    Column("category_id", ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Category(Base):
+    """Kategoria, np. "Deser", "Zupa". Nazwa z dużej litery."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
 
 
 class Recipe(Base):
@@ -40,6 +58,9 @@ class Recipe(Base):
     )
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(
         back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeIngredient.position"
+    )
+    categories: Mapped[list[Category]] = relationship(
+        secondary=recipe_categories, order_by=Category.name, lazy="selectin"
     )
 
 

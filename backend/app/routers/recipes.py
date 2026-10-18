@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import get_db
-from ..models import Ingredient, Recipe, RecipeIngredient, Step
+from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
 from ..schemas import IngredientLine, RecipeIn, RecipeOut, RecipeSummary, StepOut, image_url
 from ..services import images
+from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, normalize_name
 
 router = APIRouter(prefix="/api/recipes", tags=["przepisy"], dependencies=[Depends(require_auth)])
@@ -20,6 +21,7 @@ def to_summary(recipe: Recipe) -> RecipeSummary:
         image_url=image_url(recipe.image),
         total_minutes=recipe.total_minutes,
         source_type=recipe.source_type,
+        categories=sorted(c.name for c in recipe.categories),
         created_at=recipe.created_at,
     )
 
@@ -55,11 +57,16 @@ def _get(db: Session, recipe_id: int) -> Recipe:
 def list_recipes(
     q: str = "",
     ingredients: list[str] = Query(default=[], description="Przepis musi mieć WSZYSTKIE te składniki"),
+    category: str = Query(default="", description="Tylko przepisy z tej kategorii; '-' = bez kategorii"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Recipe)
     if q.strip():
         query = query.filter(Recipe.title.ilike(f"%{q.strip()}%"))
+    if category == "-":
+        query = query.filter(~Recipe.categories.any())
+    elif category.strip():
+        query = query.filter(Recipe.categories.any(Category.name == normalize_category(category)))
     for name in ingredients:
         name = normalize_name(name)
         # "ser" znajduje też "ser żółty" (tak samo jak w "co mogę ugotować")
@@ -98,6 +105,7 @@ def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
         )
         for i, line in enumerate(data.ingredients) if line.text.strip()
     ]
+    set_categories(db, recipe, data.categories)
 
 
 @router.post("", response_model=RecipeOut, status_code=201)

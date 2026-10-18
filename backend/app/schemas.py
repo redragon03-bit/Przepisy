@@ -37,6 +37,7 @@ class RecipeSummary(BaseModel):
     image_url: str | None
     total_minutes: int | None
     source_type: str
+    categories: list[str]
     created_at: datetime
 
 
@@ -65,6 +66,17 @@ class RecipeIn(BaseModel):
     notes: str = ""
     ingredients: list[IngredientLine] = []
     steps: list[StepIn] = []
+    categories: list[str] = []
+
+
+class CategoryOut(BaseModel):
+    name: str
+    recipe_count: int
+
+
+class AutoCategorizeOut(BaseModel):
+    updated: int = Field(description="Ilu przepisom AI przypisało kategorie")
+    remaining: int = Field(description="Ile przepisów nadal nie ma kategorii")
 
 
 class IngredientOut(BaseModel):

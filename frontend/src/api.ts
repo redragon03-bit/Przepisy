@@ -15,6 +15,7 @@ export interface RecipeSummary {
   image_url: string | null;
   total_minutes: number | null;
   source_type: "url" | "image" | "manual";
+  categories: string[];
   created_at: string;
 }
 
@@ -42,6 +43,12 @@ export interface RecipeInput {
   notes: string;
   ingredients: IngredientLine[];
   steps: { text: string; image: string | null }[];
+  categories: string[];
+}
+
+export interface Category {
+  name: string;
+  recipe_count: number;
 }
 
 export interface Ingredient {
@@ -124,8 +131,9 @@ export const api = {
   login: (password: string) => request<void>("POST", "/api/auth/login", { password }),
   logout: () => request<void>("POST", "/api/auth/logout"),
 
-  listRecipes: (q: string, ingredients: string[]) =>
-    request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients })}`),
+  // category: nazwa kategorii, "-" = przepisy bez kategorii, "" = wszystkie
+  listRecipes: (q: string, ingredients: string[], category = "") =>
+    request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients, category })}`),
   getRecipe: (id: number) => request<Recipe>("GET", `/api/recipes/${id}`),
   createRecipe: (data: RecipeInput) => request<Recipe>("POST", "/api/recipes", data),
   updateRecipe: (id: number, data: RecipeInput) => request<Recipe>("PUT", `/api/recipes/${id}`, data),
@@ -135,6 +143,9 @@ export const api = {
     form.append("file", file);
     return request<Recipe>("POST", `/api/recipes/${id}/image`, form);
   },
+
+  listCategories: () => request<Category[]>("GET", "/api/categories"),
+  autoCategorize: () => request<{ updated: number; remaining: number }>("POST", "/api/categories/auto"),
 
   listIngredients: (q = "", staplesOnly = false) =>
     request<Ingredient[]>("GET", `/api/ingredients${query({ q, staples_only: staplesOnly ? "true" : "" })}`),
