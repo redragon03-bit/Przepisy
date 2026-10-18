@@ -7,6 +7,7 @@ z zapytania HTTP jest już wtedy zamknięta.
 
 import logging
 import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -86,15 +87,19 @@ def _save_scraped_recipe(db: Session, data: scraper.ScrapedRecipe, url: str) -> 
 
 
 def _run(job_id: int, work) -> None:
-    """Wspólna obsługa statusu zadania: running -> done/failed."""
+    """Wspólna obsługa statusu zadania: running -> done/failed.
+
+    `work(db, job)` zwraca listę zapisanych przepisów.
+    """
     with SessionLocal() as db:
         job = db.get(ImportJob, job_id)
-        job.status = "running"
+        job.status, job.error = "running", ""
         db.commit()
         try:
-            recipe = work(db, job)
+            recipes = work(db, job)
             db.flush()
-            job.recipe_id = recipe.id
+            job.recipe_id = recipes[0].id
+            job.recipe_count = len(recipes)
             job.status = "done"
             db.commit()
         except (fetcher.FetchError, ai.AiError) as exc:
@@ -108,14 +113,18 @@ def _run(job_id: int, work) -> None:
             db.commit()
 
 
-def _import_url(db: Session, job: ImportJob) -> Recipe:
+def _import_url(db: Session, job: ImportJob) -> list[Recipe]:
     html, final_url = fetcher.fetch_html(job.source)
     page = scraper.read_page(html, final_url)
     if get_settings().ai_enabled:
-        data = ai.recipe_from_page(page)
-        return _save_ai_recipe(db, data, "url", job.source, page.image_urls, images.download_image)
+        # Każdy przepis dostaje własne kopie zdjęć, żeby usunięcie jednego
+        # przepisu nie skasowało zdjęcia drugiemu
+        return [
+            _save_ai_recipe(db, data, "url", job.source, page.image_urls, images.download_image)
+            for data in ai.recipes_from_page(page)
+        ]
     if page.recipe:
-        return _save_scraped_recipe(db, page.recipe, job.source)
+        return [_save_scraped_recipe(db, page.recipe, job.source)]
     raise ai.AiError(
         "Ta strona nie ma danych przepisu w standardowym formacie. "
         "Bez klucza API do AI (Anthropic albo Gemini) nie da się jej odczytać."
@@ -126,16 +135,32 @@ def job_upload_dir(job_id: int) -> Path:
     return get_settings().uploads_dir / f"job-{job_id}"
 
 
-def _import_images(db: Session, job: ImportJob) -> Recipe:
+def _import_images(db: Session, job: ImportJob) -> list[Recipe]:
     folder = job_upload_dir(job.id)
-    files = sorted(folder.iterdir())
-    try:
-        raw = [f.read_bytes() for f in files]
-        data = ai.recipe_from_images([images.image_for_ai(b) for b in raw])
-        recipe = _save_ai_recipe(db, data, "image", "", raw, images.save_image_bytes)
-    finally:
-        shutil.rmtree(folder, ignore_errors=True)
-    return recipe
+    if not folder.exists():
+        raise ai.AiError("Zdjęcia z tego importu już nie istnieją - wgraj je jeszcze raz.")
+    raw = [f.read_bytes() for f in sorted(folder.iterdir())]
+    recipes = [
+        _save_ai_recipe(db, data, "image", "", raw, images.save_image_bytes)
+        for data in ai.recipes_from_images([images.image_for_ai(b) for b in raw])
+    ]
+    # Zdjęcia usuwamy dopiero po udanym imporcie, żeby nieudany dało się ponowić
+    shutil.rmtree(folder, ignore_errors=True)
+    return recipes
+
+
+# Zdjęcia z nieudanego importu trzymamy tyle dni, żeby dało się go ponowić
+KEEP_FAILED_UPLOADS_DAYS = 7
+
+
+def remove_stale_uploads() -> None:
+    """Usuwa zdjęcia importów, których już nie da się albo nie trzeba ponawiać."""
+    oldest = datetime.now() - timedelta(days=KEEP_FAILED_UPLOADS_DAYS)
+    with SessionLocal() as db:
+        for folder in get_settings().uploads_dir.glob("job-*"):
+            job = db.get(ImportJob, int(folder.name.removeprefix("job-")))
+            if job is None or job.status == "done" or job.created_at < oldest:
+                shutil.rmtree(folder, ignore_errors=True)
 
 
 def run_url_import(job_id: int) -> None:

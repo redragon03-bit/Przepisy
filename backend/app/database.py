@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import get_settings
@@ -48,12 +48,30 @@ DEFAULT_STAPLES = [
 ]
 
 
+# Kolumny dodane po pierwszym wydaniu: (tabela, kolumna, definicja SQL).
+# create_all tworzy tylko brakujące tabele, więc nowe kolumny w istniejącej
+# bazie dodajemy sami. Nową kolumnę w models.py dopisz też tutaj.
+ADDED_COLUMNS = [
+    ("import_jobs", "recipe_count", "INTEGER NOT NULL DEFAULT 0"),
+]
+
+
+def _add_missing_columns() -> None:
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table, column, definition in ADDED_COLUMNS:
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            if column not in existing:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
+
+
 def init_db() -> None:
     """Tworzy tabele (jeśli ich nie ma) i dodaje podstawowe składniki."""
     from . import models  # noqa: F401  - rejestruje tabele w Base.metadata
     from .services.ingredients import get_or_create_ingredient
 
     Base.metadata.create_all(engine)
+    _add_missing_columns()
     with SessionLocal() as db:
         for name in DEFAULT_STAPLES:
             get_or_create_ingredient(db, name, is_staple=True)

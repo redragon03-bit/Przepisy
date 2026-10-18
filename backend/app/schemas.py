@@ -108,6 +108,7 @@ class ImportJobOut(BaseModel):
     status: str
     error: str
     recipe_id: int | None
+    recipe_count: int
     created_at: datetime
 
 

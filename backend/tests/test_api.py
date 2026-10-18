@@ -83,19 +83,20 @@ def test_url_import_with_ai(client, monkeypatch):
 
     def fake_ai(page):
         seen["page"] = page
-        return AiRecipe(
-            is_recipe=True, title="Puszyste naleśniki", description="", servings="4 porcje",
+        return [AiRecipe(
+            title="Puszyste naleśniki", description="", servings="4 porcje",
             prep_minutes=None, cook_minutes=None, total_minutes=25, original_language="en",
             ingredients=[AiIngredient(text="190 g mąki pszennej", name="mąka pszenna", amount=190,
                                       unit="g", original_text="1 1/2 cups all-purpose flour")],
             steps=[AiStep(text="Wymieszaj mąkę z solą.", image_index=1), AiStep(text="Usmaż.", image_index=None)],
             main_image_index=0,
-        )
+        )]
 
-    monkeypatch.setattr(ai, "recipe_from_page", fake_ai)
+    monkeypatch.setattr(ai, "recipes_from_page", fake_ai)
     job = client.post("/api/imports/url", json={"url": "https://example.com/pancakes"}).json()
     job = client.get(f"/api/imports/{job['id']}").json()
     assert job["status"] == "done", job["error"]
+    assert job["recipe_count"] == 1
     assert seen["page"].recipe.title == "Fluffy Pancakes"
 
     recipe = client.get(f"/api/recipes/{job['recipe_id']}").json()
@@ -117,3 +118,47 @@ def test_failed_import_shows_message(client, monkeypatch):
     job = client.get(f"/api/imports/{job['id']}").json()
     assert job["status"] == "failed"
     assert "403" in job["error"]
+
+
+def _simple_recipe(title):
+    return AiRecipe(
+        title=title, description="", servings="", prep_minutes=None, cook_minutes=None,
+        total_minutes=None, original_language="pl", ingredients=[],
+        steps=[AiStep(text="Wymieszaj.", image_index=None)], main_image_index=None,
+    )
+
+
+def test_page_with_several_recipes(client, monkeypatch):
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: ("<html><body>Desery</body></html>", url))
+    monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
+    monkeypatch.setattr(ai, "recipes_from_page", lambda page: [_simple_recipe("Chia kakao"), _simple_recipe("Chia mango")])
+    job = client.post("/api/imports/url", json={"url": "https://example.com/desery"}).json()
+    job = client.get(f"/api/imports/{job['id']}").json()
+    assert job["status"] == "done", job["error"]
+    assert job["recipe_count"] == 2
+    titles = [r["title"] for r in client.get("/api/recipes", params={"q": "Chia"}).json()]
+    assert sorted(titles) == ["Chia kakao", "Chia mango"]
+
+
+def test_failed_import_can_be_retried(client, monkeypatch):
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: ("<html><body>Placki</body></html>", url))
+    monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
+    answers = [ai.AiError("Gemini jest teraz przeciążony"), [_simple_recipe("Placki ponowione")]]
+
+    def flaky_ai(page):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(ai, "recipes_from_page", flaky_ai)
+    job = client.post("/api/imports/url", json={"url": "https://example.com/placki"}).json()
+    assert client.get(f"/api/imports/{job['id']}").json()["status"] == "failed"
+
+    job = client.post(f"/api/imports/{job['id']}/retry").json()
+    job = client.get(f"/api/imports/{job['id']}").json()
+    assert job["status"] == "done", job["error"]
+    assert job["error"] == ""
+    assert client.get(f"/api/recipes/{job['recipe_id']}").json()["title"] == "Placki ponowione"
+    # Udanego importu nie da się ponowić
+    assert client.post(f"/api/imports/{job['id']}/retry").status_code == 400

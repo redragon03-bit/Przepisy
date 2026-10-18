@@ -414,6 +414,11 @@ button.small,
   white-space: nowrap;
 }
 
+.jobs .small-button {
+  margin-top: 6px;
+  padding: 6px 14px;
+}
+
 /* Logowanie */
 .login {
   display: flex;
