@@ -56,6 +56,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
       <section className="box small">
         <h2>Informacje</h2>
         <p>AI: {auth.ai_provider === "gemini" ? "Gemini (Google) ✅" : auth.ai_provider === "anthropic" ? "Claude (Anthropic) ✅" : "wyłączone (brak klucza API)"}</p>
+        <p>Home Assistant: {auth.ha_enabled ? "wysyłanie listy zakupów działa ✅" : "nie skonfigurowane"}</p>
         <p className="muted">
           Na iPhonie: w Safari stuknij „Udostępnij” → „Do ekranu początkowego”, żeby mieć aplikację jako ikonę.
         </p>

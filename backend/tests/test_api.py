@@ -81,7 +81,7 @@ def test_url_import_with_ai(client, monkeypatch):
 
     seen = {}
 
-    def fake_ai(page):
+    def fake_ai(page, categories):
         seen["page"] = page
         return [AiRecipe(
             title="Puszyste naleśniki", description="", servings="4 porcje",
@@ -89,7 +89,7 @@ def test_url_import_with_ai(client, monkeypatch):
             ingredients=[AiIngredient(text="190 g mąki pszennej", name="mąka pszenna", amount=190,
                                       unit="g", original_text="1 1/2 cups all-purpose flour")],
             steps=[AiStep(text="Wymieszaj mąkę z solą.", image_index=1), AiStep(text="Usmaż.", image_index=None)],
-            main_image_index=0,
+            main_image_index=0, categories=["Śniadanie", "deser"],
         )]
 
     monkeypatch.setattr(ai, "recipes_from_page", fake_ai)
@@ -101,6 +101,7 @@ def test_url_import_with_ai(client, monkeypatch):
 
     recipe = client.get(f"/api/recipes/{job['recipe_id']}").json()
     assert recipe["title"] == "Puszyste naleśniki"
+    assert recipe["categories"] == ["Deser", "Śniadanie"]
     assert recipe["ingredients"][0] == {
         "text": "190 g mąki pszennej", "name": "mąka pszenna", "amount": 190.0, "unit": "g",
         "original_text": "1 1/2 cups all-purpose flour",
@@ -124,14 +125,14 @@ def _simple_recipe(title):
     return AiRecipe(
         title=title, description="", servings="", prep_minutes=None, cook_minutes=None,
         total_minutes=None, original_language="pl", ingredients=[],
-        steps=[AiStep(text="Wymieszaj.", image_index=None)], main_image_index=None,
+        steps=[AiStep(text="Wymieszaj.", image_index=None)], main_image_index=None, categories=["Deser"],
     )
 
 
 def test_page_with_several_recipes(client, monkeypatch):
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: ("<html><body>Desery</body></html>", url))
     monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
-    monkeypatch.setattr(ai, "recipes_from_page", lambda page: [_simple_recipe("Chia kakao"), _simple_recipe("Chia mango")])
+    monkeypatch.setattr(ai, "recipes_from_page", lambda page, categories: [_simple_recipe("Chia kakao"), _simple_recipe("Chia mango")])
     job = client.post("/api/imports/url", json={"url": "https://example.com/desery"}).json()
     job = client.get(f"/api/imports/{job['id']}").json()
     assert job["status"] == "done", job["error"]
@@ -145,7 +146,7 @@ def test_failed_import_can_be_retried(client, monkeypatch):
     monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
     answers = [ai.AiError("Gemini jest teraz przeciążony"), [_simple_recipe("Placki ponowione")]]
 
-    def flaky_ai(page):
+    def flaky_ai(page, categories):
         answer = answers.pop(0)
         if isinstance(answer, Exception):
             raise answer
@@ -162,3 +163,23 @@ def test_failed_import_can_be_retried(client, monkeypatch):
     assert client.get(f"/api/recipes/{job['recipe_id']}").json()["title"] == "Placki ponowione"
     # Udanego importu nie da się ponowić
     assert client.post(f"/api/imports/{job['id']}/retry").status_code == 400
+
+
+def test_categories_filter_and_edit(client):
+    recipe = client.post("/api/recipes", json={"title": "Zupa dyniowa", "categories": ["zupa", "Zupa", "jesień"]}).json()
+    assert recipe["categories"] == ["Jesień", "Zupa"]
+    client.post("/api/recipes", json={"title": "Bez kategorii"})
+
+    assert [r["title"] for r in client.get("/api/recipes", params={"category": "zupa"}).json()] == ["Zupa dyniowa"]
+    assert "Bez kategorii" in [r["title"] for r in client.get("/api/recipes", params={"category": "-"}).json()]
+    counts = {c["name"]: c["recipe_count"] for c in client.get("/api/categories").json()}
+    assert counts["Zupa"] >= 1 and "Deser" in counts  # domyślne kategorie też są na liście
+
+
+def test_auto_categorize(client, monkeypatch):
+    monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
+    recipe = client.post("/api/recipes", json={"title": "Pudding chia"}).json()
+    monkeypatch.setattr(ai, "categorize", lambda recipes, names: {rid: ["Deser"] for rid, _, _ in recipes})
+    result = client.post("/api/categories/auto").json()
+    assert result["updated"] >= 1 and result["remaining"] == 0
+    assert client.get(f"/api/recipes/{recipe['id']}").json()["categories"] == ["Deser"]

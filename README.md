@@ -50,6 +50,25 @@ Telefon (Safari / PWA)  ──HTTP(S)──▶  Jeden kontener Docker (port 8000
 Jedna strona może mieć **kilka przepisów** (np. „6 deserów chia”). AI zwraca wtedy listę
 (`AiResult.recipes`), a każdy przepis trafia do bazy osobno.
 
+**Kategorie** (np. „Deser”, „Zupa”) AI przypisuje przy imporcie, wybierając najpierw spośród
+kategorii, które już są w bazie (domyślna lista: `services/categories.py`). Przepisom bez
+kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na liście
+(`POST /api/categories/auto`), a ręcznie - w edycji przepisu.
+
+**Pozostałe funkcje** (gdzie szukać kodu):
+
+| Funkcja | Backend | Frontend |
+|---|---|---|
+| Lista zakupów (łączy te same składniki, wysyłka do HA `todo.add_item`) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
+| Plan posiłków na tydzień | `routers/plan.py` | `pages/PlanPage.tsx` |
+| Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
+| Ulubione, ocena, „Ugotowane”, notatki | `PATCH /api/recipes/{id}`, `POST .../cooked` | `pages/RecipePage.tsx` |
+| Minutniki w krokach („10 min” → przycisk) | – | `lib/timers.ts` |
+| Wykrywanie duplikatów linków | `routers/imports.py` (status `duplicate`) | `pages/ImportPage.tsx` |
+
+Wysyłka do HA: jako dodatek HA działa sama (`homeassistant_api: true` daje token).
+Poza HA ustaw `HA_URL` i `HA_TOKEN` (token długoterminowy z profilu użytkownika HA).
+
 Gdy **Gemini jest przeciążony** (błąd 503 „high demand”), `ai.py` ponawia zapytanie dwa razy
 (po 2 i 6 s), a potem próbuje modelu zapasowego (`GEMINI_FALLBACK_MODEL`). Jeśli i to
 zawiedzie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
@@ -120,6 +139,8 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
+| `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
+| `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
 | `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
@@ -240,6 +261,7 @@ backend/
     routers/           ← ADRESY API, każdy plik to grupa endpointów
       recipes.py       ←   /api/recipes      lista, wyszukiwanie, dodawanie, edycja, usuwanie
       ingredients.py   ←   /api/ingredients, /api/cook
+      categories.py    ←   /api/categories   lista kategorii, automatyczne przypisanie przez AI
       imports.py       ←   /api/imports      import z linku/zdjęć
       auth.py          ←   /api/auth         logowanie
       backup.py        ←   /api/backup       kopia ZIP
@@ -250,6 +272,7 @@ backend/
       ai.py            ←   rozmowa z AI (Gemini / Claude) + prompt + format odpowiedzi
       images.py        ←   zapis/zmniejszanie zdjęć
       ingredients.py   ←   normalizacja nazw składników
+      categories.py    ←   kategorie: domyślna lista, normalizacja nazw
       matching.py      ←   algorytm „Co ugotuję?”
   tests/               ← testy (pytest); AI i internet są w nich podmienione
 frontend/
@@ -297,6 +320,10 @@ pisząc funkcję `_ask_<nazwa>(content)` obok `_ask_gemini` i dopisując ją w `
 ---
 
 ## Kopia zapasowa i przywracanie
+
+Wszystkie dane są w folderze danych (`DATA_DIR`, w Dockerze i w Home Assistant `/data`):
+plik bazy `przepisy.db` i folder `images/` ze zdjęciami. W HA ten folder jest wewnątrz
+danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać kopię z aplikacji.
 
 - **Pobranie:** *Ustawienia → Pobierz kopię* – plik ZIP z bazą (`przepisy.db`) i folderem `images/`.
 - **Przywrócenie:** zatrzymaj aplikację, rozpakuj ZIP do folderu danych (`DATA_DIR`,

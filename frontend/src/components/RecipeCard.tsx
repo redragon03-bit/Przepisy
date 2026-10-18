@@ -10,7 +10,11 @@ export default function RecipeCard({ recipe, children }: { recipe: RecipeSummary
         <div className="card-placeholder">🍽️</div>
       )}
       <div className="card-body">
-        <strong>{recipe.title}</strong>
+        <strong>
+          {recipe.favorite && "❤️ "}
+          {recipe.title}
+        </strong>
+        {recipe.rating ? <span className="stars small">{"★".repeat(recipe.rating)}</span> : null}
         {recipe.total_minutes ? <span className="muted">⏱ {formatMinutes(recipe.total_minutes)}</span> : null}
         {children}
       </div>

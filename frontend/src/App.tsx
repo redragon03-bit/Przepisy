@@ -5,9 +5,11 @@ import CookPage from "./pages/CookPage";
 import EditRecipePage from "./pages/EditRecipePage";
 import ImportPage from "./pages/ImportPage";
 import LoginPage from "./pages/LoginPage";
+import PlanPage from "./pages/PlanPage";
 import RecipePage from "./pages/RecipePage";
 import RecipesPage from "./pages/RecipesPage";
 import SettingsPage from "./pages/SettingsPage";
+import ShoppingPage from "./pages/ShoppingPage";
 
 export default function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
@@ -26,12 +28,14 @@ export default function App() {
     <>
       <main className="page">
         <Routes>
-          <Route path="/" element={<RecipesPage />} />
+          <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/przepis/:id" element={<RecipePage />} />
           <Route path="/przepis/:id/edytuj" element={<EditRecipePage />} />
           <Route path="/nowy" element={<EditRecipePage />} />
           <Route path="/dodaj" element={<ImportPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/co-ugotowac" element={<CookPage />} />
+          <Route path="/plan" element={<PlanPage />} />
+          <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
         </Routes>
       </main>
@@ -45,8 +49,11 @@ export default function App() {
         <NavLink to="/co-ugotowac">
           <span>🥕</span>Co ugotuję?
         </NavLink>
-        <NavLink to="/ustawienia">
-          <span>⚙️</span>Ustawienia
+        <NavLink to="/plan">
+          <span>📅</span>Plan
+        </NavLink>
+        <NavLink to="/zakupy">
+          <span>🛒</span>Zakupy
         </NavLink>
       </nav>
     </>

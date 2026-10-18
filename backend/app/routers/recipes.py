@@ -1,13 +1,16 @@
 """API przepisów: lista, wyszukiwanie, szczegóły, dodawanie, edycja, usuwanie."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import get_db
-from ..models import Ingredient, Recipe, RecipeIngredient, Step
-from ..schemas import IngredientLine, RecipeIn, RecipeOut, RecipeSummary, StepOut, image_url
+from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
+from ..schemas import IngredientLine, RecipeIn, RecipeOut, RecipePatch, RecipeSummary, StepOut, image_url
 from ..services import images
+from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, normalize_name
 
 router = APIRouter(prefix="/api/recipes", tags=["przepisy"], dependencies=[Depends(require_auth)])
@@ -20,6 +23,9 @@ def to_summary(recipe: Recipe) -> RecipeSummary:
         image_url=image_url(recipe.image),
         total_minutes=recipe.total_minutes,
         source_type=recipe.source_type,
+        categories=sorted(c.name for c in recipe.categories),
+        favorite=recipe.favorite,
+        rating=recipe.rating,
         created_at=recipe.created_at,
     )
 
@@ -34,6 +40,8 @@ def to_out(recipe: Recipe) -> RecipeOut:
         source_url=recipe.source_url,
         original_language=recipe.original_language,
         notes=recipe.notes,
+        cooked_count=recipe.cooked_count,
+        last_cooked_at=recipe.last_cooked_at,
         ingredients=[
             IngredientLine(text=ri.text, name=ri.ingredient.name, amount=ri.amount,
                            unit=ri.unit, original_text=ri.original_text)
@@ -55,11 +63,19 @@ def _get(db: Session, recipe_id: int) -> Recipe:
 def list_recipes(
     q: str = "",
     ingredients: list[str] = Query(default=[], description="Przepis musi mieć WSZYSTKIE te składniki"),
+    category: str = Query(default="", description="Tylko przepisy z tej kategorii; '-' = bez kategorii"),
+    favorite: bool = Query(default=False, description="Tylko ulubione"),
     db: Session = Depends(get_db),
 ):
     query = db.query(Recipe)
+    if favorite:
+        query = query.filter(Recipe.favorite.is_(True))
     if q.strip():
         query = query.filter(Recipe.title.ilike(f"%{q.strip()}%"))
+    if category == "-":
+        query = query.filter(~Recipe.categories.any())
+    elif category.strip():
+        query = query.filter(Recipe.categories.any(Category.name == normalize_category(category)))
     for name in ingredients:
         name = normalize_name(name)
         # "ser" znajduje też "ser żółty" (tak samo jak w "co mogę ugotować")
@@ -98,6 +114,7 @@ def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
         )
         for i, line in enumerate(data.ingredients) if line.text.strip()
     ]
+    set_categories(db, recipe, data.categories)
 
 
 @router.post("", response_model=RecipeOut, status_code=201)
@@ -115,6 +132,30 @@ def update_recipe(recipe_id: int, data: RecipeIn, db: Session = Depends(get_db))
     _apply(db, recipe, data)
     db.commit()
     db.refresh(recipe)
+    return to_out(recipe)
+
+
+@router.patch("/{recipe_id}", response_model=RecipeOut)
+def patch_recipe(recipe_id: int, data: RecipePatch, db: Session = Depends(get_db)):
+    """Ulubione, ocena, notatki - zmieniane jednym tapnięciem na stronie przepisu."""
+    recipe = _get(db, recipe_id)
+    if data.favorite is not None:
+        recipe.favorite = data.favorite
+    if data.rating is not None:
+        recipe.rating = data.rating or None
+    if data.notes is not None:
+        recipe.notes = data.notes
+    db.commit()
+    return to_out(recipe)
+
+
+@router.post("/{recipe_id}/cooked", response_model=RecipeOut)
+def mark_cooked(recipe_id: int, db: Session = Depends(get_db)):
+    """Przycisk "Ugotowane": licznik i data ostatniego gotowania."""
+    recipe = _get(db, recipe_id)
+    recipe.cooked_count += 1
+    recipe.last_cooked_at = datetime.now()
+    db.commit()
     return to_out(recipe)
 
 

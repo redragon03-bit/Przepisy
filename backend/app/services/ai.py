@@ -55,6 +55,10 @@ class AiRecipe(BaseModel):
     ingredients: list[AiIngredient]
     steps: list[AiStep]
     main_image_index: int | None = Field(description="Numer obrazka ze zdjęciem gotowego dania, albo null")
+    categories: list[str] = Field(
+        description="1-3 kategorie, np. 'Deser'. Wybieraj z listy istniejących kategorii; "
+        "nową (krótką, z dużej litery) dodaj tylko, gdy żadna nie pasuje"
+    )
 
 
 class AiResult(BaseModel):
@@ -84,6 +88,21 @@ jako osobny element listy recipes, z jego własnymi składnikami i krokami. Wsp�
 - Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes."""
 
 
+class AiRecipeCategories(BaseModel):
+    id: int = Field(description="Numer przepisu z listy")
+    categories: list[str] = Field(description="1-3 kategorie tego przepisu")
+
+
+class AiCategorization(BaseModel):
+    recipes: list[AiRecipeCategories]
+
+
+CATEGORIZE_PROMPT = """Jesteś asystentem kulinarnym. Dostajesz listę przepisów (numer, \
+tytuł, składniki) i listę istniejących kategorii. Każdemu przepisowi przypisz 1-3 kategorie. \
+Wybieraj z istniejących kategorii; nową (krótką, po polsku, z dużej litery) dodaj tylko, \
+gdy żadna nie pasuje. Nie twórz kategorii będących synonimami istniejących."""
+
+
 class AiError(Exception):
     """Komunikat pokazywany użytkownikowi."""
 
@@ -92,7 +111,7 @@ class AiError(Exception):
 Content = list[str | bytes]
 
 
-def _ask_claude(content: Content) -> AiResult:
+def _ask_claude(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     settings = get_settings()
     blocks = [
         {"type": "text", "text": item} if isinstance(item, str) else {
@@ -106,11 +125,11 @@ def _ask_claude(content: Content) -> AiResult:
         response = anthropic.Anthropic(api_key=settings.anthropic_api_key).messages.parse(
             model=settings.claude_model,
             max_tokens=16000,
-            system=SYSTEM_PROMPT,
+            system=system,
             # Przepisanie przepisu nie wymaga długiego myślenia - "low" jest szybsze i tańsze
             output_config={"effort": "low"},
             messages=[{"role": "user", "content": blocks}],
-            output_format=AiResult,
+            output_format=schema,
         )
     except anthropic.AuthenticationError as exc:
         raise AiError("Nieprawidłowy klucz API Anthropic.") from exc
@@ -137,27 +156,28 @@ def _is_temporary(exc: genai_errors.APIError) -> bool:
     return isinstance(exc, genai_errors.ServerError) or exc.code == 429
 
 
-def _gemini_once(client: genai.Client, model: str, parts: list) -> AiResult:
+def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
+                 schema: type[BaseModel]) -> BaseModel:
     try:
         response = client.models.generate_content(
             model=model,
             contents=parts,
             config=genai_types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=system,
                 response_mime_type="application/json",
-                response_schema=AiResult,
+                response_schema=schema,
             ),
         )
     except genai_errors.ClientError as exc:
         if exc.code in (401, 403) or "API key" in str(exc):
             raise AiError("Nieprawidłowy klucz API Gemini.") from exc
         raise
-    if not isinstance(response.parsed, AiResult):
-        raise AiError("AI nie zwróciło poprawnego przepisu - spróbuj jeszcze raz.")
+    if not isinstance(response.parsed, schema):
+        raise AiError("AI nie zwróciło poprawnej odpowiedzi - spróbuj jeszcze raz.")
     return response.parsed
 
 
-def _ask_gemini(content: Content) -> AiResult:
+def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     settings = get_settings()
     parts = [
         item if isinstance(item, str) else genai_types.Part.from_bytes(data=item, mime_type="image/jpeg")
@@ -172,7 +192,7 @@ def _ask_gemini(content: Content) -> AiResult:
         attempts.append(settings.gemini_fallback_model)
     for number, model in enumerate(attempts):
         try:
-            return _gemini_once(client, model, parts)
+            return _gemini_once(client, model, parts, system, schema)
         except genai_errors.APIError as exc:
             last_try = number == len(attempts) - 1
             if not _is_temporary(exc) or last_try:
@@ -187,14 +207,22 @@ def _ask_gemini(content: Content) -> AiResult:
     raise AssertionError("unreachable")
 
 
-def _ask(content: Content) -> list[AiRecipe]:
+def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
+    """Wysyła treść do wybranego AI; odpowiedź ma kształt klasy `schema`."""
     provider = get_settings().active_ai_provider
     if provider == "anthropic":
-        result = _ask_claude(content)
-    elif provider == "gemini":
-        result = _ask_gemini(content)
-    else:
-        raise AiError("Brak klucza API do AI - ustaw ANTHROPIC_API_KEY albo GEMINI_API_KEY.")
+        return _ask_claude(content, system, schema)
+    if provider == "gemini":
+        return _ask_gemini(content, system, schema)
+    raise AiError("Brak klucza API do AI - ustaw ANTHROPIC_API_KEY albo GEMINI_API_KEY.")
+
+
+def _categories_hint(categories: list[str]) -> str:
+    return "Istniejące kategorie: " + (", ".join(categories) or "brak")
+
+
+def _ask(content: Content) -> list[AiRecipe]:
+    result = _ask_provider(content, SYSTEM_PROMPT, AiResult)
     recipes = [r for r in result.recipes if r.title or r.ingredients or r.steps]
     if not recipes:
         raise AiError("Nie znaleziono przepisu w tym materiale.")
@@ -207,7 +235,7 @@ def _image_list(image_urls: list[str]) -> str:
     return "\n".join(f"{i}: {url}" for i, url in enumerate(image_urls))
 
 
-def recipes_from_page(page: PageContent) -> list[AiRecipe]:
+def recipes_from_page(page: PageContent, categories: list[str] = ()) -> list[AiRecipe]:
     """Przepisy ze strony WWW (zwykle jeden, czasem kilka)."""
     if page.recipe:
         # Strona ma dane strukturalne - wysyłamy tylko je (mniej tekstu = taniej, mniej pomyłek)
@@ -219,12 +247,13 @@ def recipes_from_page(page: PageContent) -> list[AiRecipe]:
         material = "Tekst strony:\n" + page.text
     text = (
         f"Adres strony: {page.url}\n\n{material}\n\n"
-        f"Obrazki ze strony (numer: adres):\n{_image_list(page.image_urls)}"
+        f"Obrazki ze strony (numer: adres):\n{_image_list(page.image_urls)}\n\n"
+        f"{_categories_hint(list(categories))}"
     )
     return _ask([text])
 
 
-def recipes_from_images(jpegs: list[bytes]) -> list[AiRecipe]:
+def recipes_from_images(jpegs: list[bytes], categories: list[str] = ()) -> list[AiRecipe]:
     """Przepisy ze zdjęć/screenów (JPEG). Obrazki są numerowane w kolejności wysłania."""
     content: Content = []
     for i, jpeg in enumerate(jpegs):
@@ -232,6 +261,14 @@ def recipes_from_images(jpegs: list[bytes]) -> list[AiRecipe]:
     content.append(
         "Odczytaj przepis z powyższych obrazków (to zwykle screeny kolejnych części "
         "jednego przepisu, ale może być ich kilka). Jeśli któryś obrazek to zdjęcie "
-        "gotowego dania, wskaż go jako główny."
+        "gotowego dania, wskaż go jako główny.\n\n" + _categories_hint(list(categories))
     )
     return _ask(content)
+
+
+def categorize(recipes: list[tuple[int, str, list[str]]], categories: list[str]) -> dict[int, list[str]]:
+    """Kategorie dla istniejących przepisów: [(id, tytuł, składniki)] -> {id: [kategorie]}."""
+    lines = [f"{rid}. {title} (składniki: {', '.join(names[:15]) or 'brak'})" for rid, title, names in recipes]
+    text = "Przepisy:\n" + "\n".join(lines) + "\n\n" + _categories_hint(categories)
+    result = _ask_provider([text], CATEGORIZE_PROMPT, AiCategorization)
+    return {item.id: item.categories for item in result.recipes}

@@ -1,26 +1,58 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, RecipeSummary } from "../api";
+import { api, Category, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
 
-// Strona główna: lista przepisów z wyszukiwaniem po nazwie i po składnikach.
-export default function RecipesPage() {
+// Strona główna: lista przepisów z wyszukiwaniem po nazwie, kategorii i składnikach.
+export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [q, setQ] = useState("");
   const [ingredients, setIngredients] = useState<string[]>([]);
+  const [category, setCategory] = useState("");
+  const [favorites, setFavorites] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [uncategorized, setUncategorized] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
+  const [sorting, setSorting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const loadCategories = () => {
+    api.listCategories().then(setCategories);
+    api.listRecipes("", [], "-").then((r) => setUncategorized(r.length));
+  };
+  useEffect(loadCategories, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      api.listRecipes(q, ingredients).then(setRecipes);
+      api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
     }, 250);
     return () => clearTimeout(timer);
-  }, [q, ingredients]);
+  }, [q, ingredients, category, favorites, sorting]);
+
+  const autoCategorize = async () => {
+    setSorting(true);
+    setMessage("");
+    try {
+      const result = await api.autoCategorize();
+      setMessage(result.remaining ? `Przypisano ${result.updated}, zostało ${result.remaining} - kliknij jeszcze raz.` : "Gotowe!");
+      loadCategories();
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setSorting(false);
+    }
+  };
+
+  // Pokazujemy tylko kategorie, które mają przepisy (plus aktualnie wybraną)
+  const visible = categories.filter((c) => c.recipe_count > 0 || c.name === category);
 
   return (
     <>
       <header className="topbar">
+        <Link to="/ustawienia" className="link settings-link" aria-label="Ustawienia">
+          ⚙️
+        </Link>
         <h1>Przepisy</h1>
         <Link to="/nowy" className="button small">
           + Ręcznie
@@ -32,6 +64,34 @@ export default function RecipesPage() {
           🥕{ingredients.length ? ` ${ingredients.length}` : ""}
         </button>
       </div>
+      {recipes !== null && (recipes.length > 0 || category || favorites) && (
+        <div className="category-bar">
+          <button type="button" className={`chip ${category === "" && !favorites ? "selected" : ""}`} onClick={() => { setCategory(""); setFavorites(false); }}>
+            Wszystkie
+          </button>
+          <button type="button" className={`chip ${favorites ? "selected" : ""}`} onClick={() => setFavorites(!favorites)}>
+            ❤️ Ulubione
+          </button>
+          {visible.map((c) => (
+            <button key={c.name} type="button" className={`chip ${category === c.name ? "selected" : ""}`} onClick={() => setCategory(category === c.name ? "" : c.name)}>
+              {c.name} <span className="muted">{c.recipe_count}</span>
+            </button>
+          ))}
+          {uncategorized > 0 && (
+            <button type="button" className={`chip ${category === "-" ? "selected" : ""}`} onClick={() => setCategory(category === "-" ? "" : "-")}>
+              Bez kategorii <span className="muted">{uncategorized}</span>
+            </button>
+          )}
+        </div>
+      )}
+      {uncategorized > 0 && aiEnabled && (
+        <p className="small">
+          <button type="button" className="link" disabled={sorting} onClick={autoCategorize}>
+            {sorting ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie automatycznie (${uncategorized} bez kategorii)`}
+          </button>
+        </p>
+      )}
+      {message && <p className="muted small">{message}</p>}
       {(showFilters || ingredients.length > 0) && (
         <section className="box">
           <p className="muted small">Przepisy, które mają wszystkie te składniki:</p>
@@ -42,7 +102,7 @@ export default function RecipesPage() {
         <p className="muted center">Ładowanie…</p>
       ) : recipes.length === 0 ? (
         <p className="muted center">
-          {q || ingredients.length ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
+          {q || ingredients.length || category || favorites ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
         </p>
       ) : (
         <div className="grid">

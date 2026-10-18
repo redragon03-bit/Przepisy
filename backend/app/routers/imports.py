@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import get_db
-from ..models import ImportJob
+from ..models import ImportJob, Recipe
 from ..schemas import ImportJobOut, UrlImportIn
 from ..services.importer import job_upload_dir, run_image_import, run_url_import
 
@@ -24,6 +24,14 @@ def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Dep
     url = data.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "Podaj pełny link, zaczynający się od https://")
+    existing = db.query(Recipe).filter_by(source_url=url).order_by(Recipe.id).first()
+    if existing and not data.force:
+        # Nie importujemy drugi raz - frontend pokaże "już masz" z linkiem i "importuj mimo to"
+        job = ImportJob(kind="url", source=url, status="duplicate", recipe_id=existing.id,
+                        error=f"Ten link jest już w bazie: „{existing.title}”.")
+        db.add(job)
+        db.commit()
+        return job
     job = ImportJob(kind="url", source=url)
     db.add(job)
     db.commit()

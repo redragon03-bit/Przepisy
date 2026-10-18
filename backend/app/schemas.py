@@ -3,7 +3,7 @@
 To nie są tabele bazy (te są w models.py) - to "umowa" z frontendem.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,6 +37,9 @@ class RecipeSummary(BaseModel):
     image_url: str | None
     total_minutes: int | None
     source_type: str
+    categories: list[str]
+    favorite: bool
+    rating: int | None
     created_at: datetime
 
 
@@ -48,6 +51,8 @@ class RecipeOut(RecipeSummary):
     source_url: str
     original_language: str
     notes: str
+    cooked_count: int
+    last_cooked_at: datetime | None
     ingredients: list[IngredientLine]
     steps: list[StepOut]
     # Surowe nazwy plików obrazków kroków - potrzebne formularzowi edycji
@@ -65,6 +70,72 @@ class RecipeIn(BaseModel):
     notes: str = ""
     ingredients: list[IngredientLine] = []
     steps: list[StepIn] = []
+    categories: list[str] = []
+
+
+class RecipePatch(BaseModel):
+    """Szybka zmiana pojedynczych pól bez wysyłania całego formularza."""
+
+    favorite: bool | None = None
+    rating: int | None = Field(default=None, ge=0, le=5, description="0 = usuń ocenę")
+    notes: str | None = None
+
+
+class ShoppingItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    text: str
+    recipes: str
+    checked: bool
+
+
+class ShoppingItemIn(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class ShoppingItemPatch(BaseModel):
+    checked: bool | None = None
+    text: str | None = None
+
+
+class ShoppingFromRecipe(BaseModel):
+    recipe_id: int
+    # Mnożnik ilości, np. 0.5 = połowa porcji (patrz przeliczanie porcji)
+    factor: float = Field(default=1, gt=0, le=20)
+    # Pomija składniki "zawsze w domu" (sól, woda...)
+    skip_staples: bool = True
+
+
+class ShoppingFromPlan(BaseModel):
+    start: date
+    end: date
+    skip_staples: bool = True
+
+
+class ShoppingResult(BaseModel):
+    added: int
+
+
+class MealPlanIn(BaseModel):
+    day: date
+    recipe_id: int
+
+
+class MealPlanOut(BaseModel):
+    id: int
+    day: date
+    recipe: "RecipeSummary"
+
+
+class CategoryOut(BaseModel):
+    name: str
+    recipe_count: int
+
+
+class AutoCategorizeOut(BaseModel):
+    updated: int = Field(description="Ilu przepisom AI przypisało kategorie")
+    remaining: int = Field(description="Ile przepisów nadal nie ma kategorii")
 
 
 class IngredientOut(BaseModel):
@@ -97,6 +168,8 @@ class CookMatch(BaseModel):
 
 class UrlImportIn(BaseModel):
     url: str
+    # True = importuj, nawet jeśli przepis z tego linku już jest w bazie
+    force: bool = False
 
 
 class ImportJobOut(BaseModel):
@@ -122,3 +195,5 @@ class AuthStatus(BaseModel):
     ai_enabled: bool
     # "anthropic", "gemini" albo None (AI wyłączone)
     ai_provider: str | None
+    # Czy lista zakupów może być wysłana do Home Assistant
+    ha_enabled: bool

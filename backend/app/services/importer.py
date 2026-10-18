@@ -16,6 +16,7 @@ from ..config import get_settings
 from ..database import SessionLocal
 from ..models import ImportJob, Recipe, RecipeIngredient, Step
 from . import ai, fetcher, images, scraper
+from .categories import category_names, set_categories
 from .ingredients import get_or_create_ingredient, guess_ingredient_name
 
 log = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def _save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url
         # To samo zdjęcie co główne nie powtarza się przy kroku
         image = load_image(source) if source is not None and source != main else None
         recipe.steps.append(Step(position=position, text=step.text, image=image))
+    set_categories(db, recipe, data.categories)
     db.add(recipe)
     return recipe
 
@@ -121,7 +123,7 @@ def _import_url(db: Session, job: ImportJob) -> list[Recipe]:
         # przepisu nie skasowało zdjęcia drugiemu
         return [
             _save_ai_recipe(db, data, "url", job.source, page.image_urls, images.download_image)
-            for data in ai.recipes_from_page(page)
+            for data in ai.recipes_from_page(page, category_names(db))
         ]
     if page.recipe:
         return [_save_scraped_recipe(db, page.recipe, job.source)]
@@ -142,7 +144,7 @@ def _import_images(db: Session, job: ImportJob) -> list[Recipe]:
     raw = [f.read_bytes() for f in sorted(folder.iterdir())]
     recipes = [
         _save_ai_recipe(db, data, "image", "", raw, images.save_image_bytes)
-        for data in ai.recipes_from_images([images.image_for_ai(b) for b in raw])
+        for data in ai.recipes_from_images([images.image_for_ai(b) for b in raw], category_names(db))
     ]
     # Zdjęcia usuwamy dopiero po udanym imporcie, żeby nieudany dało się ponowić
     shutil.rmtree(folder, ignore_errors=True)
