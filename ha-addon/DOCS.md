@@ -3,8 +3,13 @@
 ## Opcje
 
 - **app_password** - hasło do aplikacji. Ustaw koniecznie, jeśli aplikacja będzie dostępna spoza domu.
-- **anthropic_api_key** - klucz API z https://console.anthropic.com (bez niego nie działa tłumaczenie ani import ze zdjęć).
-- **claude_model** - model AI. Domyślny `claude-opus-5-5`; tańszy: `claude-haiku-5-5`.
+- **ai_provider** - które AI czyta przepisy: `auto` (to, do którego podasz klucz), `gemini` albo `anthropic`.
+- **gemini_api_key** - klucz z https://aistudio.google.com (ma darmowy limit).
+- **gemini_model** - model Gemini. Domyślny `gemini-flash-latest`.
+- **anthropic_api_key** - klucz z https://console.anthropic.com (płatny za użycie).
+- **claude_model** - model Claude. Domyślny `claude-opus-5-5`; tańszy: `claude-haiku-5-5`.
+
+Bez żadnego klucza nie działa tłumaczenie ani import ze zdjęć.
 
 ## Jak otworzyć
 

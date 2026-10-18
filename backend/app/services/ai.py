@@ -1,15 +1,23 @@
-"""Rozmowa z Claude (AI firmy Anthropic).
+"""Rozmowa z AI: Claude (Anthropic) albo Gemini (Google).
 
+Który dostawca jest używany, decyduje ustawienie AI_PROVIDER (patrz config.py).
 AI dostaje surowy przepis (dane ze strony, tekst strony albo zdjęcia)
 i zwraca uporządkowany przepis po polsku, w miarach metrycznych.
-Odpowiedź ma ściśle określony format (klasa AiRecipe) - SDK pilnuje,
-żeby AI zwróciło poprawny JSON, i od razu zamienia go na obiekt Pythona.
+Odpowiedź ma ściśle określony format (klasa AiRecipe) - SDK obu dostawców
+pilnuje, żeby AI zwróciło poprawny JSON, i zamienia go na obiekt Pythona.
+
+Treść wysyłana do AI to lista elementów: tekst (str) albo obrazek JPEG (bytes).
+Funkcje _ask_claude i _ask_gemini zamieniają ją na format danego dostawcy.
 """
 
+import base64
 import json
 from dataclasses import asdict
 
 import anthropic
+from google import genai
+from google.genai import errors as genai_errors
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
@@ -68,22 +76,28 @@ class AiError(Exception):
     """Komunikat pokazywany użytkownikowi."""
 
 
-def _client() -> anthropic.Anthropic:
+# Element treści dla AI: tekst albo obrazek JPEG
+Content = list[str | bytes]
+
+
+def _ask_claude(content: Content) -> AiRecipe:
     settings = get_settings()
-    if not settings.ai_enabled:
-        raise AiError("Brak klucza API Anthropic - ustaw ANTHROPIC_API_KEY, żeby używać AI.")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
-
-def _ask(content: list[dict]) -> AiRecipe:
+    blocks = [
+        {"type": "text", "text": item} if isinstance(item, str) else {
+            "type": "image",
+            "source": {"type": "base64", "media_type": "image/jpeg",
+                       "data": base64.standard_b64encode(item).decode("ascii")},
+        }
+        for item in content
+    ]
     try:
-        response = _client().messages.parse(
-            model=get_settings().claude_model,
+        response = anthropic.Anthropic(api_key=settings.anthropic_api_key).messages.parse(
+            model=settings.claude_model,
             max_tokens=16000,
             system=SYSTEM_PROMPT,
             # Przepisanie przepisu nie wymaga długiego myślenia - "low" jest szybsze i tańsze
             output_config={"effort": "low"},
-            messages=[{"role": "user", "content": content}],
+            messages=[{"role": "user", "content": blocks}],
             output_format=AiRecipe,
         )
     except anthropic.AuthenticationError as exc:
@@ -99,7 +113,50 @@ def _ask(content: list[dict]) -> AiRecipe:
         raise AiError("AI odmówiło przetworzenia tego materiału.")
     if response.stop_reason == "max_tokens" or response.parsed_output is None:
         raise AiError("AI nie dokończyło odpowiedzi - przepis jest za długi.")
-    recipe = response.parsed_output
+    return response.parsed_output
+
+
+def _ask_gemini(content: Content) -> AiRecipe:
+    settings = get_settings()
+    parts = [
+        item if isinstance(item, str) else genai_types.Part.from_bytes(data=item, mime_type="image/jpeg")
+        for item in content
+    ]
+    # Klient musi być w zmiennej - utworzony "w locie" zostaje sprzątnięty
+    # przez Pythona (i zamyka połączenie), zanim zapytanie się wykona
+    client = genai.Client(api_key=settings.gemini_api_key)
+    try:
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=parts,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_schema=AiRecipe,
+            ),
+        )
+    except genai_errors.ClientError as exc:
+        if exc.code == 429:
+            raise AiError("Wyczerpany limit zapytań do Gemini - spróbuj za chwilę.") from exc
+        if exc.code in (401, 403) or "API key" in str(exc):
+            raise AiError("Nieprawidłowy klucz API Gemini.") from exc
+        raise AiError(f"Błąd AI: {exc.message}") from exc
+    except genai_errors.APIError as exc:
+        raise AiError(f"Błąd AI: {exc.message}") from exc
+
+    if not isinstance(response.parsed, AiRecipe):
+        raise AiError("AI nie zwróciło poprawnego przepisu - spróbuj jeszcze raz.")
+    return response.parsed
+
+
+def _ask(content: Content) -> AiRecipe:
+    provider = get_settings().active_ai_provider
+    if provider == "anthropic":
+        recipe = _ask_claude(content)
+    elif provider == "gemini":
+        recipe = _ask_gemini(content)
+    else:
+        raise AiError("Brak klucza API do AI - ustaw ANTHROPIC_API_KEY albo GEMINI_API_KEY.")
     if not recipe.is_recipe:
         raise AiError("Nie znaleziono przepisu w tym materiale.")
     return recipe
@@ -124,18 +181,16 @@ def recipe_from_page(page: PageContent) -> AiRecipe:
         f"Adres strony: {page.url}\n\n{material}\n\n"
         f"Obrazki ze strony (numer: adres):\n{_image_list(page.image_urls)}"
     )
-    return _ask([{"type": "text", "text": text}])
+    return _ask([text])
 
 
-def recipe_from_images(image_blocks: list[dict]) -> AiRecipe:
-    """Przepis ze zdjęć/screenów. Obrazki są numerowane w kolejności wysłania."""
-    content: list[dict] = []
-    for i, block in enumerate(image_blocks):
-        content.append({"type": "text", "text": f"Obrazek {i}:"})
-        content.append(block)
-    content.append({
-        "type": "text",
-        "text": "Odczytaj przepis z powyższych obrazków (to mogą być screeny kolejnych części "
-        "jednego przepisu). Jeśli któryś obrazek to zdjęcie gotowego dania, wskaż go jako główny.",
-    })
+def recipe_from_images(jpegs: list[bytes]) -> AiRecipe:
+    """Przepis ze zdjęć/screenów (JPEG). Obrazki są numerowane w kolejności wysłania."""
+    content: Content = []
+    for i, jpeg in enumerate(jpegs):
+        content += [f"Obrazek {i}:", jpeg]
+    content.append(
+        "Odczytaj przepis z powyższych obrazków (to mogą być screeny kolejnych części "
+        "jednego przepisu). Jeśli któryś obrazek to zdjęcie gotowego dania, wskaż go jako główny."
+    )
     return _ask(content)

@@ -4,7 +4,6 @@ Każdy obrazek zmniejszamy (max 1600 px) i zapisujemy jako JPEG o losowej
 nazwie w folderze `data/images`. W bazie trzymamy tylko nazwę pliku.
 """
 
-import base64
 import io
 import uuid
 
@@ -49,14 +48,6 @@ def delete_image(filename: str | None) -> None:
         (get_settings().images_dir / filename).unlink(missing_ok=True)
 
 
-def image_for_ai(data: bytes) -> dict:
-    """Zamienia obrazek na blok, który można wysłać do Claude."""
-    jpeg = _to_jpeg(data, AI_MAX_SIZE)
-    return {
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": "image/jpeg",
-            "data": base64.standard_b64encode(jpeg).decode("ascii"),
-        },
-    }
+def image_for_ai(data: bytes) -> bytes:
+    """Zmniejsza obrazek przed wysłaniem do AI i zwraca go jako JPEG."""
+    return _to_jpeg(data, AI_MAX_SIZE)

@@ -18,6 +18,9 @@ HA_OPTION_TO_ENV = {
     "app_password": "APP_PASSWORD",
     "anthropic_api_key": "ANTHROPIC_API_KEY",
     "claude_model": "CLAUDE_MODEL",
+    "ai_provider": "AI_PROVIDER",
+    "gemini_api_key": "GEMINI_API_KEY",
+    "gemini_model": "GEMINI_MODEL",
 }
 
 
@@ -41,9 +44,16 @@ class Settings(BaseSettings):
     app_password: str = ""
     # Klucz do podpisywania ciasteczka sesji. Puste = wygeneruj i zapisz w data_dir.
     secret_key: str = ""
-    # Klucz API Anthropic. Puste = import działa bez AI (bez tłumaczenia i screenów).
+    # Który AI używać: "anthropic" (Claude), "gemini" (Google) albo "auto"
+    # (auto = ten, do którego podano klucz; gdy oba, to Claude).
+    # Bez żadnego klucza import działa bez AI (bez tłumaczenia i screenów).
+    ai_provider: str = "auto"
     anthropic_api_key: str = ""
     claude_model: str = "claude-opus-5-5"
+    # Klucz z https://aistudio.google.com (ma darmowy limit zapytań)
+    gemini_api_key: str = ""
+    # "-latest" = zawsze aktualny model Flash, nie trzeba zmieniać po premierach
+    gemini_model: str = "gemini-flash-latest"
     # Folder ze zbudowanym frontendem (frontend/dist). Puste = nie serwujemy frontendu.
     static_dir: Path | None = None
 
@@ -60,8 +70,16 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def active_ai_provider(self) -> str | None:
+        """'anthropic', 'gemini' albo None, gdy brakuje klucza do wybranego AI."""
+        keys = {"anthropic": self.anthropic_api_key, "gemini": self.gemini_api_key}
+        if self.ai_provider in keys:
+            return self.ai_provider if keys[self.ai_provider] else None
+        return next((name for name, key in keys.items() if key), None)
+
+    @property
     def ai_enabled(self) -> bool:
-        return bool(self.anthropic_api_key)
+        return self.active_ai_provider is not None
 
 
 @lru_cache

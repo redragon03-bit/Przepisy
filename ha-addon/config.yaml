@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
 name: Przepisy
-version: "0.1.0"
+version: "0.2.0"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -19,9 +19,15 @@ ports_description:
 webui: "http://[HOST]:[PORT:8000]"
 options:
   app_password: ""
+  ai_provider: auto
+  gemini_api_key: ""
+  gemini_model: gemini-flash-latest
   anthropic_api_key: ""
   claude_model: claude-opus-5-5
 schema:
   app_password: password
+  ai_provider: list(auto|gemini|anthropic)
+  gemini_api_key: password
+  gemini_model: str
   anthropic_api_key: password
   claude_model: str

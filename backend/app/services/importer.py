@@ -118,7 +118,7 @@ def _import_url(db: Session, job: ImportJob) -> Recipe:
         return _save_scraped_recipe(db, page.recipe, job.source)
     raise ai.AiError(
         "Ta strona nie ma danych przepisu w standardowym formacie. "
-        "Bez klucza API Anthropic nie da się jej odczytać."
+        "Bez klucza API do AI (Anthropic albo Gemini) nie da się jej odczytać."
     )
 
 

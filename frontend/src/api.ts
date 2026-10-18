@@ -71,6 +71,7 @@ export interface AuthStatus {
   authenticated: boolean;
   auth_required: boolean;
   ai_enabled: boolean;
+  ai_provider: "anthropic" | "gemini" | null;
 }
 
 export class ApiError extends Error {
