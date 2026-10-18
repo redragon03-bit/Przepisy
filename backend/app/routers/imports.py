@@ -1,0 +1,67 @@
+"""API importu: link albo zdjęcia -> zadanie w tle -> przepis.
+
+Frontend wysyła link/zdjęcia, dostaje od razu numer zadania i co kilka
+sekund pyta o jego status (GET /api/imports/{id}).
+"""
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+
+from ..auth import require_auth
+from ..database import get_db
+from ..models import ImportJob
+from ..schemas import ImportJobOut, UrlImportIn
+from ..services.importer import job_upload_dir, run_image_import, run_url_import
+
+router = APIRouter(prefix="/api/imports", tags=["import"], dependencies=[Depends(require_auth)])
+
+MAX_FILES = 10
+MAX_FILE_BYTES = 20 * 1024 * 1024
+
+
+@router.post("/url", response_model=ImportJobOut, status_code=202)
+def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    url = data.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "Podaj pełny link, zaczynający się od https://")
+    job = ImportJob(kind="url", source=url)
+    db.add(job)
+    db.commit()
+    background.add_task(run_url_import, job.id)
+    return job
+
+
+@router.post("/images", response_model=ImportJobOut, status_code=202)
+def import_images(
+    background: BackgroundTasks,
+    files: list[UploadFile] = File(description="Zdjęcia/screeny jednego przepisu"),
+    db: Session = Depends(get_db),
+):
+    if not files or len(files) > MAX_FILES:
+        raise HTTPException(400, f"Wybierz od 1 do {MAX_FILES} zdjęć")
+    job = ImportJob(kind="image", source=", ".join(f.filename or "zdjęcie" for f in files))
+    db.add(job)
+    db.commit()
+    folder = job_upload_dir(job.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    for index, upload in enumerate(files):
+        data = upload.file.read()
+        if len(data) > MAX_FILE_BYTES:
+            raise HTTPException(400, f"Plik {upload.filename} jest za duży (max 20 MB)")
+        # Numer z przodu zachowuje kolejność zdjęć
+        (folder / f"{index:02d}").write_bytes(data)
+    background.add_task(run_image_import, job.id)
+    return job
+
+
+@router.get("", response_model=list[ImportJobOut])
+def list_imports(db: Session = Depends(get_db)):
+    return db.query(ImportJob).order_by(ImportJob.id.desc()).limit(20).all()
+
+
+@router.get("/{job_id}", response_model=ImportJobOut)
+def get_import(job_id: int, db: Session = Depends(get_db)):
+    job = db.get(ImportJob, job_id)
+    if job is None:
+        raise HTTPException(404, "Nie ma takiego importu")
+    return job

@@ -1,0 +1,100 @@
+"""Tabele w bazie danych.
+
+Przepis (Recipe) ma listę kroków (Step) i listę składników (RecipeIngredient).
+Każdy RecipeIngredient wskazuje na Ingredient - to "kanoniczna" nazwa
+składnika, np. "pomidor". Dzięki temu "2 duże pomidory" i "400 g pomidorów"
+to ten sam składnik przy wyszukiwaniu.
+"""
+
+from datetime import datetime
+
+from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .database import Base
+
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    servings: Mapped[str] = mapped_column(String(100), default="")
+    prep_minutes: Mapped[int | None]
+    cook_minutes: Mapped[int | None]
+    total_minutes: Mapped[int | None]
+    # "url", "image" albo "manual"
+    source_type: Mapped[str] = mapped_column(String(20), default="manual")
+    source_url: Mapped[str] = mapped_column(String(2000), default="")
+    # Język oryginału, np. "en". Pusty = nie wiadomo.
+    original_language: Mapped[str] = mapped_column(String(10), default="")
+    # Nazwa pliku w folderze images (nie pełna ścieżka)
+    image: Mapped[str | None] = mapped_column(String(200))
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    steps: Mapped[list["Step"]] = relationship(
+        back_populates="recipe", cascade="all, delete-orphan", order_by="Step.position"
+    )
+    ingredients: Mapped[list["RecipeIngredient"]] = relationship(
+        back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeIngredient.position"
+    )
+
+
+class Step(Base):
+    __tablename__ = "steps"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    position: Mapped[int]
+    text: Mapped[str] = mapped_column(Text)
+    image: Mapped[str | None] = mapped_column(String(200))
+
+    recipe: Mapped[Recipe] = relationship(back_populates="steps")
+
+
+class Ingredient(Base):
+    __tablename__ = "ingredients"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Zawsze małymi literami, w mianowniku liczby pojedynczej, np. "mąka pszenna"
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+    # Podstawowe składniki (sól, woda...) ignorowane przy "co mogę ugotować"
+    is_staple: Mapped[bool] = mapped_column(default=False)
+
+
+class RecipeIngredient(Base):
+    __tablename__ = "recipe_ingredients"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"))
+    position: Mapped[int]
+    # Linijka do wyświetlenia, np. "200 g mąki pszennej"
+    text: Mapped[str] = mapped_column(String(500))
+    amount: Mapped[float | None]
+    unit: Mapped[str] = mapped_column(String(30), default="")
+    # Linijka ze źródła przed tłumaczeniem, np. "1 1/2 cups all-purpose flour"
+    original_text: Mapped[str] = mapped_column(String(500), default="")
+
+    recipe: Mapped[Recipe] = relationship(back_populates="ingredients")
+    ingredient: Mapped[Ingredient] = relationship(lazy="joined")
+
+
+class ImportJob(Base):
+    """Jedno zlecenie importu (z linku albo zdjęć). Działa w tle."""
+
+    __tablename__ = "import_jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # "url" albo "image"
+    kind: Mapped[str] = mapped_column(String(20))
+    # Link albo lista nazw plików oddzielona przecinkami
+    source: Mapped[str] = mapped_column(String(2000))
+    # "pending" -> "running" -> "done" albo "failed"
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    error: Mapped[str] = mapped_column(Text, default="")
+    recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipes.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

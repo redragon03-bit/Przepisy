@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# Dane aplikacji (baza, obrazki) - nie trzymamy ich w repo
+data/
+.env
+# Frontend
+node_modules/
+frontend/dist/
