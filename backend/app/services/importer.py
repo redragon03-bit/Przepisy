@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..database import SessionLocal
 from ..models import ImportJob, Recipe, RecipeIngredient, Step
-from . import ai, fetcher, images, scraper
+from . import ai, fetcher, image_search, images, scraper
 from .categories import category_names, set_categories
 from .ingredients import get_or_create_ingredient, guess_ingredient_name
 
@@ -88,6 +88,20 @@ def _save_scraped_recipe(db: Session, data: scraper.ScrapedRecipe, url: str) -> 
     return recipe
 
 
+def _add_missing_images(db: Session, recipes: list[Recipe]) -> None:
+    """Przepisom bez zdjęcia szukamy zdjęcia w internecie (już po zakończeniu importu)."""
+    if not get_settings().ai_enabled:
+        return
+    for recipe in recipes:
+        if recipe.image is None:
+            try:
+                if image_search.attach_best(recipe):
+                    db.commit()
+            except Exception:  # zdjęcie to dodatek - błąd nie psuje importu
+                log.exception("Szukanie zdjęcia dla przepisu %s", recipe.id)
+                db.rollback()
+
+
 def _run(job_id: int, work) -> None:
     """Wspólna obsługa statusu zadania: running -> done/failed.
 
@@ -104,6 +118,7 @@ def _run(job_id: int, work) -> None:
             job.recipe_count = len(recipes)
             job.status = "done"
             db.commit()
+            _add_missing_images(db, recipes)
         except (fetcher.FetchError, ai.AiError) as exc:
             db.rollback()
             job.status, job.error = "failed", str(exc)

@@ -29,6 +29,8 @@ export default function RecipePage() {
   const [now, setNow] = useState(Date.now());
   const [planDay, setPlanDay] = useState("");
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<string[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,6 +101,29 @@ export default function RecipePage() {
     if (file) setRecipe(await api.uploadRecipeImage(recipe.id, file));
   };
 
+  const searchImages = async () => {
+    setSearching(true);
+    setCandidates(null);
+    try {
+      const found = await api.imageCandidates(recipe.id);
+      setCandidates(found);
+      if (!found.length) flash("Nie znalazłem pasujących zdjęć.");
+    } catch (e) {
+      flash((e as Error).message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pickImage = async (url: string) => {
+    try {
+      setRecipe(await api.setImageFromUrl(recipe.id, url));
+      setCandidates(null);
+    } catch (e) {
+      flash((e as Error).message);
+    }
+  };
+
   const startTimer = (label: string, seconds: number) => {
     unlockSound();
     setNow(Date.now());
@@ -143,7 +168,28 @@ export default function RecipePage() {
         </Link>
       </header>
 
-      {recipe.image_url && <img className="hero" src={recipe.image_url} alt="" />}
+      {recipe.image_url ? (
+        <img className="hero" src={recipe.image_url} alt="" />
+      ) : (
+        <button type="button" className="hero-placeholder" disabled={searching} onClick={searchImages}>
+          {searching ? "Szukam zdjęć w internecie…" : "🔍 Znajdź zdjęcie w internecie"}
+        </button>
+      )}
+      {candidates && candidates.length > 0 && (
+        <section className="box">
+          <p className="small muted">Stuknij zdjęcie, które pasuje:</p>
+          <div className="candidates">
+            {candidates.map((url) => (
+              <button key={url} type="button" onClick={() => pickImage(url)}>
+                <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />
+              </button>
+            ))}
+          </div>
+          <button type="button" className="link small" onClick={() => setCandidates(null)}>
+            Żadne nie pasuje
+          </button>
+        </section>
+      )}
       <h1>{recipe.title}</h1>
       {recipe.categories.length > 0 && (
         <div className="chips">
@@ -294,6 +340,11 @@ export default function RecipePage() {
         <button type="button" onClick={() => photoInput.current?.click()}>
           Zmień zdjęcie
         </button>
+        {recipe.image_url && (
+          <button type="button" disabled={searching} onClick={searchImages}>
+            {searching ? "Szukam…" : "🔍 Znajdź inne zdjęcie w internecie"}
+          </button>
+        )}
         <input ref={photoInput} type="file" accept="image/*" hidden onChange={(e) => changePhoto(e.target.files?.[0])} />
         <button type="button" className="danger" onClick={remove}>
           Usuń przepis

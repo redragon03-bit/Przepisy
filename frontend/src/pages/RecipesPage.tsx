@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, Category, RecipeSummary } from "../api";
+import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
 
@@ -16,6 +16,22 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
   const [sorting, setSorting] = useState(false);
   const [message, setMessage] = useState("");
+  const [images, setImages] = useState<ImageSearchProgress | null>(null);
+
+  useEffect(() => {
+    api.imageSearchStatus().then(setImages);
+  }, []);
+
+  // W trakcie szukania zdjęć co 3 sekundy odświeżamy postęp i listę (nowe zdjęcia)
+  useEffect(() => {
+    if (!images?.running) return;
+    const timer = setInterval(async () => {
+      const status = await api.imageSearchStatus();
+      setImages(status);
+      api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [images?.running, q, ingredients, category, favorites]);
 
   const loadCategories = () => {
     api.listCategories().then(setCategories);
@@ -89,6 +105,19 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           <button type="button" className="link" disabled={sorting} onClick={autoCategorize}>
             {sorting ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie automatycznie (${uncategorized} bez kategorii)`}
           </button>
+        </p>
+      )}
+      {aiEnabled && images && (images.running || images.missing > 0) && (
+        <p className="small">
+          {images.running ? (
+            <span className="muted">
+              🔍 Szukam zdjęć… {images.done}/{images.total} (znalezione: {images.found})
+            </span>
+          ) : (
+            <button type="button" className="link" onClick={async () => setImages(await api.startImageSearch())}>
+              🔍 Znajdź zdjęcia w internecie ({images.missing} bez zdjęcia)
+            </button>
+          )}
         </p>
       )}
       {message && <p className="muted small">{message}</p>}
