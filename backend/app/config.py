@@ -21,6 +21,7 @@ HA_OPTION_TO_ENV = {
     "ai_provider": "AI_PROVIDER",
     "gemini_api_key": "GEMINI_API_KEY",
     "gemini_model": "GEMINI_MODEL",
+    "gemini_fallback_model": "GEMINI_FALLBACK_MODEL",
 }
 
 
@@ -55,6 +56,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     # "-latest" = zawsze aktualny model Flash, nie trzeba zmieniać po premierach
     gemini_model: str = "gemini-flash-latest"
+    # Model próbowany, gdy główny jest przeciążony. Puste = bez zapasowego.
+    gemini_fallback_model: str = "gemini-flash-lite-latest"
     # Folder ze zbudowanym frontendem (frontend/dist). Puste = nie serwujemy frontendu.
     static_dir: Path | None = None
 

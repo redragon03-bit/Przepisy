@@ -64,6 +64,7 @@ export interface ImportJob {
   status: "pending" | "running" | "done" | "failed";
   error: string;
   recipe_id: number | null;
+  recipe_count: number;
   created_at: string;
 }
 
@@ -151,6 +152,7 @@ export const api = {
   },
   listImports: () => request<ImportJob[]>("GET", "/api/imports"),
   getImport: (id: number) => request<ImportJob>("GET", `/api/imports/${id}`),
+  retryImport: (id: number) => request<ImportJob>("POST", `/api/imports/${id}/retry`),
 };
 
 export function formatMinutes(minutes: number | null): string {

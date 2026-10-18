@@ -9,6 +9,13 @@ const STATUS_LABEL: Record<ImportJob["status"], string> = {
   failed: "❌ nie udało się",
 };
 
+// Polska odmiana: 2-4 przepisy, 5-21 przepisów, 22-24 przepisy...
+function recipesWord(n: number): string {
+  const last = n % 10;
+  const lastTwo = n % 100;
+  return last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? "przepisy" : "przepisów";
+}
+
 function findUrl(text: string): string {
   return text.match(/https?:\/\/\S+/)?.[0] ?? "";
 }
@@ -59,6 +66,16 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
     const timer = setInterval(refresh, 2000);
     return () => clearInterval(timer);
   }, [working]);
+
+  const retry = async (id: number) => {
+    setError("");
+    try {
+      await api.retryImport(id);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
 
   const paste = async () => {
     try {
@@ -136,7 +153,13 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
                 <div className="job-source">{job.kind === "url" ? job.source : `📷 ${job.source}`}</div>
                 <div className="small">
                   {STATUS_LABEL[job.status]}
-                  {job.status === "done" && job.recipe_id && (
+                  {job.status === "done" && job.recipe_count > 1 && (
+                    <>
+                      {" · "}
+                      <Link to="/">{job.recipe_count} {recipesWord(job.recipe_count)} - zobacz listę</Link>
+                    </>
+                  )}
+                  {job.status === "done" && job.recipe_count <= 1 && job.recipe_id && (
                     <>
                       {" · "}
                       <Link to={`/przepis/${job.recipe_id}`}>otwórz przepis</Link>
@@ -144,6 +167,11 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
                   )}
                 </div>
                 {job.error && <div className="error small">{job.error}</div>}
+                {job.status === "failed" && (
+                  <button className="small-button" onClick={() => retry(job.id)}>
+                    Ponów
+                  </button>
+                )}
               </li>
             ))}
           </ul>

@@ -47,6 +47,14 @@ Telefon (Safari / PWA)  ──HTTP(S)──▶  Jeden kontener Docker (port 8000
    i zdjęć kroków.
 4. Pobieramy wybrane zdjęcia (`images.py`) i zapisujemy wszystko w bazie.
 
+Jedna strona może mieć **kilka przepisów** (np. „6 deserów chia”). AI zwraca wtedy listę
+(`AiResult.recipes`), a każdy przepis trafia do bazy osobno.
+
+Gdy **Gemini jest przeciążony** (błąd 503 „high demand”), `ai.py` ponawia zapytanie dwa razy
+(po 2 i 6 s), a potem próbuje modelu zapasowego (`GEMINI_FALLBACK_MODEL`). Jeśli i to
+zawiedzie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
+Zdjęcia z nieudanego importu czekają na ponowienie 7 dni.
+
 **Bez klucza AI** aplikacja też działa, ale tylko dla stron z danymi schema.org i bez
 tłumaczenia; import ze zdjęć wymaga AI.
 
@@ -111,6 +119,7 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `AI_PROVIDER`       | `auto` (ten, do którego jest klucz), `gemini` albo `anthropic`    | `auto`            |
 | `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
+| `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
 | `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
@@ -268,8 +277,9 @@ Przykład: chcesz dodać do przepisu **ocenę w gwiazdkach (1–5)**.
    ```python
    rating: Mapped[int | None]
    ```
-   SQLite nie doda kolumny do istniejącej tabeli samo. Na początku najprościej:
-   `sqlite3 data/przepisy.db "ALTER TABLE recipes ADD COLUMN rating INTEGER;"`.
+   SQLite nie doda kolumny do istniejącej tabeli samo, więc dopisz ją też do listy
+   `ADDED_COLUMNS` w `backend/app/database.py`:
+   `("recipes", "rating", "INTEGER")`. Przy starcie aplikacja doda brakującą kolumnę.
    (Przy większej liczbie zmian warto dodać narzędzie do migracji, np. Alembic.)
 2. **API** – `backend/app/schemas.py`: dodaj `rating: int | None = None` do `RecipeIn`
    i `rating: int | None` do `RecipeOut`.

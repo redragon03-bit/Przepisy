@@ -3,7 +3,7 @@
 Który dostawca jest używany, decyduje ustawienie AI_PROVIDER (patrz config.py).
 AI dostaje surowy przepis (dane ze strony, tekst strony albo zdjęcia)
 i zwraca uporządkowany przepis po polsku, w miarach metrycznych.
-Odpowiedź ma ściśle określony format (klasa AiRecipe) - SDK obu dostawców
+Odpowiedź ma ściśle określony format (klasa AiResult z listą AiRecipe) - SDK obu dostawców
 pilnuje, żeby AI zwróciło poprawny JSON, i zamienia go na obiekt Pythona.
 
 Treść wysyłana do AI to lista elementów: tekst (str) albo obrazek JPEG (bytes).
@@ -12,6 +12,8 @@ Funkcje _ask_claude i _ask_gemini zamieniają ją na format danego dostawcy.
 
 import base64
 import json
+import logging
+import time
 from dataclasses import asdict
 
 import anthropic
@@ -22,6 +24,8 @@ from pydantic import BaseModel, Field
 
 from ..config import get_settings
 from .scraper import PageContent
+
+log = logging.getLogger(__name__)
 
 
 class AiIngredient(BaseModel):
@@ -41,7 +45,6 @@ class AiStep(BaseModel):
 
 
 class AiRecipe(BaseModel):
-    is_recipe: bool = Field(description="false, gdy w materiale nie ma przepisu")
     title: str
     description: str = Field(description="1-2 zdania o daniu po polsku, albo ''")
     servings: str = Field(description="np. '4 porcje', albo ''")
@@ -52,6 +55,12 @@ class AiRecipe(BaseModel):
     ingredients: list[AiIngredient]
     steps: list[AiStep]
     main_image_index: int | None = Field(description="Numer obrazka ze zdjęciem gotowego dania, albo null")
+
+
+class AiResult(BaseModel):
+    """Odpowiedź AI: lista przepisów (strona może mieć ich kilka, np. "6 deserów")."""
+
+    recipes: list[AiRecipe] = Field(description="Wszystkie przepisy z materiału; pusta lista, gdy nie ma żadnego")
 
 
 SYSTEM_PROMPT = """Jesteś asystentem kulinarnym. Z materiału od użytkownika wyciągasz przepis \
@@ -69,7 +78,10 @@ Nie wymyślaj kroków, których nie ma w źródle.
 - Nie dodawaj składników, których nie ma w źródle.
 - Obrazki są ponumerowane od 0. Wskaż zdjęcie gotowego dania i - jeśli są - zdjęcia \
 pokazujące konkretne kroki. Gdy nie masz pewności, daj null.
-- Jeśli materiał nie zawiera przepisu, ustaw is_recipe=false i zostaw resztę pustą."""
+- Jeśli materiał zawiera kilka osobnych przepisów (np. "5 pomysłów na..."), zwróć każdy \
+jako osobny element listy recipes, z jego własnymi składnikami i krokami. Wspólne kroki \
+(np. przygotowanie bazy) dopisz do każdego przepisu, który ich wymaga.
+- Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes."""
 
 
 class AiError(Exception):
@@ -80,7 +92,7 @@ class AiError(Exception):
 Content = list[str | bytes]
 
 
-def _ask_claude(content: Content) -> AiRecipe:
+def _ask_claude(content: Content) -> AiResult:
     settings = get_settings()
     blocks = [
         {"type": "text", "text": item} if isinstance(item, str) else {
@@ -98,7 +110,7 @@ def _ask_claude(content: Content) -> AiRecipe:
             # Przepisanie przepisu nie wymaga długiego myślenia - "low" jest szybsze i tańsze
             output_config={"effort": "low"},
             messages=[{"role": "user", "content": blocks}],
-            output_format=AiRecipe,
+            output_format=AiResult,
         )
     except anthropic.AuthenticationError as exc:
         raise AiError("Nieprawidłowy klucz API Anthropic.") from exc
@@ -116,7 +128,36 @@ def _ask_claude(content: Content) -> AiRecipe:
     return response.parsed_output
 
 
-def _ask_gemini(content: Content) -> AiRecipe:
+# Przerwy przed kolejnymi próbami, gdy Gemini jest przeciążony (sekundy)
+GEMINI_RETRY_DELAYS = [2, 6]
+
+
+def _is_temporary(exc: genai_errors.APIError) -> bool:
+    """Przeciążenie (503) albo chwilowy limit (429) - warto spróbować ponownie."""
+    return isinstance(exc, genai_errors.ServerError) or exc.code == 429
+
+
+def _gemini_once(client: genai.Client, model: str, parts: list) -> AiResult:
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=parts,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_schema=AiResult,
+            ),
+        )
+    except genai_errors.ClientError as exc:
+        if exc.code in (401, 403) or "API key" in str(exc):
+            raise AiError("Nieprawidłowy klucz API Gemini.") from exc
+        raise
+    if not isinstance(response.parsed, AiResult):
+        raise AiError("AI nie zwróciło poprawnego przepisu - spróbuj jeszcze raz.")
+    return response.parsed
+
+
+def _ask_gemini(content: Content) -> AiResult:
     settings = get_settings()
     parts = [
         item if isinstance(item, str) else genai_types.Part.from_bytes(data=item, mime_type="image/jpeg")
@@ -125,41 +166,39 @@ def _ask_gemini(content: Content) -> AiRecipe:
     # Klient musi być w zmiennej - utworzony "w locie" zostaje sprzątnięty
     # przez Pythona (i zamyka połączenie), zanim zapytanie się wykona
     client = genai.Client(api_key=settings.gemini_api_key)
-    try:
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=parts,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                response_mime_type="application/json",
-                response_schema=AiRecipe,
-            ),
-        )
-    except genai_errors.ClientError as exc:
-        if exc.code == 429:
-            raise AiError("Wyczerpany limit zapytań do Gemini - spróbuj za chwilę.") from exc
-        if exc.code in (401, 403) or "API key" in str(exc):
-            raise AiError("Nieprawidłowy klucz API Gemini.") from exc
-        raise AiError(f"Błąd AI: {exc.message}") from exc
-    except genai_errors.APIError as exc:
-        raise AiError(f"Błąd AI: {exc.message}") from exc
-
-    if not isinstance(response.parsed, AiRecipe):
-        raise AiError("AI nie zwróciło poprawnego przepisu - spróbuj jeszcze raz.")
-    return response.parsed
+    # Najpierw główny model kilka razy, potem zapasowy (zwykle mniej obciążony)
+    attempts = [settings.gemini_model] * (len(GEMINI_RETRY_DELAYS) + 1)
+    if settings.gemini_fallback_model and settings.gemini_fallback_model != settings.gemini_model:
+        attempts.append(settings.gemini_fallback_model)
+    for number, model in enumerate(attempts):
+        try:
+            return _gemini_once(client, model, parts)
+        except genai_errors.APIError as exc:
+            last_try = number == len(attempts) - 1
+            if not _is_temporary(exc) or last_try:
+                if exc.code == 429:
+                    raise AiError("Wyczerpany limit zapytań do Gemini - spróbuj za chwilę.") from exc
+                if isinstance(exc, genai_errors.ServerError):
+                    raise AiError("Gemini jest teraz przeciążony - spróbuj za kilka minut.") from exc
+                raise AiError(f"Błąd AI: {exc.message}") from exc
+            log.warning("Gemini %s: %s - próbuję ponownie", model, exc.code)
+            if number < len(GEMINI_RETRY_DELAYS):
+                time.sleep(GEMINI_RETRY_DELAYS[number])
+    raise AssertionError("unreachable")
 
 
-def _ask(content: Content) -> AiRecipe:
+def _ask(content: Content) -> list[AiRecipe]:
     provider = get_settings().active_ai_provider
     if provider == "anthropic":
-        recipe = _ask_claude(content)
+        result = _ask_claude(content)
     elif provider == "gemini":
-        recipe = _ask_gemini(content)
+        result = _ask_gemini(content)
     else:
         raise AiError("Brak klucza API do AI - ustaw ANTHROPIC_API_KEY albo GEMINI_API_KEY.")
-    if not recipe.is_recipe:
+    recipes = [r for r in result.recipes if r.title or r.ingredients or r.steps]
+    if not recipes:
         raise AiError("Nie znaleziono przepisu w tym materiale.")
-    return recipe
+    return recipes
 
 
 def _image_list(image_urls: list[str]) -> str:
@@ -168,13 +207,14 @@ def _image_list(image_urls: list[str]) -> str:
     return "\n".join(f"{i}: {url}" for i, url in enumerate(image_urls))
 
 
-def recipe_from_page(page: PageContent) -> AiRecipe:
-    """Przepis ze strony WWW."""
+def recipes_from_page(page: PageContent) -> list[AiRecipe]:
+    """Przepisy ze strony WWW (zwykle jeden, czasem kilka)."""
     if page.recipe:
         # Strona ma dane strukturalne - wysyłamy tylko je (mniej tekstu = taniej, mniej pomyłek)
         material = "Dane przepisu ze strony (JSON):\n" + json.dumps(asdict(page.recipe), ensure_ascii=False)
-        # Fragment tekstu strony pomaga dopasować obrazki do kroków
-        material += "\n\nPoczątek tekstu strony:\n" + page.text[:8000]
+        # Tekst strony pomaga dopasować obrazki do kroków i znaleźć kolejne
+        # przepisy, gdy dane strukturalne opisują tylko pierwszy
+        material += "\n\nPoczątek tekstu strony:\n" + page.text[:15000]
     else:
         material = "Tekst strony:\n" + page.text
     text = (
@@ -184,13 +224,14 @@ def recipe_from_page(page: PageContent) -> AiRecipe:
     return _ask([text])
 
 
-def recipe_from_images(jpegs: list[bytes]) -> AiRecipe:
-    """Przepis ze zdjęć/screenów (JPEG). Obrazki są numerowane w kolejności wysłania."""
+def recipes_from_images(jpegs: list[bytes]) -> list[AiRecipe]:
+    """Przepisy ze zdjęć/screenów (JPEG). Obrazki są numerowane w kolejności wysłania."""
     content: Content = []
     for i, jpeg in enumerate(jpegs):
         content += [f"Obrazek {i}:", jpeg]
     content.append(
-        "Odczytaj przepis z powyższych obrazków (to mogą być screeny kolejnych części "
-        "jednego przepisu). Jeśli któryś obrazek to zdjęcie gotowego dania, wskaż go jako główny."
+        "Odczytaj przepis z powyższych obrazków (to zwykle screeny kolejnych części "
+        "jednego przepisu, ale może być ich kilka). Jeśli któryś obrazek to zdjęcie "
+        "gotowego dania, wskaż go jako główny."
     )
     return _ask(content)

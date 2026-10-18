@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from .auth import require_auth
 from .config import get_settings
 from .database import init_db
+from .services.importer import remove_stale_uploads
 from .routers import auth, backup, imports, ingredients, recipes
 
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    remove_stale_uploads()
     yield
 
 

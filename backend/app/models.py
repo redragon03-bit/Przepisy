@@ -96,5 +96,8 @@ class ImportJob(Base):
     # "pending" -> "running" -> "done" albo "failed"
     status: Mapped[str] = mapped_column(String(20), default="pending")
     error: Mapped[str] = mapped_column(Text, default="")
+    # Pierwszy zaimportowany przepis (strona może mieć ich kilka)
     recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipes.id", ondelete="SET NULL"))
+    # Ile przepisów powstało z tego importu
+    recipe_count: Mapped[int] = mapped_column(default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

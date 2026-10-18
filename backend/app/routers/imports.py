@@ -59,9 +59,27 @@ def list_imports(db: Session = Depends(get_db)):
     return db.query(ImportJob).order_by(ImportJob.id.desc()).limit(20).all()
 
 
-@router.get("/{job_id}", response_model=ImportJobOut)
-def get_import(job_id: int, db: Session = Depends(get_db)):
+def _get_job(db: Session, job_id: int) -> ImportJob:
     job = db.get(ImportJob, job_id)
     if job is None:
         raise HTTPException(404, "Nie ma takiego importu")
+    return job
+
+
+@router.get("/{job_id}", response_model=ImportJobOut)
+def get_import(job_id: int, db: Session = Depends(get_db)):
+    return _get_job(db, job_id)
+
+
+@router.post("/{job_id}/retry", response_model=ImportJobOut, status_code=202)
+def retry_import(job_id: int, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Ponawia nieudany import (np. gdy AI było chwilowo przeciążone)."""
+    job = _get_job(db, job_id)
+    if job.status != "failed":
+        raise HTTPException(400, "Ponowić można tylko nieudany import")
+    if job.kind == "image" and not job_upload_dir(job.id).exists():
+        raise HTTPException(400, "Zdjęcia z tego importu już nie istnieją - wgraj je jeszcze raz")
+    job.status, job.error = "pending", ""
+    db.commit()
+    background.add_task(run_image_import if job.kind == "image" else run_url_import, job.id)
     return job
