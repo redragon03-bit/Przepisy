@@ -22,6 +22,10 @@ HA_OPTION_TO_ENV = {
     "gemini_api_key": "GEMINI_API_KEY",
     "gemini_model": "GEMINI_MODEL",
     "gemini_fallback_model": "GEMINI_FALLBACK_MODEL",
+    "groq_api_key": "GROQ_API_KEY",
+    "groq_model": "GROQ_MODEL",
+    "mistral_api_key": "MISTRAL_API_KEY",
+    "mistral_model": "MISTRAL_MODEL",
     "ha_todo_entity": "HA_TODO_ENTITY",
 }
 
@@ -38,6 +42,11 @@ def _load_home_assistant_options() -> None:
             os.environ[env_name] = str(value)
 
 
+# Kolejność AI przy AI_PROVIDER=auto. Claude jest płatny - skoro podano do niego klucz,
+# to celowo, więc idzie pierwszy; darmowe są kolejnymi zapasami.
+AI_ORDER = ["anthropic", "gemini", "groq", "mistral"]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -47,8 +56,9 @@ class Settings(BaseSettings):
     app_password: str = ""
     # Klucz do podpisywania ciasteczka sesji. Puste = wygeneruj i zapisz w data_dir.
     secret_key: str = ""
-    # Który AI używać: "anthropic" (Claude), "gemini" (Google) albo "auto"
-    # (auto = ten, do którego podano klucz; gdy oba, to Claude).
+    # Który AI pytać najpierw: "anthropic" (Claude), "gemini" (Google), "groq",
+    # "mistral" albo "auto" (kolejność z AI_ORDER). Gdy pierwszy AI zawiedzie
+    # (np. wyczerpany darmowy limit), próbujemy kolejnych, do których podano klucz.
     # Bez żadnego klucza import działa bez AI (bez tłumaczenia i screenów).
     ai_provider: str = "auto"
     anthropic_api_key: str = ""
@@ -59,6 +69,12 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-flash-latest"
     # Model próbowany, gdy główny jest przeciążony. Puste = bez zapasowego.
     gemini_fallback_model: str = "gemini-flash-lite-latest"
+    # Groq - darmowy klucz z https://console.groq.com (bez karty). Model musi czytać obrazki.
+    groq_api_key: str = ""
+    groq_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # Mistral - darmowy plan "Experiment" z https://console.mistral.ai
+    mistral_api_key: str = ""
+    mistral_model: str = "mistral-small-latest"
     # Wysyłanie listy zakupów do Home Assistant (lista "Do zrobienia").
     # Jako dodatek HA adres i token są ustawiane automatycznie (SUPERVISOR_TOKEN).
     # Poza HA: adres, np. http://homeassistant.local:8123, i token długoterminowy
@@ -82,12 +98,22 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def ai_providers(self) -> list[str]:
+        """AI z kluczem, w kolejności pytania: wybrany w AI_PROVIDER, potem reszta wg AI_ORDER."""
+        keys = {
+            "anthropic": self.anthropic_api_key,
+            "gemini": self.gemini_api_key,
+            "groq": self.groq_api_key,
+            "mistral": self.mistral_api_key,
+        }
+        order = sorted(AI_ORDER, key=lambda name: name != self.ai_provider)
+        return [name for name in order if keys[name]]
+
+    @property
     def active_ai_provider(self) -> str | None:
-        """'anthropic', 'gemini' albo None, gdy brakuje klucza do wybranego AI."""
-        keys = {"anthropic": self.anthropic_api_key, "gemini": self.gemini_api_key}
-        if self.ai_provider in keys:
-            return self.ai_provider if keys[self.ai_provider] else None
-        return next((name for name, key in keys.items() if key), None)
+        """Pierwszy AI, którego pytamy, albo None, gdy nie ma żadnego klucza."""
+        providers = self.ai_providers
+        return providers[0] if providers else None
 
     @property
     def ai_enabled(self) -> bool:

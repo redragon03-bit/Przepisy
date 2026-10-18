@@ -5,7 +5,11 @@ To nie są tabele bazy (te są w models.py) - to "umowa" z frontendem.
 
 from datetime import date, datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+from .services.ai import AiRecipe
 
 
 def image_url(filename: str | None) -> str | None:
@@ -53,6 +57,11 @@ class RecipeOut(RecipeSummary):
     notes: str
     cooked_count: int
     last_cooked_at: datetime | None
+    # Szacunek AI na 1 porcję; None = jeszcze nie policzone
+    kcal: int | None
+    protein: int | None
+    fat: int | None
+    carbs: int | None
     ingredients: list[IngredientLine]
     steps: list[StepOut]
     # Surowe nazwy plików obrazków kroków - potrzebne formularzowi edycji
@@ -115,6 +124,12 @@ class ShoppingFromPlan(BaseModel):
 
 class ShoppingResult(BaseModel):
     added: int
+    # Składniki pominięte, bo są w spiżarni
+    skipped: list[str] = []
+
+
+class PantryIn(BaseModel):
+    names: list[str] = Field(description="Wszystkie produkty, które są teraz w domu")
 
 
 class MealPlanIn(BaseModel):
@@ -139,6 +154,33 @@ class ImageSearchProgress(BaseModel):
     total: int
     # Ile przepisów nadal nie ma zdjęcia
     missing: int
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+    # Przepis zaproponowany w tej wiadomości (odsyłamy go, żeby AI mogło go zmienić)
+    recipe: AiRecipe | None = None
+
+
+class ChatIn(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1, max_length=40)
+
+
+class ChatOut(BaseModel):
+    text: str
+    recipes: list[RecipeSummary]
+    new_recipe: AiRecipe | None
+
+
+class ChatSaveIn(BaseModel):
+    recipe: AiRecipe
+
+
+class BackupFile(BaseModel):
+    name: str
+    size: int
+    created_at: datetime
 
 
 class CategoryOut(BaseModel):
@@ -206,7 +248,9 @@ class AuthStatus(BaseModel):
     authenticated: bool
     auth_required: bool
     ai_enabled: bool
-    # "anthropic", "gemini" albo None (AI wyłączone)
+    # Pierwszy pytany AI: "anthropic", "gemini", "groq", "mistral" albo None (AI wyłączone)
     ai_provider: str | None
+    # Wszystkie AI z kluczem, w kolejności pytania (kolejne są zapasem)
+    ai_providers: list[str]
     # Czy lista zakupów może być wysłana do Home Assistant
     ha_enabled: bool

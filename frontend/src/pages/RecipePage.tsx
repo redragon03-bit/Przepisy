@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, isoDay, Recipe } from "../api";
 import Stars from "../components/Stars";
+import TimersBar from "../components/TimersBar";
+import { nutritionText } from "../lib/nutrition";
 import { formatAmount, parseServings, scaleText } from "../lib/scale";
-import { beep, findDurations, formatClock, unlockSound } from "../lib/timers";
-
-interface Timer {
-  id: number;
-  label: string;
-  endsAt: number; // Date.now() w milisekundach
-  done: boolean;
-}
+import { recipeAsText, shareText } from "../lib/share";
+import { shoppingMessage } from "../lib/shopping";
+import { findDurations } from "../lib/timers";
+import { useTimers, useWakeLock } from "../lib/useTimers";
 
 // Szczegóły przepisu. Składniki i kroki można "odhaczać" w trakcie gotowania,
 // czasy w krokach uruchamiają minutniki, a porcje można przeliczyć.
@@ -25,8 +23,8 @@ export default function RecipePage() {
   const [keepAwake, setKeepAwake] = useState(false);
   const [servings, setServings] = useState<number | null>(null);
   const [factor, setFactor] = useState(1);
-  const [timers, setTimers] = useState<Timer[]>([]);
-  const [now, setNow] = useState(Date.now());
+  const { timers, now, start: startTimer, remove: removeTimer } = useTimers();
+  const [calculating, setCalculating] = useState(false);
   const [planDay, setPlanDay] = useState("");
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<string[] | null>(null);
@@ -44,34 +42,7 @@ export default function RecipePage() {
   }, [id]);
 
   // "Nie wygaszaj ekranu" - przydatne, gdy telefon leży w kuchni
-  useEffect(() => {
-    if (!keepAwake || !("wakeLock" in navigator)) return;
-    let lock: WakeLockSentinel | null = null;
-    navigator.wakeLock.request("screen").then((l) => (lock = l)).catch(() => setKeepAwake(false));
-    return () => {
-      lock?.release();
-    };
-  }, [keepAwake]);
-
-  // Minutniki: co sekundę odświeżamy czas; skończony minutnik daje sygnał
-  const running = timers.some((t) => !t.done);
-  useEffect(() => {
-    if (!running) return;
-    const tick = setInterval(() => {
-      const current = Date.now();
-      setNow(current);
-      setTimers((list) =>
-        list.map((t) => {
-          if (!t.done && t.endsAt <= current) {
-            beep();
-            return { ...t, done: true };
-          }
-          return t;
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [running]);
+  useWakeLock(keepAwake, () => setKeepAwake(false));
 
   if (error) return <p className="error center">{error}</p>;
   if (!recipe) return <p className="muted center">Ładowanie…</p>;
@@ -124,15 +95,30 @@ export default function RecipePage() {
     }
   };
 
-  const startTimer = (label: string, seconds: number) => {
-    unlockSound();
-    setNow(Date.now());
-    setTimers([...timers, { id: Date.now(), label, endsAt: Date.now() + seconds * 1000, done: false }]);
+  const toShopping = async () => {
+    flash(shoppingMessage(await api.addRecipeToShopping(recipe.id, scale)));
   };
 
-  const toShopping = async () => {
-    const result = await api.addRecipeToShopping(recipe.id, scale);
-    flash(`Dodano do listy zakupów (${result.added}).`);
+  const calculateNutrition = async () => {
+    setCalculating(true);
+    try {
+      setRecipe(await api.calculateNutrition(recipe.id));
+    } catch (e) {
+      flash((e as Error).message);
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const share = async () => {
+    const text = recipeAsText({
+      ...recipe,
+      ingredients: recipe.ingredients.map((i) => scaleText(i.text, i.amount, scale)),
+      steps: recipe.steps.map((s) => s.text),
+      servings: baseServings && servings ? `${servings} porcje` : recipe.servings,
+    });
+    const result = await shareText(recipe.title, text);
+    if (result) flash(result);
   };
 
   const plan = async () => {
@@ -213,6 +199,15 @@ export default function RecipePage() {
           </>
         )}
       </p>
+      {recipe.kcal !== null ? (
+        <p className="small">
+          {nutritionText(recipe)} <span className="muted">na porcję (szacunek AI)</span>
+        </p>
+      ) : (
+        <button type="button" className="link small" disabled={calculating} onClick={calculateNutrition}>
+          {calculating ? "Liczę kalorie…" : "🔥 Policz kalorie i makro"}
+        </button>
+      )}
       {recipe.cooked_count > 0 && (
         <p className="muted small">
           Ugotowane {recipe.cooked_count}× · ostatnio {new Date(recipe.last_cooked_at!).toLocaleDateString("pl-PL")}
@@ -271,6 +266,11 @@ export default function RecipePage() {
       </button>
 
       <h2>Przygotowanie</h2>
+      {recipe.steps.length > 0 && (
+        <Link to={`/przepis/${recipe.id}/gotuj?skala=${scale}`} className="button primary wide">
+          👨‍🍳 Tryb gotowania (krok po kroku)
+        </Link>
+      )}
       <ol className="steps">
         {recipe.steps.map((step, i) => (
           <li key={i} className={checked.has(`s${i}`) ? "done" : ""} onClick={() => toggle(`s${i}`)}>
@@ -337,6 +337,14 @@ export default function RecipePage() {
             📅 Zaplanuj
           </button>
         </div>
+        <button type="button" onClick={share}>
+          📤 Udostępnij przepis
+        </button>
+        {recipe.kcal !== null && (
+          <button type="button" disabled={calculating} onClick={calculateNutrition}>
+            {calculating ? "Liczę…" : "🔥 Policz kalorie ponownie"}
+          </button>
+        )}
         <button type="button" onClick={() => photoInput.current?.click()}>
           Zmień zdjęcie
         </button>
@@ -353,19 +361,7 @@ export default function RecipePage() {
 
       {message && <div className="toast">{message}</div>}
 
-      {timers.length > 0 && (
-        <div className="timers">
-          {timers.map((t) => (
-            <div key={t.id} className={`timer ${t.done ? "finished" : ""}`}>
-              <span>{t.label}</span>
-              <strong>{t.done ? "Gotowe!" : formatClock((t.endsAt - now) / 1000)}</strong>
-              <button type="button" className="link" onClick={() => setTimers(timers.filter((x) => x.id !== t.id))} aria-label="Zamknij minutnik">
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <TimersBar timers={timers} now={now} onClose={removeTimer} />
     </article>
   );
 }

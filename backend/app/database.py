@@ -57,6 +57,11 @@ ADDED_COLUMNS = [
     ("recipes", "rating", "INTEGER"),
     ("recipes", "cooked_count", "INTEGER NOT NULL DEFAULT 0"),
     ("recipes", "last_cooked_at", "DATETIME"),
+    ("recipes", "kcal", "INTEGER"),
+    ("recipes", "protein", "INTEGER"),
+    ("recipes", "fat", "INTEGER"),
+    ("recipes", "carbs", "INTEGER"),
+    ("ingredients", "in_pantry", "BOOLEAN NOT NULL DEFAULT 0"),
 ]
 
 

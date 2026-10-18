@@ -1,7 +1,9 @@
 """Szukanie zdjęcia dla przepisu bez zdjęcia.
 
-1. AI wyszukuje w internecie strony z przepisem na to samo danie
-   (Gemini przez wyszukiwarkę Google, Claude przez swoje web search).
+1. Szukamy stron z przepisem na to samo danie: najpierw zwykłą wyszukiwarką
+   (DuckDuckGo/Bing, darmowo i bez limitu - patrz web_search.py), a gdy nic
+   nie znajdzie - przez AI (Gemini z Google, Claude z web search). AI ma dzienny
+   limit zapytań, więc zostawiamy je na import przepisów i czat.
 2. Z każdej strony bierzemy jej główne zdjęcie (og:image - to, które widać
    po wklejeniu linku na Messengerze).
 3. Gdy to nie wystarczy - zapas: Openverse, darmowa wyszukiwarka zdjęć
@@ -19,7 +21,7 @@ import httpx
 from ..config import get_settings
 from ..database import SessionLocal
 from ..models import Recipe
-from . import ai, fetcher, images, scraper
+from . import ai, fetcher, images, scraper, web_search
 
 log = logging.getLogger(__name__)
 
@@ -54,8 +56,8 @@ def find_candidates(recipe: Recipe, limit: int = 4) -> list[str]:
     """Adresy zdjęć pasujących do przepisu, najlepsze pierwsze."""
     names = [ri.ingredient.name for ri in recipe.ingredients]
     found: list[str] = []
-    pages: list[str] = []
-    if get_settings().ai_enabled:
+    pages = web_search.search_pages(f"{recipe.title} przepis")
+    if not pages and get_settings().ai_enabled:
         try:
             pages = ai.search_recipe_pages(recipe.title, names)
         except ai.AiError as exc:

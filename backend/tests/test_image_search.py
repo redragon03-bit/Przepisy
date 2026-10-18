@@ -85,3 +85,53 @@ def test_claude_search_reads_result_blocks(monkeypatch):
 
     monkeypatch.setattr(ai.anthropic, "Anthropic", lambda api_key: SimpleNamespace(messages=FakeMessages()))
     assert ai.search_recipe_pages("Pudding", []) == ["https://a.example/1", "https://b.example/2"]
+
+
+WEB_SEARCH_PAGES = image_search.web_search.search_pages
+
+DDG_HTML = """
+<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.kwestiasmaku.com%2Fprzepis%2Fbutter-chicken&amp;rut=abc">Butter chicken</a>
+<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D1&amp;rut=def">Film</a>
+<a rel="nofollow" class="result__a" href="https://aniagotuje.pl/przepis/butter-chicken">Ania</a>
+"""
+
+BING_HTML = """
+<li class="b_algo" data-x="1"><div><h2><a href="https://www.bing.com/ck/a?!&amp;&amp;p=1&amp;u=a1aHR0cHM6Ly9leGFtcGxlLnBsL3BsYWNraQ&amp;ntb=1" h="ID=1">Placki</a></h2></div></li>
+<li class="b_algo"><h2><a href="https://www.mojewypieki.com/przepis/placki">Placki</a></h2></li>
+"""
+
+
+def test_web_search_reads_duckduckgo(monkeypatch):
+    monkeypatch.setattr(image_search.web_search, "search_pages", WEB_SEARCH_PAGES)
+    asked = []
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: asked.append(url) or (DDG_HTML, url))
+    pages = image_search.web_search.search_pages("butter chicken przepis")
+    assert pages == ["https://www.kwestiasmaku.com/przepis/butter-chicken", "https://aniagotuje.pl/przepis/butter-chicken"]
+    assert asked == ["https://html.duckduckgo.com/html/?q=butter+chicken+przepis"]
+
+
+def test_web_search_falls_back_to_bing(monkeypatch):
+    monkeypatch.setattr(image_search.web_search, "search_pages", WEB_SEARCH_PAGES)
+
+    def fake(url):
+        if "duckduckgo" in url:
+            raise fetcher.FetchError("blokada")
+        return BING_HTML, url
+
+    monkeypatch.setattr(fetcher, "fetch_html", fake)
+    assert image_search.web_search.search_pages("placki") == [
+        "https://example.pl/placki", "https://www.mojewypieki.com/przepis/placki",
+    ]
+
+
+def test_web_search_is_tried_before_ai(client, monkeypatch):
+    monkeypatch.setattr(importer.get_settings(), "anthropic_api_key", "test")
+    monkeypatch.setattr(image_search.web_search, "search_pages", lambda query: ["https://blog.example/pudding"])
+
+    def no_ai(title, names):
+        raise AssertionError("AI nie powinno być pytane, gdy wyszukiwarka coś znalazła")
+
+    monkeypatch.setattr(image_search.ai, "search_recipe_pages", no_ai)
+    monkeypatch.setattr(fetcher, "fetch_html", lambda url: (PAGE, url))
+    recipe = client.post("/api/recipes", json={"title": "Pudding chia"}).json()
+    assert client.get(f"/api/recipes/{recipe['id']}/image-candidates").json() == ["https://blog.example/chia.jpg"]

@@ -1,13 +1,16 @@
-"""Rozmowa z AI: Claude (Anthropic) albo Gemini (Google).
+"""Rozmowa z AI: Claude (Anthropic), Gemini (Google), Groq albo Mistral.
 
-Który dostawca jest używany, decyduje ustawienie AI_PROVIDER (patrz config.py).
+Którego AI pytamy najpierw, decyduje ustawienie AI_PROVIDER (patrz config.py).
+Gdy ten zawiedzie (np. wyczerpany darmowy limit), pytamy kolejnego, do którego jest klucz.
 AI dostaje surowy przepis (dane ze strony, tekst strony albo zdjęcia)
 i zwraca uporządkowany przepis po polsku, w miarach metrycznych.
 Odpowiedź ma ściśle określony format (klasa AiResult z listą AiRecipe) - SDK obu dostawców
 pilnuje, żeby AI zwróciło poprawny JSON, i zamienia go na obiekt Pythona.
 
 Treść wysyłana do AI to lista elementów: tekst (str) albo obrazek JPEG (bytes).
-Funkcje _ask_claude i _ask_gemini zamieniają ją na format danego dostawcy.
+Funkcje _ask_claude, _ask_gemini, _ask_groq i _ask_mistral zamieniają ją na format
+danego dostawcy. Groq i Mistral mają API w tym samym stylu (OpenAI), więc obsługuje je
+wspólna funkcja _ask_openai_style.
 """
 
 import base64
@@ -18,10 +21,11 @@ import time
 from dataclasses import asdict
 
 import anthropic
+import httpx
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from ..config import get_settings
 from .scraper import PageContent
@@ -60,6 +64,11 @@ class AiRecipe(BaseModel):
         description="1-3 kategorie, np. 'Deser'. Wybieraj z listy istniejących kategorii; "
         "nową (krótką, z dużej litery) dodaj tylko, gdy żadna nie pasuje"
     )
+    # Szacunek AI na 1 porcję (gdy porcji nie podano - na 1/4 całości)
+    kcal: int | None = Field(default=None, description="Szacunkowe kalorie na 1 porcję, null gdy nie da się ocenić")
+    protein: int | None = Field(default=None, description="Szacunkowe białko na 1 porcję w gramach")
+    fat: int | None = Field(default=None, description="Szacunkowy tłuszcz na 1 porcję w gramach")
+    carbs: int | None = Field(default=None, description="Szacunkowe węglowodany na 1 porcję w gramach")
 
 
 class AiResult(BaseModel):
@@ -86,7 +95,9 @@ pokazujące konkretne kroki. Gdy nie masz pewności, daj null.
 - Jeśli materiał zawiera kilka osobnych przepisów (np. "5 pomysłów na..."), zwróć każdy \
 jako osobny element listy recipes, z jego własnymi składnikami i krokami. Wspólne kroki \
 (np. przygotowanie bazy) dopisz do każdego przepisu, który ich wymaga.
-- Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes."""
+- Jeśli materiał nie zawiera przepisu, zwróć pustą listę recipes.
+- Oszacuj kalorie, białko, tłuszcz i węglowodany na 1 porcję na podstawie składników \
+i ich ilości. Gdy przepis nie podaje liczby porcji, przyjmij 4."""
 
 
 class AiRecipeCategories(BaseModel):
@@ -208,14 +219,92 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
     raise AssertionError("unreachable")
 
 
+def _ask_openai_style(name: str, url: str, api_key: str, model: str,
+                      content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
+    """Groq i Mistral: proszą o JSON, a my sprawdzamy, czy pasuje do klasy `schema`.
+
+    Nie każdy ich model obsługuje ścisły format odpowiedzi, więc schemat JSON
+    dopisujemy do instrukcji, a odpowiedź sprawdza Pydantic.
+    """
+    instructions = (
+        f"{system}\n\nOdpowiedz wyłącznie jednym obiektem JSON zgodnym z tym schematem JSON "
+        f"(bez komentarzy i bez bloku ```):\n{json.dumps(schema.model_json_schema(), ensure_ascii=False)}"
+    )
+    if all(isinstance(item, str) for item in content):
+        user: str | list = "\n\n".join(content)
+    else:
+        user = [
+            {"type": "text", "text": item} if isinstance(item, str) else {
+                "type": "image_url",
+                "image_url": {"url": "data:image/jpeg;base64," + base64.standard_b64encode(item).decode("ascii")},
+            }
+            for item in content
+        ]
+    try:
+        response = httpx.post(url, timeout=180, headers={"Authorization": f"Bearer {api_key}"}, json={
+            "model": model,
+            "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user}],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
+            "max_tokens": 8000,
+        })
+    except httpx.HTTPError as exc:
+        raise AiError(f"Brak połączenia z {name}.") from exc
+    if response.status_code in (401, 403):
+        raise AiError(f"Nieprawidłowy klucz API {name}.")
+    if response.status_code == 429:
+        raise AiError(f"Wyczerpany limit zapytań do {name} - spróbuj za chwilę.")
+    if response.status_code >= 500:
+        raise AiError(f"{name} jest teraz przeciążony - spróbuj za kilka minut.")
+    if response.status_code >= 400:
+        raise AiError(f"Błąd AI {name}: {response.text[:300]}")
+    choice = response.json()["choices"][0]
+    if choice.get("finish_reason") == "length":
+        raise AiError("AI nie dokończyło odpowiedzi - przepis jest za długi.")
+    text = (choice["message"].get("content") or "").strip()
+    # Na wszelki wypadek usuwamy ```json ... ```, gdyby model je dodał
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
+    try:
+        return schema.model_validate_json(text)
+    except ValidationError as exc:
+        raise AiError(f"{name} nie zwróciło poprawnej odpowiedzi - spróbuj jeszcze raz.") from exc
+
+
+def _ask_groq(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
+    settings = get_settings()
+    return _ask_openai_style("Groq", "https://api.groq.com/openai/v1/chat/completions",
+                             settings.groq_api_key, settings.groq_model, content, system, schema)
+
+
+def _ask_mistral(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
+    settings = get_settings()
+    return _ask_openai_style("Mistral", "https://api.mistral.ai/v1/chat/completions",
+                             settings.mistral_api_key, settings.mistral_model, content, system, schema)
+
+
+PROVIDER_NAMES = {"anthropic": "Claude", "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral"}
+
+
 def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
-    """Wysyła treść do wybranego AI; odpowiedź ma kształt klasy `schema`."""
-    provider = get_settings().active_ai_provider
-    if provider == "anthropic":
-        return _ask_claude(content, system, schema)
-    if provider == "gemini":
-        return _ask_gemini(content, system, schema)
-    raise AiError("Brak klucza API do AI - ustaw ANTHROPIC_API_KEY albo GEMINI_API_KEY.")
+    """Wysyła treść do AI; odpowiedź ma kształt klasy `schema`.
+
+    Pytamy po kolei wszystkie AI z kluczem (kolejność: config.ai_providers),
+    aż któryś odpowie. Gdy zawiodą wszystkie, pokazujemy błąd każdego.
+    """
+    ask = {"anthropic": _ask_claude, "gemini": _ask_gemini, "groq": _ask_groq, "mistral": _ask_mistral}
+    providers = get_settings().ai_providers
+    if not providers:
+        raise AiError("Brak klucza API do AI - ustaw klucz Gemini, Groq, Mistral albo Anthropic.")
+    errors = []
+    for provider in providers:
+        try:
+            return ask[provider](content, system, schema)
+        except AiError as exc:
+            log.warning("%s zawiódł: %s - próbuję następnego AI", PROVIDER_NAMES[provider], exc)
+            errors.append(f"{PROVIDER_NAMES[provider]}: {exc}")
+    if len(errors) == 1:
+        raise AiError(errors[0].split(": ", 1)[1])
+    raise AiError("Żadne AI nie odpowiedziało. " + " ".join(errors))
 
 
 def _categories_hint(categories: list[str]) -> str:
@@ -308,18 +397,26 @@ def _search_claude(query: str) -> list[str]:
 def _search_gemini(query: str) -> list[str]:
     settings = get_settings()
     client = genai.Client(api_key=settings.gemini_api_key)
-    try:
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=query,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=SEARCH_PROMPT,
-                # Gemini sam wyszukuje w Google ("grounding")
-                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
-            ),
-        )
-    except genai_errors.APIError as exc:
-        raise AiError(f"Błąd wyszukiwania: {exc.message}") from exc
+    # Zapasowy model ma osobny dzienny limit - próbujemy go, gdy główny wyczerpał swój
+    models = [settings.gemini_model]
+    if settings.gemini_fallback_model and settings.gemini_fallback_model != settings.gemini_model:
+        models.append(settings.gemini_fallback_model)
+    for number, model in enumerate(models):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=query,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=SEARCH_PROMPT,
+                    # Gemini sam wyszukuje w Google ("grounding")
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                ),
+            )
+            break
+        except genai_errors.APIError as exc:
+            if not _is_temporary(exc) or number == len(models) - 1:
+                raise AiError(f"Błąd wyszukiwania: {exc.message}") from exc
+            log.warning("Wyszukiwanie Gemini %s: %s - próbuję zapasowy model", model, exc.code)
     urls = _URL.findall(response.text or "")
     # Źródła wyszukiwania - adresy przekierowujące Google, prowadzą do właściwych stron
     for candidate in response.candidates or []:
@@ -333,11 +430,70 @@ def _search_gemini(query: str) -> list[str]:
 def search_recipe_pages(title: str, ingredients: list[str]) -> list[str]:
     """Adresy stron z przepisem na to danie (AI szuka w internecie). Bez powtórzeń."""
     query = f"Danie: {title}\nGłówne składniki: {', '.join(ingredients[:8]) or 'brak'}"
-    provider = get_settings().active_ai_provider
-    if provider == "anthropic":
-        urls = _search_claude(query)
-    elif provider == "gemini":
-        urls = _search_gemini(query)
-    else:
-        raise AiError("Brak klucza API do AI - wyszukiwanie zdjęć wymaga AI.")
+    # Szukać w internecie umieją tylko Claude i Gemini
+    search = {"anthropic": _search_claude, "gemini": _search_gemini}
+    providers = [p for p in get_settings().ai_providers if p in search]
+    if not providers:
+        raise AiError("Wyszukiwanie przez AI wymaga klucza Gemini albo Anthropic.")
+    for number, provider in enumerate(providers):
+        try:
+            urls = search[provider](query)
+            break
+        except AiError:
+            if number == len(providers) - 1:
+                raise
     return list(dict.fromkeys(u.rstrip(".,") for u in urls))
+
+
+class AiNutrition(BaseModel):
+    kcal: int | None = Field(description="Kalorie na 1 porcję")
+    protein: int | None = Field(description="Białko na 1 porcję w gramach")
+    fat: int | None = Field(description="Tłuszcz na 1 porcję w gramach")
+    carbs: int | None = Field(description="Węglowodany na 1 porcję w gramach")
+
+
+NUTRITION_PROMPT = """Jesteś dietetykiem. Na podstawie składników i ich ilości oszacuj \
+wartości odżywcze na 1 porcję dania. Gdy liczba porcji nie jest podana, przyjmij 4. \
+Gdy ilości nie są podane, przyjmij typowe dla takiego dania."""
+
+
+def estimate_nutrition(title: str, servings: str, lines: list[str]) -> AiNutrition:
+    """Kalorie i makro na porcję dla przepisu, który już jest w bazie."""
+    text = f"Danie: {title}\nPorcje: {servings or 'nie podano'}\nSkładniki:\n" + "\n".join(lines)
+    return _ask_provider([text], NUTRITION_PROMPT, AiNutrition)
+
+
+class ChatAnswer(BaseModel):
+    text: str = Field(description="Odpowiedź dla użytkownika po polsku, krótko (1-4 zdania)")
+    recipe_ids: list[int] = Field(
+        description="Numery przepisów z listy użytkownika, które polecasz (0-3); pusta lista, gdy żaden"
+    )
+    new_recipe: AiRecipe | None = Field(
+        description="Nowy przepis, gdy żaden z zapisanych nie pasuje albo użytkownik prosi "
+        "o coś nowego lub o zmianę zaproponowanego przepisu; inaczej null"
+    )
+
+
+CHAT_PROMPT = """Jesteś przyjaznym asystentem kulinarnym w aplikacji z przepisami. \
+Widzisz przepisy zapisane przez użytkownika i produkty, które ma w domu.
+
+Zasady:
+- Gdy użytkownik pyta, co zjeść ("mam ochotę na...", "zaproponuj coś"), najpierw szukaj \
+wśród jego przepisów i podaj ich numery w recipe_ids (najwyżej 3), z krótkim uzasadnieniem.
+- Zawsze przestrzegaj tego, czego użytkownik nie chce (np. "bez ryżu", "nie chcę mięsa") \
+i tego, co wcześniej powiedział w rozmowie.
+- Gdy żaden zapisany przepis nie pasuje albo użytkownik prosi o nowy przepis, wymyśl \
+jeden w new_recipe: po polsku, miary metryczne, temperatury w °C, kroki jako krótkie \
+polecenia, original_text jak text, original_language "pl", obrazki null, kategorie \
+z listy kategorii użytkownika. Najlepiej z produktów, które ma w domu.
+- Gdy użytkownik prosi o zmianę zaproponowanego wcześniej przepisu ("zamień kurczaka \
+na indyka", "na 2 osoby"), zwróć cały zmieniony przepis w new_recipe.
+- W text nie przepisuj składników ani kroków - aplikacja pokazuje je sama.
+- Pisz krótko i naturalnie, jak znajomy, który dobrze gotuje.
+- Na pytania niezwiązane z jedzeniem odpowiedz krótko, że pomagasz w gotowaniu."""
+
+
+def chat(context: str, conversation: str) -> ChatAnswer:
+    """Jedna odpowiedź czatu. `context` - przepisy i spiżarnia, `conversation` - dotychczasowa rozmowa."""
+    text = f"{context}\n\nRozmowa:\n{conversation}\n\nOdpowiedz na ostatnią wiadomość użytkownika."
+    return _ask_provider([text], CHAT_PROMPT, ChatAnswer)

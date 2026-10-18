@@ -14,7 +14,7 @@ export interface RecipeSummary {
   title: string;
   image_url: string | null;
   total_minutes: number | null;
-  source_type: "url" | "image" | "manual";
+  source_type: "url" | "image" | "manual" | "ai";
   categories: string[];
   favorite: boolean;
   rating: number | null;
@@ -31,6 +31,11 @@ export interface Recipe extends RecipeSummary {
   notes: string;
   cooked_count: number;
   last_cooked_at: string | null;
+  // Szacunek AI na 1 porcję; null = jeszcze nie policzone
+  kcal: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
   ingredients: IngredientLine[];
   steps: { text: string; image_url: string | null }[];
   step_images: (string | null)[];
@@ -83,7 +88,9 @@ export interface AuthStatus {
   authenticated: boolean;
   auth_required: boolean;
   ai_enabled: boolean;
-  ai_provider: "anthropic" | "gemini" | null;
+  ai_provider: string | null;
+  // Wszystkie AI z kluczem, w kolejności pytania: "anthropic", "gemini", "groq", "mistral"
+  ai_providers: string[];
   ha_enabled: boolean;
 }
 
@@ -106,6 +113,50 @@ export interface PlanEntry {
   id: number;
   day: string; // "2026-10-20"
   recipe: RecipeSummary;
+}
+
+// Przepis wymyślony przez AI w czacie (jeszcze niezapisany) - jak AiRecipe w backend/app/services/ai.py
+export interface AiRecipe {
+  title: string;
+  description: string;
+  servings: string;
+  prep_minutes: number | null;
+  cook_minutes: number | null;
+  total_minutes: number | null;
+  original_language: string;
+  ingredients: IngredientLine[];
+  steps: { text: string; image_index: number | null }[];
+  main_image_index: number | null;
+  categories: string[];
+  kcal: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+  recipe?: AiRecipe | null;
+  // Tylko w odpowiedziach asystenta: polecane przepisy z bazy
+  recipes?: RecipeSummary[];
+}
+
+export interface ChatReply {
+  text: string;
+  recipes: RecipeSummary[];
+  new_recipe: AiRecipe | null;
+}
+
+export interface ShoppingResult {
+  added: number;
+  skipped: string[]; // pominięte, bo są w spiżarni
+}
+
+export interface BackupFile {
+  name: string;
+  size: number;
+  created_at: string;
 }
 
 export class ApiError extends Error {
@@ -171,6 +222,7 @@ export const api = {
   setImageFromUrl: (id: number, url: string) => request<Recipe>("POST", `/api/recipes/${id}/image-from-url`, { url }),
   imageSearchStatus: () => request<ImageSearchProgress>("GET", "/api/recipes/image-search"),
   startImageSearch: () => request<ImageSearchProgress>("POST", "/api/recipes/image-search"),
+  calculateNutrition: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/nutrition`),
   markCooked: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/cooked`),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();
@@ -192,15 +244,27 @@ export const api = {
   listShopping: () => request<ShoppingItem[]>("GET", "/api/shopping"),
   addShoppingItem: (text: string) => request<ShoppingItem>("POST", "/api/shopping", { text }),
   addRecipeToShopping: (recipeId: number, factor = 1) =>
-    request<{ added: number }>("POST", "/api/shopping/from-recipe", { recipe_id: recipeId, factor }),
+    request<ShoppingResult>("POST", "/api/shopping/from-recipe", { recipe_id: recipeId, factor }),
   addPlanToShopping: (start: string, end: string) =>
-    request<{ added: number }>("POST", "/api/shopping/from-plan", { start, end }),
+    request<ShoppingResult>("POST", "/api/shopping/from-plan", { start, end }),
   setShoppingChecked: (id: number, checked: boolean) =>
     request<ShoppingItem>("PATCH", `/api/shopping/${id}`, { checked }),
   deleteShoppingItem: (id: number) => request<void>("DELETE", `/api/shopping/${id}`),
   clearShopping: (onlyChecked: boolean) =>
     request<void>("POST", `/api/shopping/clear${query({ only_checked: onlyChecked ? "true" : "false" })}`),
   sendShoppingToHa: () => request<{ added: number }>("POST", "/api/shopping/send-to-ha"),
+
+  getPantry: () => request<string[]>("GET", "/api/pantry"),
+  setPantry: (names: string[]) => request<string[]>("PUT", "/api/pantry", { names }),
+
+  // Backend nie pamięta rozmowy - wysyłamy całą historię (bez list polecanych przepisów)
+  chat: (messages: ChatMessage[]) =>
+    request<ChatReply>("POST", "/api/chat", {
+      messages: messages.map(({ role, text, recipe }) => ({ role, text, recipe: recipe ?? null })),
+    }),
+  saveChatRecipe: (recipe: AiRecipe) => request<Recipe>("POST", "/api/chat/save", { recipe }),
+
+  listBackups: () => request<BackupFile[]>("GET", "/api/backups"),
 
   listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
   addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),

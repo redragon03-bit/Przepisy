@@ -5,7 +5,12 @@ odczytuje przepis, tłumaczy go na polski, przelicza miary na metryczne i zapisu
 instrukcję krok po kroku (razem ze zdjęciami ze strony). Potem możesz:
 
 - szukać przepisów po nazwie i po składnikach,
-- wpisać, co masz w lodówce, i zobaczyć, co z tego ugotujesz („Co ugotuję?”).
+- wpisać, co masz w domu (spiżarnia), i zobaczyć, co z tego ugotujesz („Co ugotuję?”),
+- zapytać czat („mam ochotę na coś ostrego, ale bez ryżu”) – poleca Twoje przepisy albo
+  wymyśla nowy, który zapisujesz jednym przyciskiem,
+- gotować w trybie krok po kroku (duża czcionka, minutniki, ekran nie gaśnie),
+- planować tydzień, robić listę zakupów (pomija to, co masz w domu) i wysyłać ją do HA,
+- zobaczyć szacunkowe kalorie i makro na porcję, udostępnić przepis jako tekst.
 
 Działa w przeglądarce (Safari na iPhonie, Chrome na Androidzie) i można ją dodać do ekranu
 głównego jak zwykłą aplikację (PWA).
@@ -72,7 +77,8 @@ Poza HA ustaw `HA_URL` i `HA_TOKEN` (token długoterminowy z profilu użytkownik
 
 Gdy **Gemini jest przeciążony** (błąd 503 „high demand”), `ai.py` ponawia zapytanie dwa razy
 (po 2 i 6 s), a potem próbuje modelu zapasowego (`GEMINI_FALLBACK_MODEL`). Jeśli i to
-zawiedzie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
+zawiedzie, pyta **kolejnych AI**, do których podano klucz (np. darmowe Groq i Mistral –
+`GROQ_API_KEY`, `MISTRAL_API_KEY`). Gdy zawiodą wszystkie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
 Zdjęcia z nieudanego importu czekają na ponowienie 7 dni.
 
 **Bez klucza AI** aplikacja też działa, ale tylko dla stron z danymi schema.org i bez
@@ -136,10 +142,14 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | Zmienna             | Co robi                                                           | Domyślnie         |
 |---------------------|-------------------------------------------------------------------|-------------------|
 | `APP_PASSWORD`      | Hasło do aplikacji. Puste = brak logowania (tylko do testów!)     | puste             |
-| `AI_PROVIDER`       | `auto` (ten, do którego jest klucz), `gemini` albo `anthropic`    | `auto`            |
+| `AI_PROVIDER`       | Które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral`, `anthropic`; gdy zawiedzie, pytane są kolejne z kluczem | `auto`            |
 | `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
+| `GROQ_API_KEY`      | Darmowy klucz z https://console.groq.com (zapasowe AI)            | puste             |
+| `GROQ_MODEL`        | Model Groq (musi czytać obrazki)                                  | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| `MISTRAL_API_KEY`   | Darmowy klucz z https://console.mistral.ai (zapasowe AI)          | puste             |
+| `MISTRAL_MODEL`     | Model Mistral                                                     | `mistral-small-latest` |
 | `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
 | `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
@@ -265,7 +275,11 @@ backend/
       categories.py    ←   /api/categories   lista kategorii, automatyczne przypisanie przez AI
       imports.py       ←   /api/imports      import z linku/zdjęć
       auth.py          ←   /api/auth         logowanie
-      backup.py        ←   /api/backup       kopia ZIP
+      shopping.py      ←   /api/shopping     lista zakupów, wysyłka do Home Assistant
+      plan.py          ←   /api/plan         plan posiłków na tydzień
+      pantry.py        ←   /api/pantry       spiżarnia (co jest w domu)
+      chat.py          ←   /api/chat         czat z asystentem, zapis wymyślonego przepisu
+      backup.py        ←   /api/backup(s)    kopia ZIP i kopie automatyczne
     services/          ← LOGIKA, bez wiedzy o HTTP
       importer.py      ←   cały proces importu (koordynuje pozostałe)
       fetcher.py       ←   pobieranie stron i obrazków
@@ -275,6 +289,9 @@ backend/
       ingredients.py   ←   normalizacja nazw składników
       categories.py    ←   kategorie: domyślna lista, normalizacja nazw
       matching.py      ←   algorytm „Co ugotuję?”
+      shopping.py      ←   łączenie składników na liście zakupów, wysyłka do HA
+      image_search.py  ←   szukanie zdjęcia dla przepisu bez zdjęcia
+      backup.py        ←   tworzenie ZIP-a, cotygodniowa kopia automatyczna
   tests/               ← testy (pytest); AI i internet są w nich podmienione
 frontend/
   src/
@@ -329,6 +346,9 @@ danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać ko
 - **Pobranie:** *Ustawienia → Pobierz kopię* – plik ZIP z bazą (`przepisy.db`) i folderem `images/`.
 - **Przywrócenie:** zatrzymaj aplikację, rozpakuj ZIP do folderu danych (`DATA_DIR`,
   w Dockerze `/data`), uruchom ponownie.
+- **Automatycznie:** raz w tygodniu aplikacja sama zapisuje ZIP w `DATA_DIR/backups`
+  i trzyma 3 ostatnie (lista do pobrania w *Ustawieniach*). Chroni przed przypadkowym
+  usunięciem przepisów; przed awarią dysku chroni kopia pobrana albo kopia HA.
 - W Home Assistant dane dodatku są też w zwykłych kopiach zapasowych HA.
 
 ---

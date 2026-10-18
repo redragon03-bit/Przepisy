@@ -9,7 +9,7 @@ from ..auth import require_auth
 from ..database import get_db
 from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
 from ..schemas import ImageFromUrl, ImageSearchProgress, IngredientLine, RecipeIn, RecipeOut, RecipePatch, RecipeSummary, StepOut, image_url
-from ..services import fetcher, image_search, images
+from ..services import ai, fetcher, image_search, images
 from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, normalize_name
 
@@ -42,6 +42,10 @@ def to_out(recipe: Recipe) -> RecipeOut:
         notes=recipe.notes,
         cooked_count=recipe.cooked_count,
         last_cooked_at=recipe.last_cooked_at,
+        kcal=recipe.kcal,
+        protein=recipe.protein,
+        fat=recipe.fat,
+        carbs=recipe.carbs,
         ingredients=[
             IngredientLine(text=ri.text, name=ri.ingredient.name, amount=ri.amount,
                            unit=ri.unit, original_text=ri.original_text)
@@ -186,6 +190,19 @@ def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
     db.commit()
     for filename in files:
         images.delete_image(filename)
+
+
+@router.post("/{recipe_id}/nutrition", response_model=RecipeOut)
+def calculate_nutrition(recipe_id: int, db: Session = Depends(get_db)):
+    """AI szacuje kalorie i makro na 1 porcję."""
+    recipe = _get(db, recipe_id)
+    try:
+        result = ai.estimate_nutrition(recipe.title, recipe.servings, [ri.text for ri in recipe.ingredients])
+    except ai.AiError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    recipe.kcal, recipe.protein, recipe.fat, recipe.carbs = result.kcal, result.protein, result.fat, result.carbs
+    db.commit()
+    return to_out(recipe)
 
 
 @router.get("/{recipe_id}/image-candidates", response_model=list[str])

@@ -14,8 +14,9 @@ from fastapi.responses import FileResponse
 from .auth import require_auth
 from .config import get_settings
 from .database import init_db
+from .services import backup as backup_service
 from .services.importer import remove_stale_uploads
-from .routers import auth, backup, categories, imports, ingredients, plan, recipes, shopping
+from .routers import auth, backup, categories, chat, imports, ingredients, pantry, plan, recipes, shopping
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +25,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_app: FastAPI):
     init_db()
     remove_stale_uploads()
+    backup_service.start_scheduler()
     yield
 
 
@@ -34,6 +36,8 @@ app.include_router(ingredients.router)
 app.include_router(categories.router)
 app.include_router(shopping.router)
 app.include_router(plan.router)
+app.include_router(pantry.router)
+app.include_router(chat.router)
 app.include_router(imports.router)
 app.include_router(backup.router)
 

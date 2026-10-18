@@ -4,34 +4,48 @@ import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
 
 // "Co mogę ugotować?" - wybierasz składniki, które masz, i dostajesz pasujące przepisy.
-// Wybrane składniki pamiętamy w przeglądarce, żeby nie wpisywać ich za każdym razem.
-const STORAGE_KEY = "cook-ingredients";
+// Wybrane składniki to spiżarnia zapisana na serwerze: lista zakupów je pomija,
+// a czat bierze je pod uwagę.
+// Starsze wersje trzymały wybór w przeglądarce - przenosimy go raz do spiżarni.
+const OLD_STORAGE_KEY = "cook-ingredients";
 
-function loadSaved(): string[] {
+function takeOldSelection(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) ?? "[]");
+    localStorage.removeItem(OLD_STORAGE_KEY);
+    return Array.isArray(old) ? old : [];
   } catch {
     return [];
   }
 }
 
 export default function CookPage() {
-  const [have, setHave] = useState<string[]>(loadSaved);
+  const [have, setHave] = useState<string[] | null>(null);
   const [maxMissing, setMaxMissing] = useState(1);
   const [matches, setMatches] = useState<CookMatch[] | null>(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(have));
-    } catch {
-      // brak dostępu do pamięci przeglądarki - trudno, działa bez zapamiętywania
-    }
-    if (!have.length) {
+    api.getPantry().then((pantry) => {
+      const old = takeOldSelection();
+      if (!pantry.length && old.length) api.setPantry(old).then(setHave);
+      else setHave(pantry);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!have?.length) {
       setMatches(null);
       return;
     }
     api.whatCanICook(have, maxMissing).then(setMatches);
   }, [have, maxMissing]);
+
+  const change = async (names: string[]) => {
+    setHave(names);
+    setHave(await api.setPantry(names));
+  };
+
+  if (have === null) return <p className="muted center">Ładowanie…</p>;
 
   return (
     <>
@@ -39,8 +53,12 @@ export default function CookPage() {
         <h1>Co ugotuję?</h1>
       </header>
       <section className="box">
-        <p className="muted small">Wpisz, co masz w lodówce. Sól, pieprz, olej itp. są liczone jako „zawsze w domu” (zmienisz to w Ustawieniach).</p>
-        <IngredientPicker value={have} onChange={setHave} placeholder="np. jajko, pomidor…" />
+        <h2>Moja spiżarnia</h2>
+        <p className="muted small">
+          Wpisz, co masz w domu. Aplikacja to zapamięta: lista zakupów pominie te produkty, a czat weźmie je pod uwagę. Sól, pieprz,
+          olej itp. są liczone jako „zawsze w domu” (zmienisz to w Ustawieniach).
+        </p>
+        <IngredientPicker value={have} onChange={change} placeholder="np. jajko, pomidor…" />
         <label className="row small">
           Może brakować:
           <select value={maxMissing} onChange={(e) => setMaxMissing(Number(e.target.value))}>

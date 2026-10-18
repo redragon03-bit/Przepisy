@@ -39,18 +39,20 @@ def add_from_recipe(data: ShoppingFromRecipe, db: Session = Depends(get_db)):
     recipe = db.get(Recipe, data.recipe_id)
     if recipe is None:
         raise HTTPException(404, "Nie ma takiego przepisu")
-    added = shopping.add_recipe(db, recipe, data.factor, data.skip_staples)
+    skipped: list[str] = []
+    added = shopping.add_recipe(db, recipe, data.factor, data.skip_staples, skipped)
     db.commit()
-    return ShoppingResult(added=added)
+    return ShoppingResult(added=added, skipped=skipped)
 
 
 @router.post("/from-plan", response_model=ShoppingResult)
 def add_from_plan(data: ShoppingFromPlan, db: Session = Depends(get_db)):
     """Składniki wszystkich przepisów zaplanowanych między `start` a `end` (włącznie)."""
     entries = db.query(MealPlanEntry).filter(MealPlanEntry.day.between(data.start, data.end)).all()
-    added = sum(shopping.add_recipe(db, e.recipe, 1, data.skip_staples) for e in entries)
+    skipped: list[str] = []
+    added = sum(shopping.add_recipe(db, e.recipe, 1, data.skip_staples, skipped) for e in entries)
     db.commit()
-    return ShoppingResult(added=added)
+    return ShoppingResult(added=added, skipped=skipped)
 
 
 @router.patch("/{item_id}", response_model=ShoppingItemOut)

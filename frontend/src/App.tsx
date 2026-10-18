@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { api, AuthStatus, setUnauthorizedHandler } from "./api";
+import ChatPage from "./pages/ChatPage";
+import CookingModePage from "./pages/CookingModePage";
 import CookPage from "./pages/CookPage";
 import EditRecipePage from "./pages/EditRecipePage";
 import ImportPage from "./pages/ImportPage";
@@ -31,6 +33,8 @@ export default function App() {
           <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/przepis/:id" element={<RecipePage />} />
           <Route path="/przepis/:id/edytuj" element={<EditRecipePage />} />
+          <Route path="/przepis/:id/gotuj" element={<CookingModePage />} />
+          <Route path="/czat" element={<ChatPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/nowy" element={<EditRecipePage />} />
           <Route path="/dodaj" element={<ImportPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/co-ugotowac" element={<CookPage />} />
@@ -45,6 +49,9 @@ export default function App() {
         </NavLink>
         <NavLink to="/dodaj">
           <span>➕</span>Dodaj
+        </NavLink>
+        <NavLink to="/czat">
+          <span>💬</span>Czat
         </NavLink>
         <NavLink to="/co-ugotowac">
           <span>🥕</span>Co ugotuję?

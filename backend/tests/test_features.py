@@ -78,7 +78,7 @@ def test_send_to_home_assistant(client, monkeypatch):
     real_client = httpx.Client
     monkeypatch.setattr(shopping.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
     client.post("/api/shopping", json={"text": "masło"})
-    assert client.post("/api/shopping/send-to-ha").json() == {"added": 1}
+    assert client.post("/api/shopping/send-to-ha").json()["added"] == 1
     url, auth, body = sent[0]
     assert url == "http://ha.local:8123/api/services/todo/add_item"
     assert auth == "Bearer token"
