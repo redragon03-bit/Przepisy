@@ -17,6 +17,7 @@ def status(request: Request):
         auth_required=bool(settings.app_password),
         ai_enabled=settings.ai_enabled,
         ai_provider=settings.active_ai_provider,
+        ai_providers=settings.ai_providers,
         ha_enabled=settings.home_assistant is not None,
     )
 

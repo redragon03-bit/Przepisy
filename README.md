@@ -77,7 +77,8 @@ Poza HA ustaw `HA_URL` i `HA_TOKEN` (token długoterminowy z profilu użytkownik
 
 Gdy **Gemini jest przeciążony** (błąd 503 „high demand”), `ai.py` ponawia zapytanie dwa razy
 (po 2 i 6 s), a potem próbuje modelu zapasowego (`GEMINI_FALLBACK_MODEL`). Jeśli i to
-zawiedzie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
+zawiedzie, pyta **kolejnych AI**, do których podano klucz (np. darmowe Groq i Mistral –
+`GROQ_API_KEY`, `MISTRAL_API_KEY`). Gdy zawiodą wszystkie, nieudany import da się ponowić przyciskiem **Ponów** (`POST /api/imports/{id}/retry`).
 Zdjęcia z nieudanego importu czekają na ponowienie 7 dni.
 
 **Bez klucza AI** aplikacja też działa, ale tylko dla stron z danymi schema.org i bez
@@ -141,10 +142,14 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | Zmienna             | Co robi                                                           | Domyślnie         |
 |---------------------|-------------------------------------------------------------------|-------------------|
 | `APP_PASSWORD`      | Hasło do aplikacji. Puste = brak logowania (tylko do testów!)     | puste             |
-| `AI_PROVIDER`       | `auto` (ten, do którego jest klucz), `gemini` albo `anthropic`    | `auto`            |
+| `AI_PROVIDER`       | Które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral`, `anthropic`; gdy zawiedzie, pytane są kolejne z kluczem | `auto`            |
 | `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
+| `GROQ_API_KEY`      | Darmowy klucz z https://console.groq.com (zapasowe AI)            | puste             |
+| `GROQ_MODEL`        | Model Groq (musi czytać obrazki)                                  | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| `MISTRAL_API_KEY`   | Darmowy klucz z https://console.mistral.ai (zapasowe AI)          | puste             |
+| `MISTRAL_MODEL`     | Model Mistral                                                     | `mistral-small-latest` |
 | `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
 | `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |

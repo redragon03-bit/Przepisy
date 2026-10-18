@@ -3,10 +3,15 @@
 ## Opcje
 
 - **app_password** - hasło do aplikacji. Ustaw koniecznie, jeśli aplikacja będzie dostępna spoza domu.
-- **ai_provider** - które AI czyta przepisy: `auto` (to, do którego podasz klucz), `gemini` albo `anthropic`.
+- **ai_provider** - które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral` albo `anthropic`. Gdy ono zawiedzie
+  (np. skończy się darmowy limit), aplikacja sama pyta kolejnych AI, do których podasz klucz.
 - **gemini_api_key** - klucz z https://aistudio.google.com (ma darmowy limit).
 - **gemini_model** - model Gemini. Domyślny `gemini-flash-latest`.
 - **gemini_fallback_model** - model próbowany, gdy główny jest przeciążony. Domyślny `gemini-flash-lite-latest`.
+- **groq_api_key** - darmowy klucz z https://console.groq.com (logowanie kontem Google, bez karty) → API Keys.
+- **groq_model** - model Groq, musi czytać obrazki. Domyślny `meta-llama/llama-4-scout-17b-16e-instruct`.
+- **mistral_api_key** - darmowy klucz z https://console.mistral.ai (plan „Experiment”, weryfikacja numerem telefonu) → API Keys.
+- **mistral_model** - model Mistral. Domyślny `mistral-small-latest`.
 - **anthropic_api_key** - klucz z https://console.anthropic.com (płatny za użycie).
 - **claude_model** - model Claude. Domyślny `claude-opus-5-5`; tańszy: `claude-haiku-5-5`.
 

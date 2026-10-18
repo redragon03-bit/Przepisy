@@ -21,11 +21,19 @@ RESULT = ai.AiResult(recipes=[RECIPE])
     ("auto", "", "g", "gemini"),
     ("auto", "a", "g", "anthropic"),
     ("gemini", "a", "g", "gemini"),
-    ("gemini", "a", "", None),
+    # Wybrany AI bez klucza - bierzemy następny, do którego jest klucz
+    ("gemini", "a", "", "anthropic"),
 ])
 def test_active_provider(provider, anthropic_key, gemini_key, expected):
     settings = Settings(ai_provider=provider, anthropic_api_key=anthropic_key, gemini_api_key=gemini_key)
     assert settings.active_ai_provider == expected
+
+
+def test_providers_order():
+    settings = Settings(ai_provider="gemini", anthropic_api_key="a", gemini_api_key="g",
+                        groq_api_key="q", mistral_api_key="m")
+    assert settings.ai_providers == ["gemini", "anthropic", "groq", "mistral"]
+    assert Settings(ai_provider="auto", groq_api_key="q", mistral_api_key="m").ai_providers == ["groq", "mistral"]
 
 
 def test_claude_gets_text_and_image_blocks(monkeypatch):
@@ -134,3 +142,63 @@ def test_categorize_maps_ids(monkeypatch):
     monkeypatch.setattr(ai, "_ask_gemini", fake)
     assert ai.categorize([(7, "Pudding chia", ["chia", "mleko"])], ["Deser", "Zupa"]) == {7: ["Deser"]}
     assert "7. Pudding chia" in sent["text"] and "Deser, Zupa" in sent["text"]
+
+
+def _only(monkeypatch, **keys):
+    """Ustawia klucze AI: tylko podane są niepuste."""
+    settings = ai.get_settings()
+    monkeypatch.setattr(settings, "ai_provider", "auto")
+    for name in ("anthropic", "gemini", "groq", "mistral"):
+        monkeypatch.setattr(settings, f"{name}_api_key", keys.get(name, ""))
+
+
+def test_groq_gets_json_schema_and_images(monkeypatch):
+    _only(monkeypatch, groq="q")
+    sent = {}
+
+    def fake_post(url, headers, json, timeout):
+        sent.update(url=url, headers=headers, body=json)
+        content = '```json\n' + RESULT.model_dump_json() + '\n```'
+        return SimpleNamespace(status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {"content": content}}]})
+
+    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    assert ai.recipes_from_images([b"jpeg"])[0].title == "Placki"
+    assert sent["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert sent["headers"]["Authorization"] == "Bearer q"
+    system, user = sent["body"]["messages"]
+    assert '"recipes"' in system["content"]
+    assert user["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert sent["body"]["response_format"] == {"type": "json_object"}
+
+
+def test_next_ai_is_used_when_first_fails(monkeypatch):
+    _only(monkeypatch, gemini="g", groq="q", mistral="m")
+    asked = []
+
+    def failing(name):
+        def ask(content, system, schema):
+            asked.append(name)
+            raise ai.AiError("Wyczerpany limit")
+        return ask
+
+    monkeypatch.setattr(ai, "_ask_gemini", failing("gemini"))
+    monkeypatch.setattr(ai, "_ask_groq", failing("groq"))
+    monkeypatch.setattr(ai, "_ask_mistral", lambda content, system, schema: asked.append("mistral") or RESULT)
+    assert ai.recipes_from_images([b"jpeg"])[0].title == "Placki"
+    assert asked == ["gemini", "groq", "mistral"]
+
+
+def test_all_ais_failing_shows_each_error(monkeypatch):
+    _only(monkeypatch, gemini="g", mistral="m")
+    monkeypatch.setattr(ai, "_ask_gemini", lambda c, s, sc: (_ for _ in ()).throw(ai.AiError("limit Gemini")))
+    monkeypatch.setattr(ai, "_ask_mistral", lambda c, s, sc: (_ for _ in ()).throw(ai.AiError("zły klucz")))
+    with pytest.raises(ai.AiError, match="Gemini: limit Gemini Mistral: zły klucz"):
+        ai.recipes_from_images([b"jpeg"])
+
+
+def test_bad_json_from_mistral_is_an_error(monkeypatch):
+    _only(monkeypatch, mistral="m")
+    monkeypatch.setattr(ai.httpx, "post", lambda url, headers, json, timeout: SimpleNamespace(
+        status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {"content": "{\"x\": 1}"}}]}))
+    with pytest.raises(ai.AiError, match="Mistral nie zwróciło poprawnej"):
+        ai.categorize([(1, "Placki", ["jajko"])], [])

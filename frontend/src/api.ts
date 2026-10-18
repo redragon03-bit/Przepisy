@@ -88,7 +88,9 @@ export interface AuthStatus {
   authenticated: boolean;
   auth_required: boolean;
   ai_enabled: boolean;
-  ai_provider: "anthropic" | "gemini" | null;
+  ai_provider: string | null;
+  // Wszystkie AI z kluczem, w kolejności pytania: "anthropic", "gemini", "groq", "mistral"
+  ai_providers: string[];
   ha_enabled: boolean;
 }
 

@@ -248,7 +248,9 @@ class AuthStatus(BaseModel):
     authenticated: bool
     auth_required: bool
     ai_enabled: bool
-    # "anthropic", "gemini" albo None (AI wyłączone)
+    # Pierwszy pytany AI: "anthropic", "gemini", "groq", "mistral" albo None (AI wyłączone)
     ai_provider: str | None
+    # Wszystkie AI z kluczem, w kolejności pytania (kolejne są zapasem)
+    ai_providers: list[str]
     # Czy lista zakupów może być wysłana do Home Assistant
     ha_enabled: bool
