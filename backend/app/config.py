@@ -31,7 +31,8 @@ def _load_home_assistant_options() -> None:
     options = json.loads(HA_OPTIONS_FILE.read_text())
     for option, env_name in HA_OPTION_TO_ENV.items():
         value = options.get(option)
-        if value:
+        # "-" to "puste" - starsze wersje dodatku wymagały wpisania czegoś w każde pole
+        if value and value != "-":
             os.environ[env_name] = str(value)
 
 

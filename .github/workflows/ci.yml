@@ -50,9 +50,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Numer wersji z ha-addon/config.yaml - dodatek HA pobiera obraz o tym numerze
+      - id: version
+        run: echo "version=$(grep '^version:' ha-addon/config.yaml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/przepisy:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/przepisy:latest
+            ghcr.io/${{ github.repository_owner }}/przepisy:${{ steps.version.outputs.version }}
