@@ -61,8 +61,8 @@ class AiRecipe(BaseModel):
     steps: list[AiStep]
     main_image_index: int | None = Field(description="Numer obrazka ze zdjęciem gotowego dania, albo null")
     categories: list[str] = Field(
-        description="1-3 kategorie, np. 'Deser'. Wybieraj z listy istniejących kategorii; "
-        "nową (krótką, z dużej litery) dodaj tylko, gdy żadna nie pasuje"
+        description="1-4 kategorie, np. ['Danie główne', 'Air fryer']. Wybieraj z listy istniejących "
+        "kategorii; nową (krótką, z dużej litery) dodaj tylko, gdy żadna nie pasuje"
     )
     # Szacunek AI na 1 porcję (gdy porcji nie podano - na 1/4 całości)
     kcal: int | None = Field(default=None, description="Szacunkowe kalorie na 1 porcję, null gdy nie da się ocenić")
@@ -102,7 +102,7 @@ i ich ilości. Gdy przepis nie podaje liczby porcji, przyjmij 4."""
 
 class AiRecipeCategories(BaseModel):
     id: int = Field(description="Numer przepisu z listy")
-    categories: list[str] = Field(description="1-3 kategorie tego przepisu")
+    categories: list[str] = Field(description="1-4 kategorie tego przepisu")
 
 
 class AiCategorization(BaseModel):
@@ -110,7 +110,7 @@ class AiCategorization(BaseModel):
 
 
 CATEGORIZE_PROMPT = """Jesteś asystentem kulinarnym. Dostajesz listę przepisów (numer, \
-tytuł, składniki) i listę istniejących kategorii. Każdemu przepisowi przypisz 1-3 kategorie. \
+tytuł, składniki) i listę istniejących kategorii. Każdemu przepisowi przypisz 1-4 kategorie. \
 Wybieraj z istniejących kategorii; nową (krótką, po polsku, z dużej litery) dodaj tylko, \
 gdy żadna nie pasuje. Nie twórz kategorii będących synonimami istniejących."""
 
@@ -308,7 +308,11 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
 
 
 def _categories_hint(categories: list[str]) -> str:
-    return "Istniejące kategorie: " + (", ".join(categories) or "brak")
+    return (
+        "Istniejące kategorie: " + (", ".join(categories) or "brak") + "\n"
+        "Przepis może mieć kilka kategorii naraz: rodzaj dania (np. 'Danie główne') i sposób "
+        "przygotowania - 'Air fryer', gdy danie robi się w air fryerze (frytkownicy beztłuszczowej)."
+    )
 
 
 def _ask(content: Content) -> list[AiRecipe]:

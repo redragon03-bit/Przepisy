@@ -12,6 +12,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [favorites, setFavorites] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [uncategorized, setUncategorized] = useState(0);
+  const [total, setTotal] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
   const [sorting, setSorting] = useState(false);
@@ -36,6 +37,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const loadCategories = () => {
     api.listCategories().then(setCategories);
     api.listRecipes("", [], "-").then((r) => setUncategorized(r.length));
+    api.listRecipes("", []).then((r) => setTotal(r.length));
   };
   useEffect(loadCategories, []);
 
@@ -83,7 +85,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       {recipes !== null && (recipes.length > 0 || category || favorites) && (
         <div className="category-bar">
           <button type="button" className={`chip ${category === "" && !favorites ? "selected" : ""}`} onClick={() => { setCategory(""); setFavorites(false); }}>
-            Wszystkie
+            Wszystkie <span className="muted">{total}</span>
           </button>
           <button type="button" className={`chip ${favorites ? "selected" : ""}`} onClick={() => setFavorites(!favorites)}>
             ❤️ Ulubione
