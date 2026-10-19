@@ -183,3 +183,21 @@ def test_auto_categorize(client, monkeypatch):
     result = client.post("/api/categories/auto").json()
     assert result["updated"] >= 1 and result["remaining"] == 0
     assert client.get(f"/api/recipes/{recipe['id']}").json()["categories"] == ["Deser"]
+
+
+def test_air_fryer_category_added_to_existing_recipes(client):
+    from app.database import SessionLocal
+    from app.models import Category
+    from app.services.categories import add_new_categories
+
+    fries = client.post("/api/recipes", json={"title": "Frytki", "categories": ["Przekąska"],
+                                              "steps": [{"text": "Piecz w air fryerze 15 min w 200°C."}]}).json()
+    soup = client.post("/api/recipes", json={"title": "Zupa", "steps": [{"text": "Gotuj 20 min."}]}).json()
+    with SessionLocal() as db:
+        # Baza sprzed tej wersji - kategorii jeszcze nie ma
+        db.query(Category).filter_by(name="Air fryer").delete()
+        db.commit()
+        add_new_categories(db)
+        db.commit()
+    assert client.get(f"/api/recipes/{fries['id']}").json()["categories"] == ["Air fryer", "Przekąska"]
+    assert client.get(f"/api/recipes/{soup['id']}").json()["categories"] == []

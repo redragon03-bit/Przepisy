@@ -174,7 +174,7 @@ export default function EditRecipePage() {
       <h2>Pozostałe</h2>
       <label>
         Link do źródła
-        <input type="url" value={form.source_url} onChange={(e) => set("source_url", e.target.value)} />
+        <input value={form.source_url} onChange={(e) => set("source_url", e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
       </label>
       <label>
         Notatki
