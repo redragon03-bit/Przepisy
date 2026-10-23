@@ -14,6 +14,7 @@ wspólna funkcja _ask_openai_style.
 """
 
 import base64
+import contextvars
 import json
 import logging
 import re
@@ -122,6 +123,25 @@ class AiError(Exception):
 # Element treści dla AI: tekst albo obrazek JPEG
 Content = list[str | bytes]
 
+# Limit czasu dla czatu: (do kiedy wg time.monotonic(), najdłużej na jedno zapytanie).
+# None = bez limitu - import przepisu może trwać długo, bo działa w tle.
+# Safari zrywa zapytanie po ok. minucie ciszy ("Load failed"), więc czat musi zdążyć wcześniej.
+_limit: contextvars.ContextVar[tuple[float, float] | None] = contextvars.ContextVar("ai_limit", default=None)
+CHAT_SECONDS = 50
+CHAT_REQUEST_SECONDS = 25
+
+
+def _timeout() -> float | None:
+    """Ile sekund może trwać najbliższe zapytanie do AI; None = domyślnie dla dostawcy."""
+    limit = _limit.get()
+    if limit is None:
+        return None
+    deadline, per_request = limit
+    left = deadline - time.monotonic()
+    if left < 3:
+        raise AiError("AI odpowiada zbyt wolno - spróbuj jeszcze raz za chwilę.")
+    return min(per_request, left)
+
 
 def _ask_claude(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     settings = get_settings()
@@ -133,8 +153,11 @@ def _ask_claude(content: Content, system: str, schema: type[BaseModel]) -> BaseM
         }
         for item in content
     ]
+    timeout = _timeout()
+    extra = {"timeout": timeout} if timeout else {}
     try:
         response = anthropic.Anthropic(api_key=settings.anthropic_api_key).messages.parse(
+            **extra,
             model=settings.claude_model,
             max_tokens=16000,
             system=system,
@@ -147,6 +170,8 @@ def _ask_claude(content: Content, system: str, schema: type[BaseModel]) -> BaseM
         raise AiError("Nieprawidłowy klucz API Anthropic.") from exc
     except anthropic.RateLimitError as exc:
         raise AiError("Za dużo zapytań do AI - spróbuj za chwilę.") from exc
+    except anthropic.APITimeoutError as exc:
+        raise AiError("Claude nie odpowiedział na czas.") from exc
     except anthropic.APIConnectionError as exc:
         raise AiError("Brak połączenia z AI.") from exc
     except anthropic.APIStatusError as exc:
@@ -170,6 +195,7 @@ def _is_temporary(exc: genai_errors.APIError) -> bool:
 
 def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
                  schema: type[BaseModel]) -> BaseModel:
+    timeout = _timeout()
     try:
         response = client.models.generate_content(
             model=model,
@@ -178,8 +204,14 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
                 system_instruction=system,
                 response_mime_type="application/json",
                 response_schema=schema,
+                # Gemini liczy w milisekundach
+                http_options=genai_types.HttpOptions(timeout=int(timeout * 1000)) if timeout else None,
             ),
         )
+    except httpx.TimeoutException as exc:
+        raise AiError("Gemini nie odpowiedział na czas.") from exc
+    except httpx.HTTPError as exc:
+        raise AiError("Brak połączenia z Gemini.") from exc
     except genai_errors.ClientError as exc:
         if exc.code in (401, 403) or "API key" in str(exc):
             raise AiError("Nieprawidłowy klucz API Gemini.") from exc
@@ -241,13 +273,15 @@ def _ask_openai_style(name: str, url: str, api_key: str, model: str,
             for item in content
         ]
     try:
-        response = httpx.post(url, timeout=180, headers={"Authorization": f"Bearer {api_key}"}, json={
+        response = httpx.post(url, timeout=_timeout() or 180, headers={"Authorization": f"Bearer {api_key}"}, json={
             "model": model,
             "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user}],
             "response_format": {"type": "json_object"},
             "temperature": 0.2,
             "max_tokens": 8000,
         })
+    except httpx.TimeoutException as exc:
+        raise AiError(f"{name} nie odpowiedział na czas.") from exc
     except httpx.HTTPError as exc:
         raise AiError(f"Brak połączenia z {name}.") from exc
     if response.status_code in (401, 403):
@@ -500,4 +534,9 @@ na indyka", "na 2 osoby"), zwróć cały zmieniony przepis w new_recipe.
 def chat(context: str, conversation: str) -> ChatAnswer:
     """Jedna odpowiedź czatu. `context` - przepisy i spiżarnia, `conversation` - dotychczasowa rozmowa."""
     text = f"{context}\n\nRozmowa:\n{conversation}\n\nOdpowiedz na ostatnią wiadomość użytkownika."
-    return _ask_provider([text], CHAT_PROMPT, ChatAnswer)
+    # Użytkownik czeka na ekranie - wolne AI pomijamy i pytamy następnego
+    token = _limit.set((time.monotonic() + CHAT_SECONDS, CHAT_REQUEST_SECONDS))
+    try:
+        return _ask_provider([text], CHAT_PROMPT, ChatAnswer)
+    finally:
+        _limit.reset(token)

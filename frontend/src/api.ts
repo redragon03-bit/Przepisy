@@ -171,14 +171,23 @@ export function setUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const isForm = body instanceof FormData;
-  const response = await fetch(path, {
-    method,
-    credentials: "same-origin",
-    headers: body && !isForm ? { "Content-Type": "application/json" } : undefined,
-    body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: body && !isForm ? { "Content-Type": "application/json" } : undefined,
+      body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } catch (e) {
+    // Przerwanie przez nas (AbortController) przekazujemy dalej bez zmian
+    if (signal?.aborted) throw e;
+    // Safari pisze wtedy "Load failed", Chrome "Failed to fetch" - pokazujemy coś zrozumiałego
+    throw new ApiError(0, "Brak połączenia z serwerem - spróbuj jeszcze raz.");
+  }
   if (response.status === 401 && path !== "/api/auth/login") onUnauthorized();
   if (!response.ok) {
     let message = `Błąd ${response.status}`;
@@ -258,10 +267,13 @@ export const api = {
   setPantry: (names: string[]) => request<string[]>("PUT", "/api/pantry", { names }),
 
   // Backend nie pamięta rozmowy - wysyłamy całą historię (bez list polecanych przepisów)
-  chat: (messages: ChatMessage[]) =>
-    request<ChatReply>("POST", "/api/chat", {
-      messages: messages.map(({ role, text, recipe }) => ({ role, text, recipe: recipe ?? null })),
-    }),
+  chat: (messages: ChatMessage[], signal?: AbortSignal) =>
+    request<ChatReply>(
+      "POST",
+      "/api/chat",
+      { messages: messages.map(({ role, text, recipe }) => ({ role, text, recipe: recipe ?? null })) },
+      signal,
+    ),
   saveChatRecipe: (recipe: AiRecipe) => request<Recipe>("POST", "/api/chat/save", { recipe }),
 
   listBackups: () => request<BackupFile[]>("GET", "/api/backups"),

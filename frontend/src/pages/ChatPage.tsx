@@ -8,6 +8,8 @@ import { nutritionText } from "../lib/nutrition";
 // a gdy nic nie pasuje - wymyśla nowy, który można zapisać.
 // Rozmowę trzymamy w pamięci karty przeglądarki, żeby przejście do przepisu jej nie kasowało.
 const STORAGE_KEY = "chat-messages";
+// Serwer odpowiada najpóźniej po ok. 50 s; dłużej nie czekamy, żeby "Myślę…" nie wisiało w nieskończoność
+const TIMEOUT_MS = 70_000;
 
 const SUGGESTIONS = [
   "Mam ochotę na coś słodkiego",
@@ -80,6 +82,10 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
+  // Trwające zapytanie - "Nowa rozmowa" i wyjście z ekranu je przerywają
+  const pending = useRef<AbortController | null>(null);
+
+  useEffect(() => () => pending.current?.abort(), []);
 
   useEffect(() => {
     try {
@@ -90,22 +96,51 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
-  const send = async (question: string) => {
+  const ask = async (history: ChatMessage[]) => {
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, TIMEOUT_MS);
+    setError("");
+    setThinking(true);
+    try {
+      const reply = await api.chat(history, controller.signal);
+      setMessages([...history, { role: "assistant", text: reply.text, recipe: reply.new_recipe, recipes: reply.recipes }]);
+    } catch (e) {
+      if (timedOut) setError("AI nie odpowiedziało na czas - spróbuj jeszcze raz.");
+      else if (!controller.signal.aborted) setError((e as Error).message);
+    } finally {
+      clearTimeout(timer);
+      // Gdy w międzyczasie ruszyło nowe zapytanie, to ono decyduje o "Myślę…"
+      if (pending.current === controller) {
+        pending.current = null;
+        setThinking(false);
+      }
+    }
+  };
+
+  const send = (question: string) => {
     if (!question.trim() || thinking) return;
     const history: ChatMessage[] = [...messages, { role: "user", text: question.trim() }];
     setMessages(history);
     setText("");
-    setError("");
-    setThinking(true);
-    try {
-      const reply = await api.chat(history);
-      setMessages([...history, { role: "assistant", text: reply.text, recipe: reply.new_recipe, recipes: reply.recipes }]);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setThinking(false);
-    }
+    ask(history);
   };
+
+  const newConversation = () => {
+    pending.current?.abort();
+    pending.current = null;
+    setThinking(false);
+    setError("");
+    setMessages([]);
+  };
+
+  // Po błędzie ostatnia wiadomość użytkownika została bez odpowiedzi - wysyłamy ją jeszcze raz
+  const canRetry = error && !thinking && messages[messages.length - 1]?.role === "user";
 
   if (!aiEnabled) {
     return (
@@ -123,7 +158,7 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
       <header className="topbar">
         <h1>Czat</h1>
         {messages.length > 0 && (
-          <button type="button" className="link" onClick={() => setMessages([])}>
+          <button type="button" className="link" onClick={newConversation}>
             Nowa rozmowa
           </button>
         )}
@@ -160,7 +195,16 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
           </div>
         ))}
         {thinking && <div className="bubble assistant muted">Myślę…</div>}
-        {error && <p className="error small">{error}</p>}
+        {error && (
+          <p className="error small">
+            {error}{" "}
+            {canRetry && (
+              <button type="button" className="link" onClick={() => ask(messages)}>
+                Spróbuj ponownie
+              </button>
+            )}
+          </p>
+        )}
         <div ref={bottom} />
       </div>
 

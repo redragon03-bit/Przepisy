@@ -202,3 +202,29 @@ def test_bad_json_from_mistral_is_an_error(monkeypatch):
         status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {"content": "{\"x\": 1}"}}]}))
     with pytest.raises(ai.AiError, match="Mistral nie zwróciło poprawnej"):
         ai.categorize([(1, "Placki", ["jajko"])], [])
+
+
+def test_chat_skips_slow_ai(monkeypatch):
+    """Gemini nie odpowiada na czas - czat pyta następne AI, zamiast wisieć."""
+    _only(monkeypatch, gemini="g", groq="q")
+    answer = ai.ChatAnswer(text="Placki!", recipe_ids=[], new_recipe=None)
+
+    class SlowModels:
+        def generate_content(self, model, contents, config):
+            assert config.http_options.timeout == ai.CHAT_REQUEST_SECONDS * 1000
+            raise ai.httpx.ReadTimeout("timeout")
+
+    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
+    timeouts = []
+    monkeypatch.setattr(ai, "_ask_groq", lambda c, s, sc: timeouts.append(ai._timeout()) or answer)
+    assert ai.chat("kontekst", "Użytkownik: coś słodkiego").text == "Placki!"
+    assert 0 < timeouts[0] <= ai.CHAT_REQUEST_SECONDS
+    # Poza czatem (np. import) limitu nie ma
+    assert ai._timeout() is None
+
+
+def test_chat_gives_up_when_time_is_out(monkeypatch):
+    _only(monkeypatch, groq="q")
+    monkeypatch.setattr(ai, "CHAT_SECONDS", 0)
+    with pytest.raises(ai.AiError, match="zbyt wolno"):
+        ai.chat("kontekst", "Użytkownik: coś")
