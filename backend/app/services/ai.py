@@ -197,8 +197,11 @@ def _is_temporary(exc: genai_errors.APIError) -> bool:
 
 
 def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
-                 schema: type[BaseModel]) -> BaseModel:
+                 schema: type[BaseModel], quick_ok: bool = True) -> BaseModel:
     timeout = _timeout()
+    # W czacie Gemini nie "myśli" przed odpowiedzią: poleca przepisy z listy, do tego
+    # myślenie nie jest potrzebne, a z nim odpowiedź trwała ponad 25 s (błąd 504)
+    quick = timeout is not None and quick_ok
     try:
         response = client.models.generate_content(
             model=model,
@@ -207,6 +210,7 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
                 system_instruction=system,
                 response_mime_type="application/json",
                 response_schema=schema,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0) if quick else None,
                 # Gemini liczy w milisekundach
                 http_options=genai_types.HttpOptions(timeout=int(timeout * 1000)) if timeout else None,
             ),
@@ -218,6 +222,14 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
     except genai_errors.ClientError as exc:
         if exc.code in (401, 403) or "API key" in str(exc):
             raise AiError("Nieprawidłowy klucz API Gemini.") from exc
+        # Model, który nie umie wyłączyć myślenia - pytamy jeszcze raz normalnie
+        if quick and exc.code == 400 and "thinking" in str(exc).lower():
+            return _gemini_once(client, model, parts, system, schema, quick_ok=False)
+        raise
+    except genai_errors.ServerError as exc:
+        # 504 = Gemini nie zdążył w naszym limicie czasu; ponowna próba nic nie da
+        if exc.code == 504:
+            raise AiError("Gemini nie odpowiedział na czas.") from exc
         raise
     if not isinstance(response.parsed, schema):
         raise AiError("AI nie zwróciło poprawnej odpowiedzi - spróbuj jeszcze raz.")

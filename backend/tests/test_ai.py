@@ -213,6 +213,7 @@ def test_chat_skips_slow_ai(monkeypatch):
     class SlowModels:
         def generate_content(self, model, contents, config):
             assert 0 < config.http_options.timeout <= ai.CHAT_PROVIDER_SECONDS * 1000
+            assert config.thinking_config.thinking_budget == 0
             raise ai.httpx.ReadTimeout("timeout")
 
     monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
@@ -259,6 +260,38 @@ def test_chat_asks_recently_failed_ai_last(monkeypatch):
     ai.chat("kontekst", "Użytkownik: coś")
     ai.chat("kontekst", "Użytkownik: coś innego")
     assert asked == ["gemini", "groq", "groq"]
+
+
+def test_chat_gemini_timeout_504_is_not_retried(monkeypatch):
+    _only(monkeypatch, gemini="g")
+    calls = []
+
+    class SlowModels:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            raise genai_errors.ServerError(504, {"error": {"message": "deadline", "status": "DEADLINE_EXCEEDED"}})
+
+    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
+    with pytest.raises(ai.AiError, match="na czas"):
+        ai.chat("kontekst", "Użytkownik: coś")
+    assert len(calls) == 1
+
+
+def test_chat_retries_with_thinking_when_model_needs_it(monkeypatch):
+    _only(monkeypatch, gemini="g")
+    configs = []
+    answer = ai.ChatAnswer(text="Omlet", recipe_ids=[], new_recipe=None)
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            configs.append(config.thinking_config)
+            if config.thinking_config is not None:
+                raise genai_errors.ClientError(400, {"error": {"message": "Thinking budget 0 is invalid", "status": "INVALID_ARGUMENT"}})
+            return SimpleNamespace(parsed=answer)
+
+    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    assert ai.chat("kontekst", "Użytkownik: coś").text == "Omlet"
+    assert configs[1] is None
 
 
 def test_chat_gives_up_when_time_is_out(monkeypatch):
