@@ -1,26 +1,85 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
 
+// Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
+// w przepis i cofnięciu lista wyglądała tak samo jak przed chwilą.
+const STORAGE_KEY = "recipes-list";
+
+type SavedList = {
+  q: string;
+  ingredients: string[];
+  category: string;
+  favorites: boolean;
+  showFilters: boolean;
+  scrollY: number;
+};
+
+function loadSaved(): SavedList {
+  const empty = { q: "", ingredients: [], category: "", favorites: false, showFilters: false, scrollY: 0 };
+  try {
+    return { ...empty, ...JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "{}") };
+  } catch {
+    return empty;
+  }
+}
+
+function save(list: SavedList) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    // brak miejsca albo tryb prywatny - trudno, po prostu nie zapamiętamy
+  }
+}
+
+// Ostatnio pokazana lista, żeby po powrocie od razu ją narysować (bez "Ładowanie…")
+// i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
+let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: number; total: number } | null = null;
+
 // Strona główna: lista przepisów z wyszukiwaniem po nazwie, kategorii i składnikach.
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
-  const [q, setQ] = useState("");
-  const [ingredients, setIngredients] = useState<string[]>([]);
-  const [category, setCategory] = useState("");
-  const [favorites, setFavorites] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [uncategorized, setUncategorized] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [showFilters, setShowFilters] = useState(false);
-  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
+  const [saved] = useState(loadSaved);
+  const [q, setQ] = useState(saved.q);
+  const [ingredients, setIngredients] = useState<string[]>(saved.ingredients);
+  const [category, setCategory] = useState(saved.category);
+  const [favorites, setFavorites] = useState(saved.favorites);
+  const [categories, setCategories] = useState<Category[]>(cache?.categories ?? []);
+  const [uncategorized, setUncategorized] = useState(cache?.uncategorized ?? 0);
+  const [total, setTotal] = useState(cache?.total ?? 0);
+  const [showFilters, setShowFilters] = useState(saved.showFilters);
+  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? null);
   const [sorting, setSorting] = useState(false);
   const [message, setMessage] = useState("");
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
 
   useEffect(() => {
     api.imageSearchStatus().then(setImages);
+  }, []);
+
+  useEffect(() => {
+    save({ ...loadSaved(), q, ingredients, category, favorites, showFilters });
+  }, [q, ingredients, category, favorites, showFilters]);
+
+  useEffect(() => {
+    if (recipes) cache = { recipes, categories, uncategorized, total };
+  }, [recipes, categories, uncategorized, total]);
+
+  // Po powrocie przewijamy tam, gdzie użytkownik był. Pozycję zapisujemy na bieżąco;
+  // nasłuch zdejmujemy w useLayoutEffect, zanim krótsza strona przepisu "zjedzie" w górę.
+  // Gdy listy nie ma jeszcze w pamięci (np. iPhone zamknął apkę w tle), przewijamy po pierwszym wczytaniu.
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    if (restored.current || !recipes) return;
+    restored.current = true;
+    window.scrollTo(0, saved.scrollY);
+  }, [recipes]);
+
+  useLayoutEffect(() => {
+    const onScroll = () => save({ ...loadSaved(), scrollY: window.scrollY });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   // W trakcie szukania zdjęć co 3 sekundy odświeżamy postęp i listę (nowe zdjęcia)
