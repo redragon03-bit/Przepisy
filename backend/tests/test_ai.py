@@ -286,7 +286,7 @@ def test_chat_retries_with_thinking_when_model_needs_it(monkeypatch):
         def generate_content(self, model, contents, config):
             configs.append(config.thinking_config)
             if config.thinking_config is not None:
-                raise genai_errors.ClientError(400, {"error": {"message": "Thinking budget 0 is invalid", "status": "INVALID_ARGUMENT"}})
+                raise genai_errors.ClientError(400, {"error": {"message": "Request contains an invalid argument.", "status": "INVALID_ARGUMENT"}})
             return SimpleNamespace(parsed=answer)
 
     monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
@@ -334,3 +334,22 @@ def test_chat_asks_lighter_gemini_first(monkeypatch):
     monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
     ai.chat("kontekst", "Użytkownik: coś")
     assert asked == ["lite"]
+
+
+def test_chat_tries_main_gemini_when_lite_rejects_request(monkeypatch):
+    _only(monkeypatch, gemini="g")
+    monkeypatch.setattr(ai.get_settings(), "gemini_model", "main")
+    monkeypatch.setattr(ai.get_settings(), "gemini_fallback_model", "lite")
+    asked = []
+    answer = ai.ChatAnswer(text="Sernik", recipe_ids=[], new_recipe=None)
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            asked.append(model)
+            if model == "lite":
+                raise genai_errors.ClientError(400, {"error": {"message": "Request contains an invalid argument.", "status": "INVALID_ARGUMENT"}})
+            return SimpleNamespace(parsed=answer)
+
+    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    assert ai.chat("kontekst", "Użytkownik: coś słodkiego").text == "Sernik"
+    assert asked == ["lite", "lite", "main"]

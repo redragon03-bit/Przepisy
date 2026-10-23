@@ -222,8 +222,10 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
     except genai_errors.ClientError as exc:
         if exc.code in (401, 403) or "API key" in str(exc):
             raise AiError("Nieprawidłowy klucz API Gemini.") from exc
-        # Model, który nie umie wyłączyć myślenia - pytamy jeszcze raz normalnie
-        if quick and exc.code == 400 and "thinking" in str(exc).lower():
+        # Model, który nie umie wyłączyć myślenia (np. flash-lite odpowiada wtedy ogólnym
+        # "invalid argument") - pytamy jeszcze raz normalnie
+        if quick and exc.code == 400:
+            log.warning("Gemini %s nie przyjął wyłączenia myślenia: %s", model, exc.message)
             return _gemini_once(client, model, parts, system, schema, quick_ok=False)
         raise
     except genai_errors.ServerError as exc:
@@ -258,7 +260,8 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
             return _gemini_once(client, model, parts, system, schema)
         except genai_errors.APIError as exc:
             last_try = number == len(attempts) - 1
-            if not _is_temporary(exc) or last_try:
+            # W czacie po każdym błędzie próbujemy jeszcze drugiego modelu
+            if (not _is_temporary(exc) and _limit.get() is None) or last_try:
                 if exc.code == 429:
                     raise AiError("Wyczerpany limit zapytań do Gemini - spróbuj za chwilę.") from exc
                 if isinstance(exc, genai_errors.ServerError):
@@ -299,7 +302,7 @@ def _ask_openai_style(name: str, url: str, api_key: str, model: str, default_mod
         "response_format": {"type": "json_object"},
         "temperature": 0.2,
         # Darmowe limity liczą też zarezerwowaną długość odpowiedzi - w czacie wystarczy krótsza
-        "max_tokens": 3000 if chat else 8000,
+        "max_tokens": 2000 if chat else 8000,
     }
     if model.startswith("openai/gpt-oss"):
         # Model "myśli" przed odpowiedzią; do przepisów wystarczy krótko
