@@ -29,7 +29,7 @@ def _recipe_line(recipe: Recipe) -> str:
     """Jedna krótka linijka o przepisie dla AI, np. '12. Pierogi [Obiad] 90 min, ulubiony: mąka, ser, ziemniak'.
 
     Lista trafia do AI przy każdej wiadomości, więc jest jak najkrótsza: bez podstawowych
-    produktów (sól, olej...) i najwyżej 8 składników. Długie zapytania odpowiadały za wolno
+    produktów (sól, olej...) i najwyżej 5 składników. Długie zapytania odpowiadały za wolno
     i nie mieściły się w darmowych limitach Groq.
     """
     details = []
@@ -41,7 +41,7 @@ def _recipe_line(recipe: Recipe) -> str:
         details.append(f"ocena {recipe.rating}/5")
     if recipe.cooked_count:
         details.append(f"ugotowany {recipe.cooked_count}×")
-    names = [ri.ingredient.name for ri in recipe.ingredients if not ri.ingredient.is_staple][:8]
+    names = [ri.ingredient.name for ri in recipe.ingredients if not ri.ingredient.is_staple][:5]
     categories = ", ".join(c.name for c in recipe.categories)
     head = f"{recipe.id}. {recipe.title}" + (f" [{categories}]" if categories else "")
     return f"{head} {', '.join(details)}: {', '.join(names)}".replace("  ", " ")
