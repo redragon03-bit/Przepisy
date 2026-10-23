@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, isoDay, Recipe } from "../api";
 import Stars from "../components/Stars";
+import AutoTextarea from "../components/AutoTextarea";
 import TimersBar from "../components/TimersBar";
 import { useGoBack } from "../lib/navigation";
 import { nutritionText } from "../lib/nutrition";
@@ -311,7 +312,7 @@ export default function RecipePage() {
         </>
       ) : (
         <>
-          <textarea rows={3} value={editingNotes} onChange={(e) => setEditingNotes(e.target.value)} autoFocus />
+          <AutoTextarea rows={3} value={editingNotes} onChange={(e) => setEditingNotes(e.target.value)} autoFocus />
           <button
             type="button"
             className="primary"
