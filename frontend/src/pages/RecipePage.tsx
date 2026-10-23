@@ -5,6 +5,7 @@ import Stars from "../components/Stars";
 import TimersBar from "../components/TimersBar";
 import { useGoBack } from "../lib/navigation";
 import { nutritionText } from "../lib/nutrition";
+import { rememberRecipe } from "../lib/recent";
 import { formatAmount, parseServings, scaleText } from "../lib/scale";
 import { recipeAsText, shareText } from "../lib/share";
 import { shoppingMessage } from "../lib/shopping";
@@ -40,6 +41,7 @@ export default function RecipePage() {
       .then((r) => {
         setRecipe(r);
         setServings(parseServings(r.servings));
+        rememberRecipe(r.id);
       })
       .catch((e) => setError(e.message));
   }, [id]);

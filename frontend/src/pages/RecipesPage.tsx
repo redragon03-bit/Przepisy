@@ -1,12 +1,32 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
+import { recentRecipeIds } from "../lib/recent";
+import { usePullToRefresh } from "../lib/usePullToRefresh";
 
 // Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
 // w przepis i cofnięciu lista wyglądała tak samo jak przed chwilą.
 const STORAGE_KEY = "recipes-list";
+
+type Sort = "new" | "rating" | "time" | "az";
+
+const SORTS: { value: Sort; label: string }[] = [
+  { value: "new", label: "Najnowsze" },
+  { value: "rating", label: "Ocena" },
+  { value: "time", label: "Czas" },
+  { value: "az", label: "A–Z" },
+];
+
+// Serwer zwraca od najnowszych, resztę sortujemy na telefonie
+function sorted(recipes: RecipeSummary[], sort: Sort) {
+  const list = [...recipes];
+  if (sort === "rating") list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  if (sort === "time") list.sort((a, b) => (a.total_minutes ?? Infinity) - (b.total_minutes ?? Infinity));
+  if (sort === "az") list.sort((a, b) => a.title.localeCompare(b.title, "pl"));
+  return list;
+}
 
 type SavedList = {
   q: string;
@@ -14,11 +34,12 @@ type SavedList = {
   category: string;
   favorites: boolean;
   showFilters: boolean;
+  sort: Sort;
   scrollY: number;
 };
 
 function loadSaved(): SavedList {
-  const empty = { q: "", ingredients: [], category: "", favorites: false, showFilters: false, scrollY: 0 };
+  const empty = { q: "", ingredients: [], category: "", favorites: false, showFilters: false, sort: "new" as Sort, scrollY: 0 };
   try {
     return { ...empty, ...JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "{}") };
   } catch {
@@ -49,6 +70,8 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [uncategorized, setUncategorized] = useState(cache?.uncategorized ?? 0);
   const [total, setTotal] = useState(cache?.total ?? 0);
   const [showFilters, setShowFilters] = useState(saved.showFilters);
+  const [sort, setSort] = useState<Sort>(saved.sort);
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? null);
   const [sorting, setSorting] = useState(false);
   const [message, setMessage] = useState("");
@@ -59,8 +82,8 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   }, []);
 
   useEffect(() => {
-    save({ ...loadSaved(), q, ingredients, category, favorites, showFilters });
-  }, [q, ingredients, category, favorites, showFilters]);
+    save({ ...loadSaved(), q, ingredients, category, favorites, showFilters, sort });
+  }, [q, ingredients, category, favorites, showFilters, sort]);
 
   useEffect(() => {
     if (recipes) cache = { recipes, categories, uncategorized, total };
@@ -93,12 +116,19 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
     return () => clearInterval(timer);
   }, [images?.running, q, ingredients, category, favorites]);
 
-  const loadCategories = () => {
-    api.listCategories().then(setCategories);
-    api.listRecipes("", [], "-").then((r) => setUncategorized(r.length));
-    api.listRecipes("", []).then((r) => setTotal(r.length));
-  };
-  useEffect(loadCategories, []);
+  const loadCategories = () =>
+    Promise.all([
+      api.listCategories().then(setCategories),
+      api.listRecipes("", [], "-").then((r) => setUncategorized(r.length)),
+      api.listRecipes("", []).then((r) => setTotal(r.length)),
+    ]);
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const { pull, refreshing, ready } = usePullToRefresh(() =>
+    Promise.all([api.listRecipes(q, ingredients, category, favorites).then(setRecipes), loadCategories(), api.imageSearchStatus().then(setImages)]),
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -124,18 +154,31 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   // Pokazujemy tylko kategorie, które mają przepisy (plus aktualnie wybraną)
   const visible = categories.filter((c) => c.recipe_count > 0 || c.name === category);
 
+  const shown = recipes && sorted(recipes, sort);
+  const filtering = Boolean(q || ingredients.length || category || favorites);
+  const recent = !filtering && recipes ? recentRecipeIds().flatMap((id) => recipes.filter((r) => r.id === id)) : [];
+  const activeFilters = ingredients.length + (sort !== "new" ? 1 : 0);
+
+  const randomRecipe = () => {
+    if (shown?.length) navigate(`/przepis/${shown[Math.floor(Math.random() * shown.length)].id}`);
+  };
+
   return (
     <>
+      {(pull > 0 || refreshing) && (
+        <div className="pull-indicator" style={{ height: refreshing ? 40 : pull }}>
+          {refreshing ? "Odświeżam…" : ready ? "↻ Puść, aby odświeżyć" : "↓"}
+        </div>
+      )}
       <header className="topbar">
-        <Link to="/ustawienia" className="link settings-link" aria-label="Ustawienia">
-          ⚙️
-        </Link>
         <h1>Przepisy</h1>
-        <Link to="/nowy" className="button small">
-          + Ręcznie
-        </Link>
+        {shown && shown.length > 1 && (
+          <button type="button" className="link random-link" onClick={randomRecipe} aria-label="Losuj przepis">
+            🎲
+          </button>
+        )}
       </header>
-      <div className="search">
+      <div className="search sticky">
         <input
           type="search"
           enterKeyHint="search"
@@ -144,8 +187,8 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
           placeholder="Szukaj po nazwie…"
         />
-        <button type="button" className={showFilters || ingredients.length ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
-          🥕{ingredients.length ? ` ${ingredients.length}` : ""}
+        <button type="button" className={showFilters || activeFilters ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
+          Filtry{activeFilters ? ` ${activeFilters}` : ""}
         </button>
       </div>
       {recipes !== null && (recipes.length > 0 || category || favorites) && (
@@ -191,19 +234,44 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       {message && <p className="muted small">{message}</p>}
       {(showFilters || ingredients.length > 0) && (
         <section className="box">
+          {showFilters && (
+            <>
+              <p className="muted small">Sortuj:</p>
+              <div className="chips">
+                {SORTS.map((s) => (
+                  <button key={s.value} type="button" className={`chip ${sort === s.value ? "selected" : ""}`} onClick={() => setSort(s.value)}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <p className="muted small">Przepisy, które mają wszystkie te składniki:</p>
           <IngredientPicker value={ingredients} onChange={setIngredients} />
         </section>
       )}
-      {recipes === null ? (
+      {recent.length > 0 && (
+        <>
+          <p className="muted small recent-title">Ostatnio oglądane</p>
+          <div className="recent">
+            {recent.map((r) => (
+              <Link key={r.id} to={`/przepis/${r.id}`} className="recent-item">
+                {r.image_url ? <img src={r.image_url} alt="" loading="lazy" /> : <div className="card-placeholder">🍽️</div>}
+                <span>{r.title}</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+      {shown === null ? (
         <p className="muted center">Ładowanie…</p>
-      ) : recipes.length === 0 ? (
+      ) : shown.length === 0 ? (
         <p className="muted center">
-          {q || ingredients.length || category || favorites ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
+          {filtering ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
         </p>
       ) : (
         <div className="grid">
-          {recipes.map((r) => (
+          {shown.map((r) => (
             <RecipeCard key={r.id} recipe={r} />
           ))}
         </div>

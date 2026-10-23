@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { TouchEvent, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api, Recipe } from "../api";
 import TimersBar from "../components/TimersBar";
@@ -19,6 +19,7 @@ export default function CookingModePage() {
   const [step, setStep] = useState(-1); // -1 = najpierw lista składników
   const { timers, now, start, remove } = useTimers();
   useWakeLock(true);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     api.getRecipe(id).then(setRecipe).catch((e) => setError(e.message));
@@ -30,6 +31,21 @@ export default function CookingModePage() {
   const last = recipe.steps.length - 1;
   const current = step >= 0 ? recipe.steps[step] : null;
 
+  // Przesunięcie palcem w lewo = następny krok, w prawo = poprzedni
+  const onTouchStart = (e: TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const from = touchStart.current;
+    touchStart.current = null;
+    if (!from) return;
+    const dx = e.changedTouches[0].clientX - from.x;
+    const dy = e.changedTouches[0].clientY - from.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0 && step < last) setStep(step + 1);
+    if (dx > 0 && step >= 0) setStep(step - 1);
+  };
+
   return (
     <div className="cooking">
       <header className="topbar">
@@ -39,7 +55,7 @@ export default function CookingModePage() {
         <span className="muted small">{current ? `Krok ${step + 1} z ${recipe.steps.length}` : "Składniki"}</span>
       </header>
 
-      <div className="cooking-body">
+      <div className="cooking-body" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <h2>{recipe.title}</h2>
         {current ? (
           <>

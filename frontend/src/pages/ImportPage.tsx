@@ -105,6 +105,9 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
     <>
       <header className="topbar">
         <h1>Dodaj przepis</h1>
+        <Link to="/nowy" className="button small">
+          ✍️ Ręcznie
+        </Link>
       </header>
 
       {!aiEnabled && (
