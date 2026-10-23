@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api, Recipe } from "../api";
 import TimersBar from "../components/TimersBar";
+import { useGoBack } from "../lib/navigation";
 import { scaleText } from "../lib/scale";
 import { findDurations } from "../lib/timers";
 import { useTimers, useWakeLock } from "../lib/useTimers";
@@ -12,7 +13,7 @@ export default function CookingModePage() {
   const id = Number(useParams().id);
   const [params] = useSearchParams();
   const scale = Number(params.get("skala")) || 1;
-  const navigate = useNavigate();
+  const goBack = useGoBack(`/przepis/${id}`);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState("");
   const [step, setStep] = useState(-1); // -1 = najpierw lista składników
@@ -32,7 +33,7 @@ export default function CookingModePage() {
   return (
     <div className="cooking">
       <header className="topbar">
-        <button type="button" className="link" onClick={() => navigate(-1)}>
+        <button type="button" className="link" onClick={goBack}>
           ✕ Zakończ
         </button>
         <span className="muted small">{current ? `Krok ${step + 1} z ${recipe.steps.length}` : "Składniki"}</span>
@@ -73,7 +74,7 @@ export default function CookingModePage() {
             className="primary"
             onClick={async () => {
               await api.markCooked(recipe.id);
-              navigate(-1);
+              goBack();
             }}
           >
             ✅ Ugotowane

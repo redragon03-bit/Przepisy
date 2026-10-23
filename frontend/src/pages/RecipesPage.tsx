@@ -136,7 +136,14 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         </Link>
       </header>
       <div className="search">
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj po nazwie…" />
+        <input
+          type="search"
+          enterKeyHint="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          placeholder="Szukaj po nazwie…"
+        />
         <button type="button" className={showFilters || ingredients.length ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
           🥕{ingredients.length ? ` ${ingredients.length}` : ""}
         </button>

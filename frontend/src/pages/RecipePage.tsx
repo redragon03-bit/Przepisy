@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, isoDay, Recipe } from "../api";
 import Stars from "../components/Stars";
 import TimersBar from "../components/TimersBar";
+import { useGoBack } from "../lib/navigation";
 import { nutritionText } from "../lib/nutrition";
 import { formatAmount, parseServings, scaleText } from "../lib/scale";
 import { recipeAsText, shareText } from "../lib/share";
@@ -15,6 +16,7 @@ import { useTimers, useWakeLock } from "../lib/useTimers";
 export default function RecipePage() {
   const id = Number(useParams().id);
   const navigate = useNavigate();
+  const goBack = useGoBack("/");
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -139,7 +141,7 @@ export default function RecipePage() {
   return (
     <article className="recipe">
       <header className="topbar">
-        <button type="button" className="link" onClick={() => navigate(-1)}>
+        <button type="button" className="link" onClick={goBack}>
           ‹ Wróć
         </button>
         <button

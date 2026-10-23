@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { MouseEvent, useEffect, useLayoutEffect, useState } from "react";
+import { NavLink, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
 import { api, AuthStatus, setUnauthorizedHandler } from "./api";
+import BackToTop from "./components/BackToTop";
+import { scrollToTop } from "./lib/navigation";
 import ChatPage from "./pages/ChatPage";
 import CookingModePage from "./pages/CookingModePage";
 import CookPage from "./pages/CookPage";
@@ -13,8 +15,31 @@ import RecipesPage from "./pages/RecipesPage";
 import SettingsPage from "./pages/SettingsPage";
 import ShoppingPage from "./pages/ShoppingPage";
 
+const TABS = [
+  { to: "/", icon: "📖", label: "Przepisy" },
+  { to: "/dodaj", icon: "➕", label: "Dodaj" },
+  { to: "/czat", icon: "💬", label: "Czat" },
+  { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
+  { to: "/plan", icon: "📅", label: "Plan" },
+  { to: "/zakupy", icon: "🛒", label: "Zakupy" },
+];
+
 export default function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const location = useLocation();
+  const navigationType = useNavigationType();
+
+  // Nowo otwarta strona zaczyna od góry (lista przepisów sama wraca w zapamiętane miejsce).
+  useLayoutEffect(() => {
+    if (navigationType !== "POP" && location.pathname !== "/") window.scrollTo(0, 0);
+  }, [location.key]);
+
+  // Stuknięcie w zakładkę, na której już jesteśmy, przewija ją na samą górę (jak w iOS).
+  const onTabClick = (e: MouseEvent, to: string) => {
+    if (location.pathname !== to) return;
+    e.preventDefault();
+    scrollToTop();
+  };
 
   const refreshAuth = () => api.authStatus().then(setAuth);
 
@@ -43,25 +68,14 @@ export default function App() {
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
         </Routes>
       </main>
+      <BackToTop />
       <nav className="tabbar">
-        <NavLink to="/" end>
-          <span>📖</span>Przepisy
-        </NavLink>
-        <NavLink to="/dodaj">
-          <span>➕</span>Dodaj
-        </NavLink>
-        <NavLink to="/czat">
-          <span>💬</span>Czat
-        </NavLink>
-        <NavLink to="/co-ugotowac">
-          <span>🥕</span>Co ugotuję?
-        </NavLink>
-        <NavLink to="/plan">
-          <span>📅</span>Plan
-        </NavLink>
-        <NavLink to="/zakupy">
-          <span>🛒</span>Zakupy
-        </NavLink>
+        {TABS.map((tab) => (
+          <NavLink key={tab.to} to={tab.to} end={tab.to === "/"} onClick={(e) => onTabClick(e, tab.to)}>
+            <span>{tab.icon}</span>
+            {tab.label}
+          </NavLink>
+        ))}
       </nav>
     </>
   );
