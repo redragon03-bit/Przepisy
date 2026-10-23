@@ -32,6 +32,7 @@ export default function RecipePage() {
   const photoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     api
       .getRecipe(id)
       .then((r) => {
