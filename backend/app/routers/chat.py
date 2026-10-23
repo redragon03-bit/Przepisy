@@ -26,7 +26,12 @@ WEEKDAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"
 
 
 def _recipe_line(recipe: Recipe) -> str:
-    """Jedna linijka opisu przepisu dla AI, np. '12. Pierogi [Obiad] - 90 min, ulubiony; składniki: ...'."""
+    """Jedna krótka linijka o przepisie dla AI, np. '12. Pierogi [Obiad] 90 min, ulubiony: mąka, ser, ziemniak'.
+
+    Lista trafia do AI przy każdej wiadomości, więc jest jak najkrótsza: bez podstawowych
+    produktów (sól, olej...) i najwyżej 8 składników. Długie zapytania odpowiadały za wolno
+    i nie mieściły się w darmowych limitach Groq.
+    """
     details = []
     if recipe.total_minutes:
         details.append(f"{recipe.total_minutes} min")
@@ -35,10 +40,11 @@ def _recipe_line(recipe: Recipe) -> str:
     if recipe.rating:
         details.append(f"ocena {recipe.rating}/5")
     if recipe.cooked_count:
-        details.append(f"ugotowany {recipe.cooked_count}×, ostatnio {recipe.last_cooked_at:%Y-%m-%d}")
-    names = ", ".join(ri.ingredient.name for ri in recipe.ingredients[:12])
+        details.append(f"ugotowany {recipe.cooked_count}×")
+    names = [ri.ingredient.name for ri in recipe.ingredients if not ri.ingredient.is_staple][:8]
     categories = ", ".join(c.name for c in recipe.categories)
-    return f"{recipe.id}. {recipe.title} [{categories}] - {', '.join(details) or 'brak danych'}; składniki: {names}"
+    head = f"{recipe.id}. {recipe.title}" + (f" [{categories}]" if categories else "")
+    return f"{head} {', '.join(details)}: {', '.join(names)}".replace("  ", " ")
 
 
 def _context(db: Session) -> str:

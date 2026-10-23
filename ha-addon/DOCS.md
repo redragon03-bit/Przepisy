@@ -9,7 +9,7 @@
 - **gemini_model** - model Gemini. Domyślny `gemini-flash-latest`.
 - **gemini_fallback_model** - model próbowany, gdy główny jest przeciążony. Domyślny `gemini-flash-lite-latest`.
 - **groq_api_key** - darmowy klucz z https://console.groq.com (logowanie kontem Google, bez karty) → API Keys.
-- **groq_model** - model Groq, musi czytać obrazki. Domyślny `meta-llama/llama-4-scout-17b-16e-instruct`.
+- **groq_model** - model Groq. Domyślny `openai/gpt-oss-120b`. Gdy Groq wycofa ustawiony model, aplikacja sama użyje domyślnego. Darmowe modele Groq nie czytają zdjęć - zdjęcia przepisów obsługują Gemini i Mistral.
 - **mistral_api_key** - darmowy klucz z https://console.mistral.ai (plan „Experiment”, weryfikacja numerem telefonu) → API Keys.
 - **mistral_model** - model Mistral. Domyślny `mistral-small-latest`.
 - **anthropic_api_key** - klucz z https://console.anthropic.com (płatny za użycie).
