@@ -75,7 +75,7 @@ def test_chat_suggests_saved_and_new_recipes(client, monkeypatch):
     assert [r["title"] for r in answer["recipes"]] == ["Pierogi ruskie"]
     assert answer["new_recipe"]["title"] == "Shakshuka"
     assert f"{saved['id']}. Pierogi ruskie" in seen["context"] and "ziemniak" in seen["context"]
-    assert "Mam w domu: jajko" in seen["context"]
+    assert "Zaznaczone w spiżarni (lista niepełna): jajko" in seen["context"]
     assert "Użytkownik: Coś innego, bez mleka" in seen["conversation"]
     assert '"title": "Omlet"' in seen["conversation"]
 

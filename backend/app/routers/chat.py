@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import SessionLocal, get_db
-from ..models import Recipe
+from ..models import Ingredient, Recipe
 from ..schemas import ChatIn, ChatMessage, ChatOut, ChatSaveIn, RecipeOut
 from ..services import ai, importer
 from ..services.categories import category_names
@@ -47,6 +47,10 @@ def _recipe_line(recipe: Recipe) -> str:
     return f"{head} {', '.join(details)}: {', '.join(names)}".replace("  ", " ")
 
 
+def _staple_names(db: Session) -> list[str]:
+    return [i.name for i in db.query(Ingredient).filter_by(is_staple=True).order_by(Ingredient.name)]
+
+
 def _context(db: Session) -> str:
     recipes = db.query(Recipe).order_by(Recipe.title).all()
     today = date.today()
@@ -55,7 +59,9 @@ def _context(db: Session) -> str:
         "Przepisy użytkownika:",
         *([_recipe_line(r) for r in recipes] or ["(brak)"]),
         "",
-        "Mam w domu: " + (", ".join(pantry_names(db)) or "nie podano"),
+        # Spiżarnia to tylko to, co użytkownik zaznaczył - nie wszystko, co ma w domu
+        "Zaznaczone w spiżarni (lista niepełna): " + (", ".join(pantry_names(db)) or "nic"),
+        "Podstawowe produkty, które zwykle są w domu: " + (", ".join(_staple_names(db)) or "nie podano"),
         "Kategorie: " + ", ".join(category_names(db)),
     ])
 
