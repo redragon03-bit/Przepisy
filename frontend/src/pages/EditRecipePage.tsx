@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, Category, IngredientLine, RecipeInput } from "../api";
+import AutoTextarea from "../components/AutoTextarea";
 
 const EMPTY: RecipeInput = {
   title: "",
@@ -104,7 +105,7 @@ export default function EditRecipePage() {
       </label>
       <label>
         Opis
-        <textarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} />
+        <AutoTextarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} />
       </label>
       <div className="row">
         <label>
@@ -146,8 +147,8 @@ export default function EditRecipePage() {
       <p className="muted small">Druga kolumna to nazwa do wyszukiwania, np. „mąka pszenna” dla „200 g mąki pszennej”.</p>
       {form.ingredients.map((ing, i) => (
         <div key={i} className="row ingredient-row">
-          <input value={ing.text} onChange={(e) => setIngredient(i, { text: e.target.value })} placeholder="200 g mąki pszennej" />
-          <input value={ing.name} onChange={(e) => setIngredient(i, { name: e.target.value })} placeholder="mąka pszenna" autoCapitalize="none" />
+          <AutoTextarea singleLine value={ing.text} onChange={(e) => setIngredient(i, { text: e.target.value.replace(/\n/g, " ") })} placeholder="200 g mąki pszennej" />
+          <AutoTextarea singleLine value={ing.name} onChange={(e) => setIngredient(i, { name: e.target.value.replace(/\n/g, " ") })} placeholder="mąka pszenna" autoCapitalize="none" />
           <button type="button" className="icon" onClick={() => set("ingredients", form.ingredients.filter((_, j) => j !== i))} aria-label="Usuń">
             ✕
           </button>
@@ -161,7 +162,7 @@ export default function EditRecipePage() {
       {form.steps.map((step, i) => (
         <div key={i} className="row step-row">
           <span className="step-number">{i + 1}</span>
-          <textarea rows={3} value={step.text} onChange={(e) => setStep(i, e.target.value)} />
+          <AutoTextarea rows={2} value={step.text} onChange={(e) => setStep(i, e.target.value)} />
           <button type="button" className="icon" onClick={() => set("steps", form.steps.filter((_, j) => j !== i))} aria-label="Usuń">
             ✕
           </button>
@@ -178,7 +179,7 @@ export default function EditRecipePage() {
       </label>
       <label>
         Notatki
-        <textarea rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="np. następnym razem mniej cukru" />
+        <AutoTextarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="np. następnym razem mniej cukru" />
       </label>
     </form>
   );
