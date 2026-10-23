@@ -299,3 +299,38 @@ def test_chat_gives_up_when_time_is_out(monkeypatch):
     monkeypatch.setattr(ai, "CHAT_SECONDS", 0)
     with pytest.raises(ai.AiError, match="zbyt wolno"):
         ai.chat("kontekst", "Użytkownik: coś")
+
+
+def test_withdrawn_groq_model_is_replaced_by_default(monkeypatch):
+    _only(monkeypatch, groq="q")
+    monkeypatch.setattr(ai.get_settings(), "groq_model", "meta-llama/llama-4-scout-17b-16e-instruct")
+    models = []
+
+    def fake_post(url, headers, json, timeout):
+        models.append(json["model"])
+        if json["model"] != ai.DEFAULT_GROQ_MODEL:
+            return SimpleNamespace(status_code=404, text='{"error":{"message":"The model does not exist","code":"model_not_found"}}')
+        assert json["reasoning_effort"] == "low"
+        return SimpleNamespace(status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {
+            "content": '{"text": "Omlet", "recipe_ids": [], "new_recipe": null}'}}]})
+
+    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    assert ai.chat("kontekst", "Użytkownik: coś").text == "Omlet"
+    assert models == ["meta-llama/llama-4-scout-17b-16e-instruct", ai.DEFAULT_GROQ_MODEL]
+
+
+def test_chat_asks_lighter_gemini_first(monkeypatch):
+    _only(monkeypatch, gemini="g")
+    monkeypatch.setattr(ai.get_settings(), "gemini_model", "main")
+    monkeypatch.setattr(ai.get_settings(), "gemini_fallback_model", "lite")
+    asked = []
+    answer = ai.ChatAnswer(text="Zupa", recipe_ids=[], new_recipe=None)
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            asked.append(model)
+            return SimpleNamespace(parsed=answer)
+
+    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    ai.chat("kontekst", "Użytkownik: coś")
+    assert asked == ["lite"]

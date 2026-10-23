@@ -28,7 +28,7 @@ from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field, ValidationError
 
-from ..config import get_settings
+from ..config import DEFAULT_GROQ_MODEL, DEFAULT_MISTRAL_MODEL, get_settings
 from .scraper import PageContent
 
 log = logging.getLogger(__name__)
@@ -247,8 +247,12 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
     client = genai.Client(api_key=settings.gemini_api_key)
     # Najpierw główny model kilka razy, potem zapasowy (zwykle mniej obciążony)
     attempts = [settings.gemini_model] * (len(GEMINI_RETRY_DELAYS) + 1)
-    if settings.gemini_fallback_model and settings.gemini_fallback_model != settings.gemini_model:
-        attempts.append(settings.gemini_fallback_model)
+    lite = settings.gemini_fallback_model
+    if lite and lite != settings.gemini_model:
+        attempts.append(lite)
+        # W czacie liczy się czas: lżejszy model odpowiada szybciej, a do polecania przepisów wystarcza
+        if _limit.get() is not None:
+            attempts = [lite, settings.gemini_model]
     for number, model in enumerate(attempts):
         try:
             return _gemini_once(client, model, parts, system, schema)
@@ -267,7 +271,7 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
     raise AssertionError("unreachable")
 
 
-def _ask_openai_style(name: str, url: str, api_key: str, model: str,
+def _ask_openai_style(name: str, url: str, api_key: str, model: str, default_model: str,
                       content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     """Groq i Mistral: proszą o JSON, a my sprawdzamy, czy pasuje do klasy `schema`.
 
@@ -288,20 +292,35 @@ def _ask_openai_style(name: str, url: str, api_key: str, model: str,
             }
             for item in content
         ]
+    chat = _limit.get() is not None
+    body = {
+        "model": model,
+        "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2,
+        # Darmowe limity liczą też zarezerwowaną długość odpowiedzi - w czacie wystarczy krótsza
+        "max_tokens": 3000 if chat else 8000,
+    }
+    if model.startswith("openai/gpt-oss"):
+        # Model "myśli" przed odpowiedzią; do przepisów wystarczy krótko
+        body["reasoning_effort"] = "low"
     try:
-        response = httpx.post(url, timeout=_timeout() or 180, headers={"Authorization": f"Bearer {api_key}"}, json={
-            "model": model,
-            "messages": [{"role": "system", "content": instructions}, {"role": "user", "content": user}],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.2,
-            "max_tokens": 8000,
-        })
+        response = httpx.post(url, timeout=_timeout() or 180, headers={"Authorization": f"Bearer {api_key}"}, json=body)
     except httpx.TimeoutException as exc:
         raise AiError(f"{name} nie odpowiedział na czas.") from exc
     except httpx.HTTPError as exc:
         raise AiError(f"Brak połączenia z {name}.") from exc
     if response.status_code in (401, 403):
         raise AiError(f"Nieprawidłowy klucz API {name}.")
+    if response.status_code in (400, 404) and "model" in response.text and (
+            "not_found" in response.text or "does not exist" in response.text or "decommissioned" in response.text):
+        # Dostawca wycofał model ustawiony w dodatku - używamy aktualnego domyślnego
+        if model != default_model:
+            log.warning("%s: model %s niedostępny - używam %s", name, model, default_model)
+            return _ask_openai_style(name, url, api_key, default_model, default_model, content, system, schema)
+        raise AiError(f"{name} nie ma już modelu {model} - zmień model w ustawieniach dodatku.")
+    if response.status_code == 413:
+        raise AiError(f"Zapytanie jest za duże dla darmowego limitu {name}.")
     if response.status_code == 429:
         raise AiError(f"Wyczerpany limit zapytań do {name} - spróbuj za chwilę.")
     if response.status_code >= 500:
@@ -323,13 +342,14 @@ def _ask_openai_style(name: str, url: str, api_key: str, model: str,
 def _ask_groq(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     settings = get_settings()
     return _ask_openai_style("Groq", "https://api.groq.com/openai/v1/chat/completions",
-                             settings.groq_api_key, settings.groq_model, content, system, schema)
+                             settings.groq_api_key, settings.groq_model, DEFAULT_GROQ_MODEL, content, system, schema)
 
 
 def _ask_mistral(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
     settings = get_settings()
     return _ask_openai_style("Mistral", "https://api.mistral.ai/v1/chat/completions",
-                             settings.mistral_api_key, settings.mistral_model, content, system, schema)
+                             settings.mistral_api_key, settings.mistral_model, DEFAULT_MISTRAL_MODEL,
+                             content, system, schema)
 
 
 PROVIDER_NAMES = {"anthropic": "Claude", "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral"}

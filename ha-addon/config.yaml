@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
 name: Przepisy
-version: "0.4.8"
+version: "0.4.9"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -29,7 +29,7 @@ options:
   gemini_model: gemini-flash-latest
   gemini_fallback_model: gemini-flash-lite-latest
   groq_api_key: ""
-  groq_model: meta-llama/llama-4-scout-17b-16e-instruct
+  groq_model: openai/gpt-oss-120b
   mistral_api_key: ""
   mistral_model: mistral-small-latest
   anthropic_api_key: ""

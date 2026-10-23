@@ -147,7 +147,7 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
 | `GROQ_API_KEY`      | Darmowy klucz z https://console.groq.com (zapasowe AI)            | puste             |
-| `GROQ_MODEL`        | Model Groq (musi czytać obrazki)                                  | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| `GROQ_MODEL`        | Model Groq (darmowe nie czytają zdjęć; wycofany zastępujemy domyślnym) | `openai/gpt-oss-120b` |
 | `MISTRAL_API_KEY`   | Darmowy klucz z https://console.mistral.ai (zapasowe AI)          | puste             |
 | `MISTRAL_MODEL`     | Model Mistral                                                     | `mistral-small-latest` |
 | `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
