@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
+import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
 
@@ -160,7 +161,9 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const activeFilters = ingredients.length + (sort !== "new" ? 1 : 0);
 
   const randomRecipe = () => {
-    if (shown?.length) navigate(`/przepis/${shown[Math.floor(Math.random() * shown.length)].id}`);
+    if (!shown?.length) return;
+    const random = pickRandom({ pool: shown.map((r) => r.id), seen: [] });
+    navigate(`/przepis/${currentRandom(random)}`, { state: { random } });
   };
 
   return (

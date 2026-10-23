@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, isoDay, Recipe } from "../api";
 import Stars from "../components/Stars";
 import AutoTextarea from "../components/AutoTextarea";
 import TimersBar from "../components/TimersBar";
 import { useGoBack } from "../lib/navigation";
 import { nutritionText } from "../lib/nutrition";
+import { currentRandom, pickRandom, RandomState } from "../lib/random";
 import { rememberRecipe } from "../lib/recent";
 import { formatAmount, parseServings, scaleText } from "../lib/scale";
 import { recipeAsText, shareText } from "../lib/share";
@@ -19,6 +20,8 @@ export default function RecipePage() {
   const id = Number(useParams().id);
   const navigate = useNavigate();
   const goBack = useGoBack("/");
+  // Przepis wylosowany kostką na liście - można losować dalej
+  const random: RandomState | undefined = useLocation().state?.random;
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -147,6 +150,18 @@ export default function RecipePage() {
         <button type="button" className="link" onClick={goBack}>
           ‹ Wróć
         </button>
+        {random && random.pool.length > 1 && (
+          <button
+            type="button"
+            className="button small"
+            onClick={() => {
+              const next = pickRandom(random);
+              navigate(`/przepis/${currentRandom(next)}`, { replace: true, state: { random: next } });
+            }}
+          >
+            🎲 Inny
+          </button>
+        )}
         <button
           type="button"
           className="link favorite"
