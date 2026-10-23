@@ -9,7 +9,7 @@ import { nutritionText } from "../lib/nutrition";
 // Rozmowę trzymamy w pamięci karty przeglądarki, żeby przejście do przepisu jej nie kasowało.
 const STORAGE_KEY = "chat-messages";
 // Serwer odpowiada najpóźniej po ok. 50 s; dłużej nie czekamy, żeby "Myślę…" nie wisiało w nieskończoność
-const TIMEOUT_MS = 70_000;
+const TIMEOUT_MS = 60_000;
 
 const SUGGESTIONS = [
   "Mam ochotę na coś słodkiego",
