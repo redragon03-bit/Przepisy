@@ -123,24 +123,27 @@ class AiError(Exception):
 # Element treści dla AI: tekst albo obrazek JPEG
 Content = list[str | bytes]
 
-# Limit czasu dla czatu: (do kiedy wg time.monotonic(), najdłużej na jedno zapytanie).
+# Limit czasu dla czatu: do kiedy (wg time.monotonic()) obecne AI musi odpowiedzieć.
 # None = bez limitu - import przepisu może trwać długo, bo działa w tle.
 # Safari zrywa zapytanie po ok. minucie ciszy ("Load failed"), więc czat musi zdążyć wcześniej.
-_limit: contextvars.ContextVar[tuple[float, float] | None] = contextvars.ContextVar("ai_limit", default=None)
+# Każde AI dostaje osobny kawałek czasu, żeby jedno przeciążone nie zjadło go wszystkim.
+_limit: contextvars.ContextVar[float | None] = contextvars.ContextVar("ai_limit", default=None)
 CHAT_SECONDS = 50
-CHAT_REQUEST_SECONDS = 25
+CHAT_PROVIDER_SECONDS = 20
+# AI, które zawiodło w czacie, przez tyle sekund pytamy na końcu, żeby nie czekać na nie przy każdej wiadomości
+CHAT_PENALTY_SECONDS = 300
+_failed_until: dict[str, float] = {}
 
 
 def _timeout() -> float | None:
     """Ile sekund może trwać najbliższe zapytanie do AI; None = domyślnie dla dostawcy."""
-    limit = _limit.get()
-    if limit is None:
+    deadline = _limit.get()
+    if deadline is None:
         return None
-    deadline, per_request = limit
     left = deadline - time.monotonic()
     if left < 3:
         raise AiError("AI odpowiada zbyt wolno - spróbuj jeszcze raz za chwilę.")
-    return min(per_request, left)
+    return left
 
 
 def _ask_claude(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
@@ -194,8 +197,11 @@ def _is_temporary(exc: genai_errors.APIError) -> bool:
 
 
 def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
-                 schema: type[BaseModel]) -> BaseModel:
+                 schema: type[BaseModel], quick_ok: bool = True) -> BaseModel:
     timeout = _timeout()
+    # W czacie Gemini nie "myśli" przed odpowiedzią: poleca przepisy z listy, do tego
+    # myślenie nie jest potrzebne, a z nim odpowiedź trwała ponad 25 s (błąd 504)
+    quick = timeout is not None and quick_ok
     try:
         response = client.models.generate_content(
             model=model,
@@ -204,6 +210,7 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
                 system_instruction=system,
                 response_mime_type="application/json",
                 response_schema=schema,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0) if quick else None,
                 # Gemini liczy w milisekundach
                 http_options=genai_types.HttpOptions(timeout=int(timeout * 1000)) if timeout else None,
             ),
@@ -215,6 +222,14 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
     except genai_errors.ClientError as exc:
         if exc.code in (401, 403) or "API key" in str(exc):
             raise AiError("Nieprawidłowy klucz API Gemini.") from exc
+        # Model, który nie umie wyłączyć myślenia - pytamy jeszcze raz normalnie
+        if quick and exc.code == 400 and "thinking" in str(exc).lower():
+            return _gemini_once(client, model, parts, system, schema, quick_ok=False)
+        raise
+    except genai_errors.ServerError as exc:
+        # 504 = Gemini nie zdążył w naszym limicie czasu; ponowna próba nic nie da
+        if exc.code == 504:
+            raise AiError("Gemini nie odpowiedział na czas.") from exc
         raise
     if not isinstance(response.parsed, schema):
         raise AiError("AI nie zwróciło poprawnej odpowiedzi - spróbuj jeszcze raz.")
@@ -246,7 +261,8 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
                     raise AiError("Gemini jest teraz przeciążony - spróbuj za kilka minut.") from exc
                 raise AiError(f"Błąd AI: {exc.message}") from exc
             log.warning("Gemini %s: %s - próbuję ponownie", model, exc.code)
-            if number < len(GEMINI_RETRY_DELAYS):
+            # W czacie nie czekamy - liczy się każda sekunda
+            if number < len(GEMINI_RETRY_DELAYS) and _limit.get() is None:
                 time.sleep(GEMINI_RETRY_DELAYS[number])
     raise AssertionError("unreachable")
 
@@ -330,12 +346,24 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
     if not providers:
         raise AiError("Brak klucza API do AI - ustaw klucz Gemini, Groq, Mistral albo Anthropic.")
     errors = []
+    chat_deadline = _limit.get()
+    if chat_deadline is not None:
+        now = time.monotonic()
+        providers = sorted(providers, key=lambda name: _failed_until.get(name, 0) > now)
     for provider in providers:
+        token = None
+        if chat_deadline is not None:
+            token = _limit.set(min(chat_deadline, time.monotonic() + CHAT_PROVIDER_SECONDS))
         try:
             return ask[provider](content, system, schema)
         except AiError as exc:
             log.warning("%s zawiódł: %s - próbuję następnego AI", PROVIDER_NAMES[provider], exc)
             errors.append(f"{PROVIDER_NAMES[provider]}: {exc}")
+            if chat_deadline is not None:
+                _failed_until[provider] = time.monotonic() + CHAT_PENALTY_SECONDS
+        finally:
+            if token is not None:
+                _limit.reset(token)
     if len(errors) == 1:
         raise AiError(errors[0].split(": ", 1)[1])
     raise AiError("Żadne AI nie odpowiedziało. " + " ".join(errors))
@@ -535,7 +563,7 @@ def chat(context: str, conversation: str) -> ChatAnswer:
     """Jedna odpowiedź czatu. `context` - przepisy i spiżarnia, `conversation` - dotychczasowa rozmowa."""
     text = f"{context}\n\nRozmowa:\n{conversation}\n\nOdpowiedz na ostatnią wiadomość użytkownika."
     # Użytkownik czeka na ekranie - wolne AI pomijamy i pytamy następnego
-    token = _limit.set((time.monotonic() + CHAT_SECONDS, CHAT_REQUEST_SECONDS))
+    token = _limit.set(time.monotonic() + CHAT_SECONDS)
     try:
         return _ask_provider([text], CHAT_PROMPT, ChatAnswer)
     finally:
