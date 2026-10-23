@@ -794,3 +794,38 @@ button.small,
 .cooking .timers {
   bottom: calc(env(safe-area-inset-bottom) + 84px);
 }
+
+/* Pływający przycisk "do góry" nad paskiem zakładek */
+.back-to-top {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 16px);
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.back-to-top.visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* Nie zasłaniamy minutników ani pola czatu */
+body:has(.timers) .back-to-top,
+body:has(.chat-input) .back-to-top {
+  display: none;
+}
