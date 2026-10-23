@@ -19,15 +19,24 @@ const TABS = [
   { to: "/", icon: "📖", label: "Przepisy" },
   { to: "/dodaj", icon: "➕", label: "Dodaj" },
   { to: "/czat", icon: "💬", label: "Czat" },
+  { to: "/zakupy", icon: "🛒", label: "Zakupy" },
+];
+
+// Rzadziej używane strony chowamy pod zakładką "Więcej", żeby pasek był czytelny.
+const MORE = [
   { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
   { to: "/plan", icon: "📅", label: "Plan" },
-  { to: "/zakupy", icon: "🛒", label: "Zakupy" },
+  { to: "/ustawienia", icon: "⚙️", label: "Ustawienia" },
 ];
 
 export default function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const location = useLocation();
   const navigationType = useNavigationType();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const inMore = MORE.some((m) => m.to === location.pathname);
+
+  useEffect(() => setMoreOpen(false), [location.key]);
 
   // Nowo otwarta strona zaczyna od góry (lista przepisów sama wraca w zapamiętane miejsce).
   useLayoutEffect(() => {
@@ -76,7 +85,22 @@ export default function App() {
             {tab.label}
           </NavLink>
         ))}
+        <button type="button" className={inMore || moreOpen ? "active" : ""} onClick={() => setMoreOpen(!moreOpen)}>
+          <span>⋯</span>Więcej
+        </button>
       </nav>
+      {moreOpen && (
+        <div className="sheet-backdrop" onClick={() => setMoreOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            {MORE.map((m) => (
+              <NavLink key={m.to} to={m.to} className="sheet-tile" onClick={() => setMoreOpen(false)}>
+                <span>{m.icon}</span>
+                {m.label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
