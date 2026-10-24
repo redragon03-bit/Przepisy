@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 import pytest
-
 from google.genai import errors as genai_errors
 
 from app.config import DEFAULT_GROQ_MODEL, Settings

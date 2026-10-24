@@ -1,0 +1,13 @@
+# Sprawdzanie stylu i typowych błędów w Pythonie: `ruff check .` (uruchamiane też w CI)
+line-length = 120
+target-version = "py313"
+
+[lint]
+# E/W - styl, F - błędy (np. nieużywane importy), I - kolejność importów, B - typowe pułapki, UP - nowsza składnia
+select = ["E", "W", "F", "I", "B", "UP"]
+# B008: FastAPI celowo używa Depends(...) i Query(...) jako wartości domyślnych
+ignore = ["B008"]
+
+[lint.per-file-ignores]
+# W testach długie linijki to zwykle przykładowe dane (HTML, JSON) - łamanie ich nic nie daje
+"tests/*" = ["E501"]

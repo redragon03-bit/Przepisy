@@ -153,7 +153,7 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
 | `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
-| `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
+| `CLAUDE_MODEL`      | Model Claude. Tańszy: `claude-haiku-5-5`, droższy: `claude-opus-5-5` | `claude-sonnet-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
 | `STATIC_DIR`        | Folder ze zbudowanym frontendem (ustawiony w Dockerze)            | puste             |
 

@@ -13,7 +13,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
-
 # Tabela łącząca przepisy z kategoriami (przepis może mieć kilka kategorii)
 recipe_categories = Table(
     "recipe_categories",
@@ -153,6 +152,8 @@ class ShoppingItem(Base):
     # Z jakich przepisów pochodzi, np. "Naleśniki, Pierogi"
     recipes: Mapped[str] = mapped_column(String(1000), default="")
     checked: Mapped[bool] = mapped_column(default=False)
+    # Tekst pozycji na liście w Home Assistant; pusty = nie ma jej w HA (patrz shopping.sync_with_home_assistant)
+    ha_text: Mapped[str] = mapped_column(String(500), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

@@ -2,7 +2,15 @@
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from ..auth import COOKIE_MAX_AGE, COOKIE_NAME, is_authenticated, make_session_token, password_ok
+from ..auth import (
+    COOKIE_MAX_AGE,
+    COOKIE_NAME,
+    is_authenticated,
+    make_session_token,
+    password_ok,
+    record_login,
+    seconds_locked,
+)
 from ..config import get_settings
 from ..schemas import AuthStatus, LoginIn
 
@@ -24,7 +32,13 @@ def status(request: Request):
 
 @router.post("/login", status_code=204)
 def login(data: LoginIn, request: Request, response: Response):
-    if not password_ok(data.password):
+    client = request.client.host if request.client else "?"
+    wait = seconds_locked(client)
+    if wait:
+        raise HTTPException(429, f"Za dużo prób - spróbuj za {wait} s.")
+    ok = password_ok(data.password)
+    record_login(client, ok)
+    if not ok:
         raise HTTPException(401, "Złe hasło")
     response.set_cookie(
         COOKIE_NAME, make_session_token(), max_age=COOKIE_MAX_AGE, httponly=True,

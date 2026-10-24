@@ -6,11 +6,11 @@ import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import require_auth
-from ..schemas import BackupFile
+from ..schemas import BackupFile, RestoreResult
 from ..services import backup
 
 router = APIRouter(prefix="/api", tags=["kopia"], dependencies=[Depends(require_auth)])
@@ -44,3 +44,16 @@ def download_auto_backup(name: str):
     if not path.exists():
         raise HTTPException(404)
     return FileResponse(path, filename=name, media_type="application/zip")
+
+
+@router.post("/backup/restore", response_model=RestoreResult)
+def restore_backup(file: UploadFile):
+    """Przywraca bazę i zdjęcia z pobranej wcześniej kopii ZIP (obecne dane trafiają do kopii automatycznych)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        zip_path = Path(tmp) / "kopia.zip"
+        with zip_path.open("wb") as out:
+            shutil.copyfileobj(file.file, out)
+        try:
+            return RestoreResult(recipes=backup.restore_zip(zip_path))
+        except backup.RestoreError as exc:
+            raise HTTPException(400, str(exc)) from exc

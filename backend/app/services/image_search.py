@@ -15,6 +15,8 @@ nie do publikowania.
 
 import logging
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, wait
 
 import httpx
 
@@ -52,6 +54,12 @@ def _openverse(query: str, limit: int) -> list[str]:
         return []
 
 
+def _seconds_left() -> float | None:
+    """Ile czasu zostało, gdy użytkownik czeka (ai.time_limit); None = bez limitu."""
+    deadline = ai._limit.get()
+    return None if deadline is None else deadline - time.monotonic()
+
+
 def find_candidates(recipe: Recipe, limit: int = 4) -> list[str]:
     """Adresy zdjęć pasujących do przepisu, najlepsze pierwsze."""
     names = [ri.ingredient.name for ri in recipe.ingredients]
@@ -62,15 +70,23 @@ def find_candidates(recipe: Recipe, limit: int = 4) -> list[str]:
             pages = ai.search_recipe_pages(recipe.title, names)
         except ai.AiError as exc:
             log.warning("Wyszukiwanie stron dla %r: %s", recipe.title, exc)
-    for page_url in pages[:MAX_PAGES]:
-        image = _page_image(page_url)
+    # Strony pobieramy naraz, nie po kolei - jedna wolna strona nie blokuje reszty
+    pool = ThreadPoolExecutor(MAX_PAGES)
+    futures = [pool.submit(_page_image, url) for url in pages[:MAX_PAGES]]
+    left = _seconds_left()
+    done, _ = wait(futures, timeout=None if left is None else max(0, left - 5))
+    pool.shutdown(wait=False, cancel_futures=True)
+    for future in futures:
+        image = future.result() if future in done and not future.exception() else None
         if image and image not in found:
             found.append(image)
-        if len(found) >= limit:
-            return found
-    for image in _openverse(recipe.title, limit):
-        if image not in found:
-            found.append(image)
+    if len(found) >= limit:
+        return found[:limit]
+    left = _seconds_left()
+    if left is None or left > 5:
+        for image in _openverse(recipe.title, limit):
+            if image not in found:
+                found.append(image)
     return found[:limit]
 
 

@@ -26,8 +26,16 @@ from pydantic import BaseModel, Field
 
 from ...config import get_settings
 from ..scraper import PageContent
-from .base import (CHAT_PENALTY_SECONDS, CHAT_PROVIDER_SECONDS, CHAT_SECONDS, AiError, Content,  # noqa: F401
-                   _limit, _timeout, time_limit)
+from .base import (  # noqa: F401
+    CHAT_PENALTY_SECONDS,
+    CHAT_PROVIDER_SECONDS,
+    CHAT_SECONDS,
+    AiError,
+    Content,
+    _limit,
+    _timeout,
+    time_limit,
+)
 from .claude import _ask_claude, _search_claude
 from .gemini import _ask_gemini, _search_gemini
 from .openai_style import _ask_groq, _ask_mistral

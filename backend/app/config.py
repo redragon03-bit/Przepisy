@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # Bez żadnego klucza import działa bez AI (bez tłumaczenia i screenów).
     ai_provider: str = "auto"
     anthropic_api_key: str = ""
-    claude_model: str = "claude-opus-5-5"
+    claude_model: str = "claude-sonnet-5-5"
     # Klucz z https://aistudio.google.com (ma darmowy limit zapytań)
     gemini_api_key: str = ""
     # "-latest" = zawsze aktualny model Flash, nie trzeba zmieniać po premierach
@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     @property
     def images_dir(self) -> Path:
         return self.data_dir / "images"
+
+    @property
+    def thumbs_dir(self) -> Path:
+        return self.data_dir / "thumbs"
 
     @property
     def uploads_dir(self) -> Path:
@@ -141,6 +145,7 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.images_dir.mkdir(exist_ok=True)
+    settings.thumbs_dir.mkdir(exist_ok=True)
     settings.uploads_dir.mkdir(exist_ok=True)
     if not settings.secret_key:
         key_file = settings.data_dir / "secret.key"

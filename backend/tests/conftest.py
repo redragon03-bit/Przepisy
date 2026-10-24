@@ -18,6 +18,9 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture
 def client():
+    from app import auth
+
+    auth._failures.clear()
     Base.metadata.drop_all(engine)
     init_db()
     with TestClient(app) as test_client:

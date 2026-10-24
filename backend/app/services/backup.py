@@ -7,6 +7,8 @@ Kopia leży na tym samym dysku - przed awarią dysku chroni kopia HA albo pobran
 """
 
 import logging
+import re
+import shutil
 import sqlite3
 import tempfile
 import threading
@@ -46,6 +48,65 @@ def create_zip(zip_path: Path) -> None:
             archive.write(db_copy, "przepisy.db")
             for image in settings.images_dir.iterdir():
                 archive.write(image, f"images/{image.name}")
+
+
+class RestoreError(Exception):
+    """Komunikat pokazywany użytkownikowi."""
+
+
+_BACKUP_IMAGE = re.compile(r"images/[0-9a-f]{32}\.jpg")
+
+
+def restore_zip(zip_path: Path) -> int:
+    """Zastępuje bazę i zdjęcia zawartością kopii ZIP. Zwraca liczbę przepisów w kopii.
+
+    Najpierw sprawdzamy, czy plik naprawdę jest kopią tej aplikacji, a obecne dane
+    zapisujemy jako kopię automatyczną - przywrócenie złej kopii da się więc cofnąć.
+    """
+    from ..database import engine, init_db
+
+    settings = get_settings()
+    try:
+        archive = zipfile.ZipFile(zip_path)
+    except zipfile.BadZipFile as exc:
+        raise RestoreError("To nie jest plik ZIP z kopią przepisów.") from exc
+    with archive, tempfile.TemporaryDirectory() as tmp:
+        names = archive.namelist()
+        if "przepisy.db" not in names:
+            raise RestoreError("W pliku nie ma bazy przepisów (przepisy.db).")
+        db_copy = Path(tmp) / "przepisy.db"
+        db_copy.write_bytes(archive.read("przepisy.db"))
+        try:
+            check = sqlite3.connect(db_copy)
+            ok = check.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            count = check.execute("SELECT count(*) FROM recipes").fetchone()[0]
+            check.close()
+        except sqlite3.DatabaseError as exc:
+            raise RestoreError("Baza w kopii jest uszkodzona albo to nie jest kopia przepisów.") from exc
+        if not ok:
+            raise RestoreError("Baza w kopii jest uszkodzona.")
+
+        current = backups_dir() / f"przepisy-{datetime.now():%Y-%m-%d-%H%M%S}.zip"
+        create_zip(current)
+        log.info("Przed przywróceniem kopii zapisano obecne dane: %s", current.name)
+
+        # Przez API SQLite, jak przy tworzeniu kopii - działa też przy otwartych połączeniach
+        engine.dispose()
+        source = sqlite3.connect(db_copy)
+        target = sqlite3.connect(settings.data_dir / "przepisy.db")
+        source.backup(target)
+        source.close()
+        target.close()
+
+        for folder in (settings.images_dir, settings.thumbs_dir):
+            shutil.rmtree(folder, ignore_errors=True)
+            folder.mkdir()
+        for name in names:
+            # Tylko nasze nazwy plików - nic spoza folderu zdjęć
+            if _BACKUP_IMAGE.fullmatch(name):
+                (settings.images_dir / name.removeprefix("images/")).write_bytes(archive.read(name))
+    init_db()  # kopia ze starszej wersji dostaje brakujące kolumny
+    return count
 
 
 def auto_backups() -> list[Path]:

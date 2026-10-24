@@ -14,9 +14,10 @@ from fastapi.responses import FileResponse
 from .auth import require_auth
 from .config import get_settings
 from .database import init_db
-from .services import backup as backup_service
-from .services.importer import remove_stale_uploads
 from .routers import auth, backup, categories, chat, imports, ingredients, pantry, plan, recipes, shopping
+from .services import backup as backup_service
+from .services import images
+from .services.importer import remove_stale_uploads
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,17 +48,31 @@ def health():
     return {"ok": True}
 
 
+IMAGE_NAME = re.compile(r"[0-9a-f]{32}\.jpg")
+# Nazwa pliku to losowy uuid - nowe zdjęcie ma nową nazwę, więc telefon może trzymać pliki bez końca
+IMAGE_CACHE = {"Cache-Control": "private, max-age=31536000, immutable"}
+
+
+@app.get("/media/thumb/{filename}", dependencies=[Depends(require_auth)])
+def media_thumb(filename: str):
+    """Miniatura zdjęcia przepisu (do list)."""
+    path = images.thumbnail(filename) if IMAGE_NAME.fullmatch(filename) else None
+    if path is None:
+        raise HTTPException(404)
+    return FileResponse(path, media_type="image/jpeg", headers=IMAGE_CACHE)
+
+
 @app.get("/media/{filename}", dependencies=[Depends(require_auth)])
 def media(filename: str):
     """Obrazki przepisów. Tylko dla zalogowanych."""
     # Nazwy plików tworzymy sami (uuid.jpg) - wszystko inne odrzucamy,
     # żeby nikt nie mógł odczytać pliku spoza folderu, np. "../przepisy.db"
-    if not re.fullmatch(r"[0-9a-f]{32}\.jpg", filename):
+    if not IMAGE_NAME.fullmatch(filename):
         raise HTTPException(404)
     path = get_settings().images_dir / filename
     if not path.exists():
         raise HTTPException(404)
-    return FileResponse(path, headers={"Cache-Control": "private, max-age=31536000, immutable"})
+    return FileResponse(path, headers=IMAGE_CACHE)
 
 
 # Frontend (zbudowany React) serwujemy z tego samego serwera.

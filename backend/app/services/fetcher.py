@@ -1,5 +1,8 @@
 """Pobieranie stron i obrazków z internetu."""
 
+import ipaddress
+import socket
+
 import httpx
 
 # Niektóre strony nie lubią "robotów", więc przedstawiamy się jak przeglądarka.
@@ -18,11 +21,27 @@ class FetchError(Exception):
     """Nie udało się pobrać strony - komunikat jest pokazywany użytkownikowi."""
 
 
+def _only_internet(request: httpx.Request) -> None:
+    """Nie pobieramy niczego z sieci domowej (router, Home Assistant, sam serwer).
+
+    Sprawdzane przy każdym zapytaniu, także po przekierowaniu - strona w internecie
+    mogłaby przekierować na adres w sieci domowej.
+    """
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(request.url.host, None)}
+    except (socket.gaierror, UnicodeError):
+        return  # nie da się sprawdzić (np. serwer za proxy) - httpx sam zgłosi błąd połączenia
+    if any(not ipaddress.ip_address(a.split("%")[0]).is_global for a in addresses):
+        raise FetchError("Ten link prowadzi do sieci domowej - aplikacja pobiera tylko strony z internetu.")
+
+
 def _get(url: str, max_bytes: int) -> httpx.Response:
     if not url.startswith(("http://", "https://")):
         raise FetchError("Link musi zaczynać się od http:// albo https://")
     try:
-        response = httpx.get(url, headers=HEADERS, follow_redirects=True, timeout=20)
+        with httpx.Client(headers=HEADERS, follow_redirects=True, timeout=20,
+                          event_hooks={"request": [_only_internet]}) as client:
+            response = client.get(url)
     except httpx.HTTPError as exc:
         raise FetchError(f"Nie udało się połączyć ze stroną ({exc.__class__.__name__})") from exc
     if response.status_code >= 400:

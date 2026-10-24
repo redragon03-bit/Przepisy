@@ -47,17 +47,18 @@ def import_images(
 ):
     if not files or len(files) > MAX_FILES:
         raise HTTPException(400, f"Wybierz od 1 do {MAX_FILES} zdjęć")
+    # Rozmiar sprawdzamy, zanim cokolwiek zapiszemy - za duży plik nie zostawia zadania w kolejce
+    for upload in files:
+        if (upload.size or 0) > MAX_FILE_BYTES:
+            raise HTTPException(400, f"Plik {upload.filename} jest za duży (max 20 MB)")
     job = ImportJob(kind="image", source=", ".join(f.filename or "zdjęcie" for f in files))
     db.add(job)
     db.commit()
     folder = job_upload_dir(job.id)
     folder.mkdir(parents=True, exist_ok=True)
     for index, upload in enumerate(files):
-        data = upload.file.read()
-        if len(data) > MAX_FILE_BYTES:
-            raise HTTPException(400, f"Plik {upload.filename} jest za duży (max 20 MB)")
         # Numer z przodu zachowuje kolejność zdjęć
-        (folder / f"{index:02d}").write_bytes(data)
+        (folder / f"{index:02d}").write_bytes(upload.file.read())
     background.add_task(run_image_import, job.id)
     return job
 

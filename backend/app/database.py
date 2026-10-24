@@ -77,6 +77,7 @@ ADDED_COLUMNS = [
     ("recipes", "fat", "INTEGER"),
     ("recipes", "carbs", "INTEGER"),
     ("ingredients", "in_pantry", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("shopping_items", "ha_text", "VARCHAR(500) NOT NULL DEFAULT ''"),
 ]
 
 

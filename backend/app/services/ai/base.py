@@ -5,6 +5,7 @@ import re
 import time
 from contextlib import contextmanager
 
+
 class AiError(Exception):
     """Komunikat pokazywany użytkownikowi."""
 
