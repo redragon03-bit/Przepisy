@@ -1,162 +1,30 @@
 // Wszystkie zapytania do backendu w jednym miejscu.
-// Typy odpowiadają klasom z backend/app/schemas.py - zmieniając jedno, zmień drugie.
+// Typy danych są generowane z backend/app/schemas.py do pliku api-types.ts
+// (python -m app.export_types) - tutaj nadajemy im krótsze nazwy używane w aplikacji.
+import type * as T from "./api-types";
 
-export interface IngredientLine {
-  text: string;
-  name: string;
-  amount: number | null;
-  unit: string;
-  original_text: string;
-}
+export type IngredientLine = T.IngredientLine;
+export type RecipeSummary = T.RecipeSummary;
+export type Recipe = T.RecipeOut;
+// Formularz przepisu ma zawsze wszystkie pola (serwer pozwala niektóre pominąć)
+export type RecipeInput = Required<T.RecipeIn>;
+export type Category = T.CategoryOut;
+export type Ingredient = T.IngredientOut;
+export type CookMatch = T.CookMatch;
+export type ImportJob = T.ImportJobOut;
+export type AuthStatus = T.AuthStatus;
+export type ImageSearchProgress = T.ImageSearchProgress;
+export type ShoppingItem = T.ShoppingItemOut;
+export type PlanEntry = T.MealPlanOut;
+export type AiRecipe = T.AiRecipe;
+export type ChatReply = T.ChatOut;
+export type ShoppingResult = T.ShoppingResult;
+export type BackupFile = T.BackupFile;
+export type RecipeStats = T.RecipeStats;
 
-export interface RecipeSummary {
-  id: number;
-  title: string;
-  image_url: string | null;
-  total_minutes: number | null;
-  source_type: "url" | "image" | "manual" | "ai";
-  categories: string[];
-  favorite: boolean;
-  rating: number | null;
-  created_at: string;
-}
-
-export interface Recipe extends RecipeSummary {
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  source_url: string;
-  original_language: string;
-  notes: string;
-  cooked_count: number;
-  last_cooked_at: string | null;
-  // Szacunek AI na 1 porcję; null = jeszcze nie policzone
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-  ingredients: IngredientLine[];
-  steps: { text: string; image_url: string | null }[];
-  step_images: (string | null)[];
-}
-
-export interface RecipeInput {
-  title: string;
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  total_minutes: number | null;
-  source_url: string;
-  notes: string;
-  ingredients: IngredientLine[];
-  steps: { text: string; image: string | null }[];
-  categories: string[];
-}
-
-export interface Category {
-  name: string;
-  recipe_count: number;
-}
-
-export interface Ingredient {
-  id: number;
-  name: string;
-  is_staple: boolean;
-  recipe_count: number;
-}
-
-export interface CookMatch {
-  recipe: RecipeSummary;
-  have: string[];
-  missing: string[];
-}
-
-export interface ImportJob {
-  id: number;
-  kind: "url" | "image";
-  source: string;
-  status: "pending" | "running" | "done" | "failed" | "duplicate";
-  error: string;
-  recipe_id: number | null;
-  recipe_count: number;
-  created_at: string;
-}
-
-export interface AuthStatus {
-  authenticated: boolean;
-  auth_required: boolean;
-  ai_enabled: boolean;
-  ai_provider: string | null;
-  // Wszystkie AI z kluczem, w kolejności pytania: "anthropic", "gemini", "groq", "mistral"
-  ai_providers: string[];
-  ha_enabled: boolean;
-}
-
-export interface ImageSearchProgress {
-  running: boolean;
-  done: number;
-  found: number;
-  total: number;
-  missing: number;
-}
-
-export interface ShoppingItem {
-  id: number;
-  text: string;
-  recipes: string;
-  checked: boolean;
-}
-
-export interface PlanEntry {
-  id: number;
-  day: string; // "2026-10-20"
-  recipe: RecipeSummary;
-}
-
-// Przepis wymyślony przez AI w czacie (jeszcze niezapisany) - jak AiRecipe w backend/app/services/ai.py
-export interface AiRecipe {
-  title: string;
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  total_minutes: number | null;
-  original_language: string;
-  ingredients: IngredientLine[];
-  steps: { text: string; image_index: number | null }[];
-  main_image_index: number | null;
-  categories: string[];
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-}
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-  recipe?: AiRecipe | null;
-  // Tylko w odpowiedziach asystenta: polecane przepisy z bazy
+export interface ChatMessage extends T.ChatMessage {
+  // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
   recipes?: RecipeSummary[];
-}
-
-export interface ChatReply {
-  text: string;
-  recipes: RecipeSummary[];
-  new_recipe: AiRecipe | null;
-}
-
-export interface ShoppingResult {
-  added: number;
-  skipped: string[]; // pominięte, bo są w spiżarni
-}
-
-export interface BackupFile {
-  name: string;
-  size: number;
-  created_at: string;
 }
 
 export class ApiError extends Error {

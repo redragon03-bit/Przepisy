@@ -6,9 +6,16 @@ To nie są tabele bazy (te są w models.py) - to "umowa" z frontendem.
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel as PydanticModel
+from pydantic import ConfigDict, Field
 
 from .services.ai import AiRecipe
+
+
+class BaseModel(PydanticModel):
+    # W odpowiedziach serwera pole z wartością domyślną i tak zawsze jest - typy dla
+    # frontendu (app/export_types.py) mają je jako wymagane, a w danych wysyłanych do serwera jako opcjonalne
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
 def image_url(filename: str | None) -> str | None:
@@ -46,7 +53,7 @@ class RecipeSummary(BaseModel):
     # Miniatura do list (kilka razy mniejszy plik niż image_url)
     thumb_url: str | None
     total_minutes: int | None
-    source_type: str
+    source_type: Literal["url", "image", "manual", "ai"]
     categories: list[str]
     favorite: bool
     rating: int | None
@@ -213,7 +220,7 @@ class AutoCategorizeOut(BaseModel):
 
 
 class IngredientOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_schema_serialization_defaults_required=True)
 
     id: int
     name: str
@@ -247,12 +254,13 @@ class UrlImportIn(BaseModel):
 
 
 class ImportJobOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, json_schema_serialization_defaults_required=True)
 
     id: int
-    kind: str
+    kind: Literal["url", "image"]
     source: str
-    status: str
+    # "duplicate" = link już był w bazie (recipe_id wskazuje ten przepis)
+    status: Literal["pending", "running", "done", "failed", "duplicate"]
     error: str
     recipe_id: int | None
     recipe_count: int
