@@ -63,7 +63,7 @@ def test_gemini_search_reads_grounding_sources(monkeypatch):
             sent.update(kwargs)
             return response
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
     urls = ai.search_recipe_pages("Pudding", ["chia"])
     assert urls == ["https://a.example/1", "https://b.example/2", "https://redirect.example/c"]
     assert sent["config"].tools[0].google_search is not None
@@ -83,7 +83,7 @@ def test_claude_search_reads_result_blocks(monkeypatch):
             assert kwargs["tools"][0]["type"] == "web_search_20260209"
             return SimpleNamespace(content=content)
 
-    monkeypatch.setattr(ai.anthropic, "Anthropic", lambda api_key: SimpleNamespace(messages=FakeMessages()))
+    monkeypatch.setattr(ai.claude.anthropic, "Anthropic", lambda api_key: SimpleNamespace(messages=FakeMessages()))
     assert ai.search_recipe_pages("Pudding", []) == ["https://a.example/1", "https://b.example/2"]
 
 

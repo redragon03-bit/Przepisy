@@ -4,7 +4,7 @@ import pytest
 
 from google.genai import errors as genai_errors
 
-from app.config import Settings
+from app.config import DEFAULT_GROQ_MODEL, Settings
 from app.services import ai
 
 RECIPE = ai.AiRecipe(
@@ -46,7 +46,7 @@ def test_claude_gets_text_and_image_blocks(monkeypatch):
             sent.update(kwargs)
             return SimpleNamespace(stop_reason="end_turn", parsed_output=RESULT)
 
-    monkeypatch.setattr(ai.anthropic, "Anthropic", lambda api_key: SimpleNamespace(messages=FakeMessages()))
+    monkeypatch.setattr(ai.claude.anthropic, "Anthropic", lambda api_key: SimpleNamespace(messages=FakeMessages()))
     assert ai.recipes_from_images([b"jpeg"])[0].title == "Placki"
     blocks = sent["messages"][0]["content"]
     assert [b["type"] for b in blocks] == ["text", "image", "text"]
@@ -63,7 +63,7 @@ def test_gemini_gets_text_and_image_parts(monkeypatch):
             sent.update(kwargs)
             return SimpleNamespace(parsed=RESULT)
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
     assert ai.recipes_from_images([b"jpeg"])[0].title == "Placki"
     parts = sent["contents"]
     assert isinstance(parts[0], str)
@@ -96,7 +96,7 @@ def _gemini_answers(monkeypatch, answers):
                 raise answer
             return SimpleNamespace(parsed=answer)
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=FakeModels()))
     return models
 
 
@@ -162,7 +162,7 @@ def test_groq_gets_json_schema_and_images(monkeypatch):
         content = '```json\n' + RESULT.model_dump_json() + '\n```'
         return SimpleNamespace(status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {"content": content}}]})
 
-    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    monkeypatch.setattr(ai.openai_style.httpx, "post", fake_post)
     assert ai.recipes_from_images([b"jpeg"])[0].title == "Placki"
     assert sent["url"] == "https://api.groq.com/openai/v1/chat/completions"
     assert sent["headers"]["Authorization"] == "Bearer q"
@@ -199,7 +199,7 @@ def test_all_ais_failing_shows_each_error(monkeypatch):
 
 def test_bad_json_from_mistral_is_an_error(monkeypatch):
     _only(monkeypatch, mistral="m")
-    monkeypatch.setattr(ai.httpx, "post", lambda url, headers, json, timeout: SimpleNamespace(
+    monkeypatch.setattr(ai.openai_style.httpx, "post", lambda url, headers, json, timeout: SimpleNamespace(
         status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {"content": "{\"x\": 1}"}}]}))
     with pytest.raises(ai.AiError, match="Mistral nie zwróciło poprawnej"):
         ai.categorize([(1, "Placki", ["jajko"])], [])
@@ -214,9 +214,9 @@ def test_chat_skips_slow_ai(monkeypatch):
         def generate_content(self, model, contents, config):
             assert 0 < config.http_options.timeout <= ai.CHAT_PROVIDER_SECONDS * 1000
             assert config.thinking_config.thinking_budget == 0
-            raise ai.httpx.ReadTimeout("timeout")
+            raise ai.openai_style.httpx.ReadTimeout("timeout")
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
     timeouts = []
     monkeypatch.setattr(ai, "_ask_groq", lambda c, s, sc: timeouts.append(ai._timeout()) or answer)
     assert ai.chat("kontekst", "Użytkownik: coś słodkiego").text == "Placki!"
@@ -237,7 +237,7 @@ def test_overloaded_gemini_leaves_time_for_next_ai(monkeypatch):
             clock[0] += 8  # każda próba trwa 8 s
             raise _overloaded()
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=BusyModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=BusyModels()))
     timeouts = []
     answer = ai.ChatAnswer(text="Sałatka", recipe_ids=[], new_recipe=None)
     monkeypatch.setattr(ai, "_ask_groq", lambda c, s, sc: timeouts.append(ai._timeout()) or answer)
@@ -271,7 +271,7 @@ def test_chat_gemini_timeout_504_is_not_retried(monkeypatch):
             calls.append(model)
             raise genai_errors.ServerError(504, {"error": {"message": "deadline", "status": "DEADLINE_EXCEEDED"}})
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
     with pytest.raises(ai.AiError, match="na czas"):
         ai.chat("kontekst", "Użytkownik: coś")
     assert len(calls) == 1
@@ -289,7 +289,7 @@ def test_chat_retries_with_thinking_when_model_needs_it(monkeypatch):
                 raise genai_errors.ClientError(400, {"error": {"message": "Request contains an invalid argument.", "status": "INVALID_ARGUMENT"}})
             return SimpleNamespace(parsed=answer)
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
     assert ai.chat("kontekst", "Użytkownik: coś").text == "Omlet"
     assert configs[1] is None
 
@@ -308,15 +308,15 @@ def test_withdrawn_groq_model_is_replaced_by_default(monkeypatch):
 
     def fake_post(url, headers, json, timeout):
         models.append(json["model"])
-        if json["model"] != ai.DEFAULT_GROQ_MODEL:
+        if json["model"] != DEFAULT_GROQ_MODEL:
             return SimpleNamespace(status_code=404, text='{"error":{"message":"The model does not exist","code":"model_not_found"}}')
         assert json["reasoning_effort"] == "low"
         return SimpleNamespace(status_code=200, json=lambda: {"choices": [{"finish_reason": "stop", "message": {
             "content": '{"text": "Omlet", "recipe_ids": [], "new_recipe": null}'}}]})
 
-    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    monkeypatch.setattr(ai.openai_style.httpx, "post", fake_post)
     assert ai.chat("kontekst", "Użytkownik: coś").text == "Omlet"
-    assert models == ["meta-llama/llama-4-scout-17b-16e-instruct", ai.DEFAULT_GROQ_MODEL]
+    assert models == ["meta-llama/llama-4-scout-17b-16e-instruct", DEFAULT_GROQ_MODEL]
 
 
 def test_chat_asks_lighter_gemini_first(monkeypatch):
@@ -331,7 +331,7 @@ def test_chat_asks_lighter_gemini_first(monkeypatch):
             asked.append(model)
             return SimpleNamespace(parsed=answer)
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
     ai.chat("kontekst", "Użytkownik: coś")
     assert asked == ["lite"]
 
@@ -350,6 +350,6 @@ def test_chat_tries_main_gemini_when_lite_rejects_request(monkeypatch):
                 raise genai_errors.ClientError(400, {"error": {"message": "Request contains an invalid argument.", "status": "INVALID_ARGUMENT"}})
             return SimpleNamespace(parsed=answer)
 
-    monkeypatch.setattr(ai.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=Models()))
     assert ai.chat("kontekst", "Użytkownik: coś słodkiego").text == "Sernik"
     assert asked == ["lite", "lite", "main"]
