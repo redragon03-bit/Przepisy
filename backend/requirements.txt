@@ -9,7 +9,7 @@ pydantic-settings==2.7.0
 # Pobieranie i czytanie stron
 httpx==0.28.1
 beautifulsoup4==4.12.3
-recipe-scrapers==15.12.0
+recipe-scrapers==15.13.0
 # Obrazki (zmiana rozmiaru, konwersja do JPEG)
 Pillow==11.0.0
 # AI (Claude)
