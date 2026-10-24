@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
+import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
@@ -56,6 +57,36 @@ function save(list: SavedList) {
   }
 }
 
+const MONTH_MS = 30 * 24 * 3600 * 1000;
+
+// Ulubione albo wysoko ocenione przepisy, których nie gotowano od ponad miesiąca (najdawniej pierwsze)
+function longNotCooked(recipes: RecipeSummary[]): RecipeSummary[] {
+  const now = Date.now();
+  const cookedAt = (r: RecipeSummary) => (r.last_cooked_at ? new Date(r.last_cooked_at).getTime() : 0);
+  return recipes
+    .filter((r) => (r.favorite || (r.rating ?? 0) >= 4) && now - cookedAt(r) > MONTH_MS)
+    .sort((a, b) => cookedAt(a) - cookedAt(b))
+    .slice(0, 10);
+}
+
+// Jeden rząd miniaturek przewijany w bok
+function RecipeStrip({ title, recipes }: { title: string; recipes: RecipeSummary[] }) {
+  if (!recipes.length) return null;
+  return (
+    <>
+      <p className="muted small recent-title">{title}</p>
+      <div className="recent">
+        {recipes.map((r) => (
+          <Link key={r.id} to={`/przepis/${r.id}`} className="recent-item">
+            {r.thumb_url ? <img src={r.thumb_url} alt="" loading="lazy" /> : <div className="card-placeholder">🍽️</div>}
+            <span>{r.title}</span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // Ostatnio pokazana lista, żeby po powrocie od razu ją narysować (bez "Ładowanie…")
 // i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
 let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: number; total: number } | null = null;
@@ -74,8 +105,6 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [sort, setSort] = useState<Sort>(saved.sort);
   const navigate = useNavigate();
   const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? null);
-  const [sorting, setSorting] = useState(false);
-  const [message, setMessage] = useState("");
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
 
   useEffect(() => {
@@ -106,13 +135,19 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // W trakcie szukania zdjęć co 3 sekundy odświeżamy postęp i listę (nowe zdjęcia)
+  // W trakcie szukania zdjęć co 3 sekundy sprawdzamy postęp; listę pobieramy od nowa
+  // tylko wtedy, gdy przybyło zdjęć (a nie za każdym razem)
+  const found = useRef(images?.found ?? 0);
   useEffect(() => {
     if (!images?.running) return;
     const timer = setInterval(async () => {
-      const status = await api.imageSearchStatus();
+      const status = await api.imageSearchStatus().catch(() => null);
+      if (!status) return;
       setImages(status);
-      api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
+      if (status.found !== found.current || !status.running) {
+        found.current = status.found;
+        api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
+      }
     }, 3000);
     return () => clearInterval(timer);
   }, [images?.running, q, ingredients, category, favorites]);
@@ -120,8 +155,10 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const loadCategories = () =>
     Promise.all([
       api.listCategories().then(setCategories),
-      api.listRecipes("", [], "-").then((r) => setUncategorized(r.length)),
-      api.listRecipes("", []).then((r) => setTotal(r.length)),
+      api.recipeStats().then((stats) => {
+        setUncategorized(stats.uncategorized);
+        setTotal(stats.total);
+      }),
     ]);
   useEffect(() => {
     loadCategories();
@@ -136,28 +173,17 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
     }, 250);
     return () => clearTimeout(timer);
-  }, [q, ingredients, category, favorites, sorting]);
-
-  const autoCategorize = async () => {
-    setSorting(true);
-    setMessage("");
-    try {
-      const result = await api.autoCategorize();
-      setMessage(result.remaining ? `Przypisano ${result.updated}, zostało ${result.remaining} - kliknij jeszcze raz.` : "Gotowe!");
-      loadCategories();
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setSorting(false);
-    }
-  };
+  }, [q, ingredients, category, favorites]);
 
   // Pokazujemy tylko kategorie, które mają przepisy (plus aktualnie wybraną)
   const visible = categories.filter((c) => c.recipe_count > 0 || c.name === category);
 
-  const shown = recipes && sorted(recipes, sort);
+  // Przepis usunięty przed chwilą (można go jeszcze przywrócić "Cofnij") nie pojawia się na liście
+  const visibleRecipes = recipes && recipes.filter((r) => !isHidden(r.id));
+  const shown = visibleRecipes && sorted(visibleRecipes, sort);
   const filtering = Boolean(q || ingredients.length || category || favorites);
-  const recent = !filtering && recipes ? recentRecipeIds().flatMap((id) => recipes.filter((r) => r.id === id)) : [];
+  const recent = !filtering && visibleRecipes ? recentRecipeIds().flatMap((id) => visibleRecipes.filter((r) => r.id === id)) : [];
+  const forgotten = !filtering && visibleRecipes ? longNotCooked(visibleRecipes) : [];
   const activeFilters = ingredients.length + (sort !== "new" ? 1 : 0);
 
   const randomRecipe = () => {
@@ -188,7 +214,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          placeholder="Szukaj po nazwie…"
+          placeholder="Szukaj po nazwie albo składniku…"
         />
         <button type="button" className={showFilters || activeFilters ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
           Filtry{activeFilters ? ` ${activeFilters}` : ""}
@@ -214,27 +240,11 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           )}
         </div>
       )}
-      {uncategorized > 0 && aiEnabled && (
-        <p className="small">
-          <button type="button" className="link" disabled={sorting} onClick={autoCategorize}>
-            {sorting ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie automatycznie (${uncategorized} bez kategorii)`}
-          </button>
+      {aiEnabled && images?.running && (
+        <p className="muted small">
+          🔍 Szukam zdjęć… {images.done}/{images.total} (znalezione: {images.found})
         </p>
       )}
-      {aiEnabled && images && (images.running || images.missing > 0) && (
-        <p className="small">
-          {images.running ? (
-            <span className="muted">
-              🔍 Szukam zdjęć… {images.done}/{images.total} (znalezione: {images.found})
-            </span>
-          ) : (
-            <button type="button" className="link" onClick={async () => setImages(await api.startImageSearch())}>
-              🔍 Znajdź zdjęcia w internecie ({images.missing} bez zdjęcia)
-            </button>
-          )}
-        </p>
-      )}
-      {message && <p className="muted small">{message}</p>}
       {(showFilters || ingredients.length > 0) && (
         <section className="box">
           {showFilters && (
@@ -253,19 +263,8 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           <IngredientPicker value={ingredients} onChange={setIngredients} />
         </section>
       )}
-      {recent.length > 0 && (
-        <>
-          <p className="muted small recent-title">Ostatnio oglądane</p>
-          <div className="recent">
-            {recent.map((r) => (
-              <Link key={r.id} to={`/przepis/${r.id}`} className="recent-item">
-                {r.image_url ? <img src={r.image_url} alt="" loading="lazy" /> : <div className="card-placeholder">🍽️</div>}
-                <span>{r.title}</span>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
+      <RecipeStrip title="Ostatnio oglądane" recipes={recent} />
+      <RecipeStrip title="Dawno nie gotowane" recipes={forgotten} />
       {shown === null ? (
         <p className="muted center">Ładowanie…</p>
       ) : shown.length === 0 ? (

@@ -14,8 +14,9 @@ from ..services.categories import category_names, set_categories
 
 router = APIRouter(prefix="/api/categories", tags=["kategorie"], dependencies=[Depends(require_auth)])
 
-# Tyle przepisów wysyłamy do AI naraz (krótkie dane: tytuł + składniki)
-AUTO_BATCH = 40
+# Tyle przepisów wysyłamy do AI naraz (krótkie dane: tytuł + składniki).
+# Użytkownik czeka na odpowiedź, więc partia musi być gotowa w limicie czasu (ai.CHAT_SECONDS).
+AUTO_BATCH = 25
 
 
 @router.get("", response_model=list[CategoryOut])

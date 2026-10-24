@@ -3,15 +3,28 @@
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
-from ..database import get_db
+from ..database import fold, get_db
 from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
-from ..schemas import ImageFromUrl, ImageSearchProgress, IngredientLine, RecipeIn, RecipeOut, RecipePatch, RecipeSummary, StepOut, image_url
+from ..schemas import (
+    ImageFromUrl,
+    ImageSearchProgress,
+    IngredientLine,
+    RecipeIn,
+    RecipeOut,
+    RecipePatch,
+    RecipeStats,
+    RecipeSummary,
+    StepOut,
+    image_url,
+    thumb_url,
+)
 from ..services import ai, fetcher, image_search, images
 from ..services.categories import normalize_category, set_categories
-from ..services.ingredients import get_or_create_ingredient, normalize_name
+from ..services.ingredients import get_or_create_ingredient, guess_ingredient_name, normalize_name
 
 router = APIRouter(prefix="/api/recipes", tags=["przepisy"], dependencies=[Depends(require_auth)])
 
@@ -21,11 +34,14 @@ def to_summary(recipe: Recipe) -> RecipeSummary:
         id=recipe.id,
         title=recipe.title,
         image_url=image_url(recipe.image),
+        thumb_url=thumb_url(recipe.image),
         total_minutes=recipe.total_minutes,
         source_type=recipe.source_type,
         categories=sorted(c.name for c in recipe.categories),
         favorite=recipe.favorite,
         rating=recipe.rating,
+        cooked_count=recipe.cooked_count,
+        last_cooked_at=recipe.last_cooked_at,
         created_at=recipe.created_at,
     )
 
@@ -40,8 +56,6 @@ def to_out(recipe: Recipe) -> RecipeOut:
         source_url=recipe.source_url,
         original_language=recipe.original_language,
         notes=recipe.notes,
-        cooked_count=recipe.cooked_count,
-        last_cooked_at=recipe.last_cooked_at,
         kcal=recipe.kcal,
         protein=recipe.protein,
         fat=recipe.fat,
@@ -74,8 +88,14 @@ def list_recipes(
     query = db.query(Recipe)
     if favorite:
         query = query.filter(Recipe.favorite.is_(True))
-    if q.strip():
-        query = query.filter(Recipe.title.ilike(f"%{q.strip()}%"))
+    # Każde słowo musi być w tytule albo w nazwie któregoś składnika.
+    # fold() pomija wielkość liter i ogonki: "zurek" znajdzie "Żurek".
+    for word in fold(q).split():
+        # Bez ostatniej litery dłuższe słowa łapią polską odmianę: "feta" znajdzie "fety"
+        word = word[:-1] if len(word) >= 4 else word
+        pattern = "%" + word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        in_ingredient = RecipeIngredient.ingredient.has(func.fold(Ingredient.name).like(pattern, escape="\\"))
+        query = query.filter(func.fold(Recipe.title).like(pattern, escape="\\") | Recipe.ingredients.any(in_ingredient))
     if category == "-":
         query = query.filter(~Recipe.categories.any())
     elif category.strip():
@@ -88,6 +108,15 @@ def list_recipes(
         ))
         query = query.filter(has_it)
     return [to_summary(r) for r in query.order_by(Recipe.created_at.desc(), Recipe.id.desc())]
+
+
+@router.get("/stats", response_model=RecipeStats)
+def recipe_stats(db: Session = Depends(get_db)):
+    """Liczniki do paska kategorii - bez pobierania całej listy przepisów."""
+    return RecipeStats(
+        total=db.query(Recipe).count(),
+        uncategorized=db.query(Recipe).filter(~Recipe.categories.any()).count(),
+    )
 
 
 def _search_progress(db: Session) -> ImageSearchProgress:
@@ -133,7 +162,8 @@ def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
         RecipeIngredient(
             position=i, text=line.text, amount=line.amount, unit=line.unit,
             original_text=line.original_text,
-            ingredient=get_or_create_ingredient(db, line.name or line.text),
+            # Bez nazwy (np. składnik wklejony z kartki) zgadujemy ją z linijki: "200 g mąki" -> "mąki"
+            ingredient=get_or_create_ingredient(db, line.name or guess_ingredient_name(line.text)),
         )
         for i, line in enumerate(data.ingredients) if line.text.strip()
     ]
@@ -208,7 +238,9 @@ def calculate_nutrition(recipe_id: int, db: Session = Depends(get_db)):
 @router.get("/{recipe_id}/image-candidates", response_model=list[str])
 def image_candidates(recipe_id: int, db: Session = Depends(get_db)):
     """Kilka zdjęć z internetu pasujących do przepisu - do wyboru przez użytkownika."""
-    return image_search.find_candidates(_get(db, recipe_id))
+    # Użytkownik czeka na ekranie - zwracamy to, co uda się znaleźć w limicie czasu
+    with ai.time_limit(ai.CHAT_SECONDS):
+        return image_search.find_candidates(_get(db, recipe_id))
 
 
 @router.post("/{recipe_id}/image-from-url", response_model=RecipeOut)

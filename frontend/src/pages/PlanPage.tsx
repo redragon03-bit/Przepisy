@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
 import { shoppingMessage } from "../lib/shopping";
+import { useToast } from "../lib/toast";
 
 // Poniedziałek tygodnia, w którym jest `date`
 function mondayOf(date: Date): Date {
@@ -24,6 +25,7 @@ export default function PlanPage() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [message, setMessage] = useState("");
+  const { run } = useToast();
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const start = isoDay(days[0]);
@@ -43,14 +45,15 @@ export default function PlanPage() {
   }, [q, addingTo]);
 
   const add = async (recipe: RecipeSummary) => {
-    await api.addToPlan(addingTo!, recipe.id);
+    if (!(await run(() => api.addToPlan(addingTo!, recipe.id)))) return;
     setAddingTo(null);
     setQ("");
     refresh();
   };
 
   const toShopping = async () => {
-    const result = await api.addPlanToShopping(start, end);
+    const result = await run(() => api.addPlanToShopping(start, end));
+    if (!result) return;
     setMessage(result.added || result.skipped.length ? shoppingMessage(result) : "W tym tygodniu nic nie jest zaplanowane.");
   };
 
@@ -90,7 +93,7 @@ export default function PlanPage() {
                   className="icon"
                   aria-label="Usuń z planu"
                   onClick={async () => {
-                    await api.removeFromPlan(entry.id);
+                    await run(() => api.removeFromPlan(entry.id));
                     refresh();
                   }}
                 >

@@ -1,5 +1,6 @@
 """Połączenie z bazą SQLite i sesje SQLAlchemy."""
 
+import unicodedata
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine, event, inspect, text
@@ -20,12 +21,26 @@ engine = create_engine(
 )
 
 
+def fold(text: str | None) -> str:
+    """Tekst do porównywania przy wyszukiwaniu: 'Żurek Łódzki' -> 'zurek lodzki'.
+
+    SQLite sam zmienia wielkość liter tylko w literach bez ogonków (LIKE nie uzna
+    'Ż' i 'ż' za tę samą literę), więc porównujemy teksty przepuszczone przez tę funkcję.
+    """
+    text = (text or "").lower().replace("ł", "l")
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
 @event.listens_for(engine, "connect")
-def _enable_foreign_keys(dbapi_connection, _record):
-    # Bez tego SQLite ignoruje ON DELETE CASCADE
+def _setup_connection(dbapi_connection, _record):
     cursor = dbapi_connection.cursor()
+    # Bez tego SQLite ignoruje ON DELETE CASCADE
     cursor.execute("PRAGMA foreign_keys=ON")
+    # WAL: odczyt nie czeka na zapis (np. lista przepisów w trakcie importu w tle)
+    cursor.execute("PRAGMA journal_mode=WAL")
     cursor.close()
+    # Funkcja fold() dostępna w zapytaniach SQL (patrz wyszukiwanie w routers/recipes.py)
+    dbapi_connection.create_function("fold", 1, fold, deterministic=True)
 
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -62,6 +77,7 @@ ADDED_COLUMNS = [
     ("recipes", "fat", "INTEGER"),
     ("recipes", "carbs", "INTEGER"),
     ("ingredients", "in_pantry", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("shopping_items", "ha_text", "VARCHAR(500) NOT NULL DEFAULT ''"),
 ]
 
 

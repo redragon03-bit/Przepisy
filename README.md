@@ -64,7 +64,7 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 
 | Funkcja | Backend | Frontend |
 |---|---|---|
-| Lista zakupów (łączy te same składniki, wysyłka do HA `todo.add_item`) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
+| Lista zakupów (działy sklepu, działa offline, dwustronna synchronizacja z listą `todo` w HA) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
 | Plan posiłków na tydzień | `routers/plan.py` | `pages/PlanPage.tsx` |
 | Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
 | Ulubione, ocena, „Ugotowane”, notatki | `PATCH /api/recipes/{id}`, `POST .../cooked` | `pages/RecipePage.tsx` |
@@ -111,7 +111,9 @@ uvicorn app.main:app --reload
 - **Dokumentacja API z możliwością klikania: http://localhost:8000/docs** – tu najłatwiej
   zobaczyć, co backend potrafi.
 - Dane lądują w `backend/data/` (baza + zdjęcia).
-- Testy: `pytest`
+- Testy: `pytest`, lint: `ruff check .`
+- Po zmianie `schemas.py` wygeneruj typy dla frontendu:
+  `python -m app.export_types > ../frontend/src/api-types.ts` (CI sprawdza, czy są aktualne).
 
 ### Frontend
 
@@ -127,6 +129,11 @@ Otwórz adres, który pokaże Vite (zwykle http://localhost:5173). Zapytania do 
 są automatycznie przekazywane do backendu na porcie 8000 (`vite.config.ts`).
 Dzięki opcji `--host` możesz otworzyć aplikację z telefonu w tej samej sieci Wi-Fi:
 `http://<IP-komputera>:5173`.
+
+- Lint: `npm run lint` (oxlint – działa z TypeScriptem 7, w przeciwieństwie do ESLint).
+- Testy w przeglądarce (Playwright, widok iPhone'a): `npm run build`, potem
+  `npx playwright install chromium` (raz) i `npm run test:e2e`. Testy same uruchamiają
+  backend na pustej bazie; ścieżkę do Pythona z zależnościami podaj w `PYTHON=...`.
 
 ### Całość w Dockerze
 
@@ -153,7 +160,7 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `HA_URL`, `HA_TOKEN` | Home Assistant do wysyłki listy zakupów (poza dodatkiem HA)     | puste |
 | `HA_TODO_ENTITY`    | Lista w HA, do której trafiają zakupy                             | `todo.shopping_list` |
 | `ANTHROPIC_API_KEY` | Klucz z https://console.anthropic.com (płatny za użycie)          | puste             |
-| `CLAUDE_MODEL`      | Model Claude. Tańsza opcja: `claude-haiku-5-5`                    | `claude-opus-5-5` |
+| `CLAUDE_MODEL`      | Model Claude. Tańszy: `claude-haiku-5-5`, droższy: `claude-opus-5-5` | `claude-sonnet-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
 | `STATIC_DIR`        | Folder ze zbudowanym frontendem (ustawiony w Dockerze)            | puste             |
 
@@ -284,23 +291,28 @@ backend/
       importer.py      ←   cały proces importu (koordynuje pozostałe)
       fetcher.py       ←   pobieranie stron i obrazków
       scraper.py       ←   czytanie przepisu z HTML
-      ai.py            ←   rozmowa z AI (Gemini / Claude) + prompt + format odpowiedzi
+      ai/              ←   rozmowa z AI: __init__.py (prompty, kolejność dostawców, limity czasu),
+                       ←   gemini.py, claude.py, openai_style.py (Groq/OpenRouter), base.py
       images.py        ←   zapis/zmniejszanie zdjęć
       ingredients.py   ←   normalizacja nazw składników
       categories.py    ←   kategorie: domyślna lista, normalizacja nazw
       matching.py      ←   algorytm „Co ugotuję?”
-      shopping.py      ←   łączenie składników na liście zakupów, wysyłka do HA
+      shopping.py      ←   łączenie składników na liście zakupów, synchronizacja z listą w HA
+      aisles.py        ←   działy sklepu (warzywa, nabiał…) do grupowania listy zakupów
       image_search.py  ←   szukanie zdjęcia dla przepisu bez zdjęcia
       backup.py        ←   tworzenie ZIP-a, cotygodniowa kopia automatyczna
   tests/               ← testy (pytest); AI i internet są w nich podmienione
 frontend/
   src/
-    api.ts             ← wszystkie zapytania do backendu + typy danych
+    api.ts             ← wszystkie zapytania do backendu
+    api-types.ts       ← typy danych wygenerowane z API (nie edytuj ręcznie)
+    lib/               ← wspólna logika: komunikaty z „Cofnij”, minutniki, lista zakupów offline…
     App.tsx            ← routing (adresy stron) i dolny pasek zakładek
     pages/             ← jedna strona = jeden plik
-    components/        ← elementy używane na kilku stronach
+    components/        ← elementy używane na kilku stronach (recipe/ = części strony przepisu)
     styles.css         ← wszystkie style (kolory w zmiennych na górze)
   vite.config.ts       ← build, PWA (manifest, ikony, service worker), proxy do API
+  e2e/                 ← testy w przeglądarce (Playwright)
 ha-addon/              ← dodatek Home Assistant
 Dockerfile             ← obraz: buduje frontend, potem backend
 ```
@@ -327,13 +339,13 @@ Przykład: chcesz dodać do przepisu **ocenę w gwiazdkach (1–5)**.
 3. **Router** – `backend/app/routers/recipes.py`: w `to_out()` dodaj
    `rating=recipe.rating`, a w `_apply()` dopisz `"rating"` do listy pól.
 4. **Test** – w `backend/tests/test_api.py` sprawdź, że ocena się zapisuje. Uruchom `pytest`.
-5. **Frontend** – `frontend/src/api.ts`: dodaj `rating` do typów `Recipe` i `RecipeInput`;
+5. **Frontend** – wygeneruj typy (`python -m app.export_types > ../frontend/src/api-types.ts`),
    w `pages/EditRecipePage.tsx` dodaj pole formularza, w `pages/RecipePage.tsx` wyświetl gwiazdki.
 6. Sprawdź w przeglądarce (`npm run dev`) i na http://localhost:8000/docs.
 
 Zmiana zachowania AI (np. inne zaokrąglanie miar) = edycja `SYSTEM_PROMPT` i opisów pól
-w `backend/app/services/ai.py` – działa dla obu dostawców. Nowego dostawcę AI dodajesz,
-pisząc funkcję `_ask_<nazwa>(content)` obok `_ask_gemini` i dopisując ją w `_ask()`.
+w `backend/app/services/ai/__init__.py` – działa dla wszystkich dostawców. Nowego dostawcę AI
+dodajesz jako plik w `services/ai/` (wzór: `gemini.py`) i dopisujesz go w `_ask_provider()`.
 
 ---
 
@@ -344,8 +356,9 @@ plik bazy `przepisy.db` i folder `images/` ze zdjęciami. W HA ten folder jest w
 danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać kopię z aplikacji.
 
 - **Pobranie:** *Ustawienia → Pobierz kopię* – plik ZIP z bazą (`przepisy.db`) i folderem `images/`.
-- **Przywrócenie:** zatrzymaj aplikację, rozpakuj ZIP do folderu danych (`DATA_DIR`,
-  w Dockerze `/data`), uruchom ponownie.
+- **Przywrócenie:** *Ustawienia → Przywróć z pliku…* – wybierz ZIP z kopii. Aplikacja
+  sprawdza plik, a obecne dane najpierw zapisuje jako kopię automatyczną (można wrócić).
+  Ręcznie: zatrzymaj aplikację, rozpakuj ZIP do folderu danych (`DATA_DIR`), uruchom ponownie.
 - **Automatycznie:** raz w tygodniu aplikacja sama zapisuje ZIP w `DATA_DIR/backups`
   i trzyma 3 ostatnie (lista do pobrania w *Ustawieniach*). Chroni przed przypadkowym
   usunięciem przepisów; przed awarią dysku chroni kopia pobrana albo kopia HA.

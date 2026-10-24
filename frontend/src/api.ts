@@ -1,167 +1,54 @@
 // Wszystkie zapytania do backendu w jednym miejscu.
-// Typy odpowiadają klasom z backend/app/schemas.py - zmieniając jedno, zmień drugie.
+// Typy danych są generowane z backend/app/schemas.py do pliku api-types.ts
+// (python -m app.export_types) - tutaj nadajemy im krótsze nazwy używane w aplikacji.
+import type * as Api from "./api-types";
 
-export interface IngredientLine {
-  text: string;
-  name: string;
-  amount: number | null;
-  unit: string;
-  original_text: string;
-}
+export type IngredientLine = Api.IngredientLine;
+export type RecipeSummary = Api.RecipeSummary;
+export type Recipe = Api.RecipeOut;
+// Formularz przepisu ma zawsze wszystkie pola (serwer pozwala niektóre pominąć)
+export type RecipeInput = Required<Api.RecipeIn>;
+export type Category = Api.CategoryOut;
+export type Ingredient = Api.IngredientOut;
+export type CookMatch = Api.CookMatch;
+export type ImportJob = Api.ImportJobOut;
+export type AuthStatus = Api.AuthStatus;
+export type ImageSearchProgress = Api.ImageSearchProgress;
+export type ShoppingItem = Api.ShoppingItemOut;
+export type PlanEntry = Api.MealPlanOut;
+export type AiRecipe = Api.AiRecipe;
+export type ChatReply = Api.ChatOut;
+export type ShoppingResult = Api.ShoppingResult;
+export type BackupFile = Api.BackupFile;
+export type RecipeStats = Api.RecipeStats;
 
-export interface RecipeSummary {
-  id: number;
-  title: string;
-  image_url: string | null;
-  total_minutes: number | null;
-  source_type: "url" | "image" | "manual" | "ai";
-  categories: string[];
-  favorite: boolean;
-  rating: number | null;
-  created_at: string;
-}
-
-export interface Recipe extends RecipeSummary {
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  source_url: string;
-  original_language: string;
-  notes: string;
-  cooked_count: number;
-  last_cooked_at: string | null;
-  // Szacunek AI na 1 porcję; null = jeszcze nie policzone
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-  ingredients: IngredientLine[];
-  steps: { text: string; image_url: string | null }[];
-  step_images: (string | null)[];
-}
-
-export interface RecipeInput {
-  title: string;
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  total_minutes: number | null;
-  source_url: string;
-  notes: string;
-  ingredients: IngredientLine[];
-  steps: { text: string; image: string | null }[];
-  categories: string[];
-}
-
-export interface Category {
-  name: string;
-  recipe_count: number;
-}
-
-export interface Ingredient {
-  id: number;
-  name: string;
-  is_staple: boolean;
-  recipe_count: number;
-}
-
-export interface CookMatch {
-  recipe: RecipeSummary;
-  have: string[];
-  missing: string[];
-}
-
-export interface ImportJob {
-  id: number;
-  kind: "url" | "image";
-  source: string;
-  status: "pending" | "running" | "done" | "failed" | "duplicate";
-  error: string;
-  recipe_id: number | null;
-  recipe_count: number;
-  created_at: string;
-}
-
-export interface AuthStatus {
-  authenticated: boolean;
-  auth_required: boolean;
-  ai_enabled: boolean;
-  ai_provider: string | null;
-  // Wszystkie AI z kluczem, w kolejności pytania: "anthropic", "gemini", "groq", "mistral"
-  ai_providers: string[];
-  ha_enabled: boolean;
-}
-
-export interface ImageSearchProgress {
-  running: boolean;
-  done: number;
-  found: number;
-  total: number;
-  missing: number;
-}
-
-export interface ShoppingItem {
-  id: number;
-  text: string;
-  recipes: string;
-  checked: boolean;
-}
-
-export interface PlanEntry {
-  id: number;
-  day: string; // "2026-10-20"
-  recipe: RecipeSummary;
-}
-
-// Przepis wymyślony przez AI w czacie (jeszcze niezapisany) - jak AiRecipe w backend/app/services/ai.py
-export interface AiRecipe {
-  title: string;
-  description: string;
-  servings: string;
-  prep_minutes: number | null;
-  cook_minutes: number | null;
-  total_minutes: number | null;
-  original_language: string;
-  ingredients: IngredientLine[];
-  steps: { text: string; image_index: number | null }[];
-  main_image_index: number | null;
-  categories: string[];
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-}
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-  recipe?: AiRecipe | null;
-  // Tylko w odpowiedziach asystenta: polecane przepisy z bazy
+export interface ChatMessage extends Api.ChatMessage {
+  // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
   recipes?: RecipeSummary[];
-}
-
-export interface ChatReply {
-  text: string;
-  recipes: RecipeSummary[];
-  new_recipe: AiRecipe | null;
-}
-
-export interface ShoppingResult {
-  added: number;
-  skipped: string[]; // pominięte, bo są w spiżarni
-}
-
-export interface BackupFile {
-  name: string;
-  size: number;
-  created_at: string;
 }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
+  }
+}
+
+// Ostatni stan logowania - żeby aplikacja otworzyła się bez internetu (np. lista zakupów w sklepie)
+const AUTH_KEY = "auth-status";
+
+export function saveAuth(status: AuthStatus) {
+  try {
+    localStorage.setItem(AUTH_KEY, JSON.stringify(status));
+  } catch {
+    // tryb prywatny - bez internetu aplikacja się wtedy nie otworzy, trudno
+  }
+}
+
+export function savedAuth(): AuthStatus | null {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_KEY) ?? "null");
+  } catch {
+    return null;
   }
 }
 
@@ -220,6 +107,7 @@ export const api = {
   // category: nazwa kategorii, "-" = przepisy bez kategorii, "" = wszystkie
   listRecipes: (q: string, ingredients: string[], category = "", favorite = false) =>
     request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients, category, favorite: favorite ? "true" : "" })}`),
+  recipeStats: () => request<RecipeStats>("GET", "/api/recipes/stats"),
   getRecipe: (id: number) => request<Recipe>("GET", `/api/recipes/${id}`),
   createRecipe: (data: RecipeInput) => request<Recipe>("POST", "/api/recipes", data),
   updateRecipe: (id: number, data: RecipeInput) => request<Recipe>("PUT", `/api/recipes/${id}`, data),
@@ -261,7 +149,9 @@ export const api = {
   deleteShoppingItem: (id: number) => request<void>("DELETE", `/api/shopping/${id}`),
   clearShopping: (onlyChecked: boolean) =>
     request<void>("POST", `/api/shopping/clear${query({ only_checked: onlyChecked ? "true" : "false" })}`),
-  sendShoppingToHa: () => request<{ added: number }>("POST", "/api/shopping/send-to-ha"),
+  sendShoppingToHa: () => request<ShoppingResult>("POST", "/api/shopping/send-to-ha"),
+  // Zmiany z listy w Home Assistant (odhaczenia, nowe pozycje) + cała lista
+  syncShopping: () => request<ShoppingItem[]>("POST", "/api/shopping/sync"),
 
   getPantry: () => request<string[]>("GET", "/api/pantry"),
   setPantry: (names: string[]) => request<string[]>("PUT", "/api/pantry", { names }),
@@ -277,6 +167,11 @@ export const api = {
   saveChatRecipe: (recipe: AiRecipe) => request<Recipe>("POST", "/api/chat/save", { recipe }),
 
   listBackups: () => request<BackupFile[]>("GET", "/api/backups"),
+  restoreBackup: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ recipes: number }>("POST", "/api/backup/restore", form);
+  },
 
   listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
   addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),

@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
-from ..database import SessionLocal, get_db
+from ..database import SessionLocal, fold, get_db
 from ..models import Ingredient, Recipe
 from ..schemas import ChatIn, ChatMessage, ChatOut, ChatSaveIn, RecipeOut
 from ..services import ai, importer
@@ -51,12 +51,35 @@ def _staple_names(db: Session) -> list[str]:
     return [i.name for i in db.query(Ingredient).filter_by(is_staple=True).order_by(Ingredient.name)]
 
 
-def _context(db: Session) -> str:
-    recipes = db.query(Recipe).order_by(Recipe.title).all()
+# Tyle przepisów najwyżej widzi AI. Przy dużej bazie pełna lista nie mieści się
+# w darmowych limitach (Groq: 8 tys. tokenów na minutę) i spowalnia odpowiedź.
+MAX_CHAT_RECIPES = 60
+
+
+def _relevant(recipes: list[Recipe], messages: list[ChatMessage]) -> list[Recipe]:
+    """Przepisy najbardziej pasujące do rozmowy (słowa z wiadomości), potem ulubione i najlepiej ocenione."""
+    if len(recipes) <= MAX_CHAT_RECIPES:
+        return recipes
+    # Pierwsze 5 liter wystarcza na polską odmianę: "słodkiego" i "słodkie" -> "slodk"
+    stems = {word[:5] for m in messages if m.role == "user" for word in fold(m.text).split() if len(word) >= 3}
+
+    def score(recipe: Recipe) -> tuple:
+        text = fold(" ".join([recipe.title, *(c.name for c in recipe.categories),
+                              *(ri.ingredient.name for ri in recipe.ingredients)]))
+        return (sum(stem in text for stem in stems), recipe.favorite, recipe.rating or 0, recipe.cooked_count)
+
+    chosen = sorted(recipes, key=score, reverse=True)[:MAX_CHAT_RECIPES]
+    return sorted(chosen, key=lambda r: r.title)
+
+
+def _context(db: Session, messages: list[ChatMessage]) -> str:
+    every = db.query(Recipe).order_by(Recipe.title).all()
+    recipes = _relevant(every, messages)
     today = date.today()
     return "\n".join([
         f"Dziś: {WEEKDAYS[today.weekday()]}, {today}",
-        "Przepisy użytkownika:",
+        "Przepisy użytkownika:" if len(recipes) == len(every)
+        else f"Przepisy użytkownika (najbardziej pasujące {len(recipes)} z {len(every)}):",
         *([_recipe_line(r) for r in recipes] or ["(brak)"]),
         "",
         # Spiżarnia to tylko to, co użytkownik zaznaczył - nie wszystko, co ma w domu
@@ -80,7 +103,7 @@ def _conversation(messages: list[ChatMessage]) -> str:
 @router.post("", response_model=ChatOut)
 def chat(data: ChatIn, db: Session = Depends(get_db)):
     try:
-        answer = ai.chat(_context(db), _conversation(data.messages))
+        answer = ai.chat(_context(db, data.messages), _conversation(data.messages))
     except ai.AiError as exc:
         raise HTTPException(502, str(exc)) from exc
     # AI może podać nieistniejący numer - takie pomijamy

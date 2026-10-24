@@ -1,4 +1,4 @@
-# Przy każdym pushu: testy backendu i build frontendu.
+# Przy każdym pushu: lint i testy backendu, lint i build frontendu, testy end-to-end w przeglądarce.
 # Na gałęzi main dodatkowo budujemy obraz Docker i publikujemy go w GitHub Container Registry
 # (z niego korzysta dodatek Home Assistant).
 name: CI
@@ -19,7 +19,11 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -r requirements-dev.txt
+      - run: ruff check .
       - run: pytest -q
+      # Typy TypeScript dla frontendu muszą odpowiadać aktualnemu API
+      - run: python -m app.export_types > ../frontend/src/api-types.ts
+      - run: git diff --exit-code -- ../frontend/src/api-types.ts
 
   frontend:
     runs-on: ubuntu-latest
@@ -32,10 +36,47 @@ jobs:
         with:
           node-version: "22"
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
 
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -r ../backend/requirements.txt
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          PYTHON: python
+
+  # Zmiana kodu bez podbicia wersji dodatku = Home Assistant nie zobaczy aktualizacji
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          base=origin/${{ github.base_ref }}
+          if git diff --quiet "$base"...HEAD -- backend/app frontend/src Dockerfile; then exit 0; fi
+          if git diff "$base"...HEAD -- ha-addon/config.yaml | grep -q '^+version:'; then exit 0; fi
+          echo "::error::Kod się zmienił, ale wersja w ha-addon/config.yaml nie została podbita."
+          exit 1
+
   docker:
-    needs: [backend, frontend]
+    needs: [backend, frontend, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Zwykle trwa kilka minut; gdy budowanie się zawiesi, przerywamy je zamiast czekać 6 godzin

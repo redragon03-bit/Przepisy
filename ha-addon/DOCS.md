@@ -13,7 +13,7 @@
 - **mistral_api_key** - darmowy klucz z https://console.mistral.ai (plan „Experiment”, weryfikacja numerem telefonu) → API Keys.
 - **mistral_model** - model Mistral. Domyślny `mistral-small-latest`.
 - **anthropic_api_key** - klucz z https://console.anthropic.com (płatny za użycie).
-- **claude_model** - model Claude. Domyślny `claude-opus-5-5`; tańszy: `claude-haiku-5-5`.
+- **claude_model** - model Claude. Domyślny `claude-sonnet-5-5`; tańszy: `claude-haiku-5-5`, najdokładniejszy (i najdroższy): `claude-opus-5-5`.
 
 - **ha_todo_entity** - lista w HA, do której trafia lista zakupów po kliknięciu „Wyślij do HA”.
   Domyślnie `todo.shopping_list` - tworzy ją integracja **Lista zakupów** (Ustawienia →

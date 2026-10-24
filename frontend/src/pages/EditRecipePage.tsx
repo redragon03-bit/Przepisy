@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { ClipboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, Category, IngredientLine, RecipeInput } from "../api";
 import AutoTextarea from "../components/AutoTextarea";
+import { forgetRecipe } from "../lib/recipeCache";
+import { useReorder } from "../lib/useReorder";
 
 const EMPTY: RecipeInput = {
   title: "",
@@ -29,6 +31,8 @@ export default function EditRecipePage() {
   const [saving, setSaving] = useState(false);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  // Formularz tuż po wczytaniu - żeby "Anuluj" pytał tylko wtedy, gdy coś zmieniono
+  const initial = useRef(form ? JSON.stringify(form) : "");
 
   useEffect(() => {
     api.listCategories().then(setAllCategories);
@@ -36,8 +40,8 @@ export default function EditRecipePage() {
 
   useEffect(() => {
     if (!id) return;
-    api.getRecipe(id).then((r) =>
-      setForm({
+    api.getRecipe(id).then((r) => {
+      const loaded = {
         title: r.title,
         description: r.description,
         servings: r.servings,
@@ -49,11 +53,34 @@ export default function EditRecipePage() {
         ingredients: r.ingredients,
         steps: r.steps.map((s, i) => ({ text: s.text, image: r.step_images[i] })),
         categories: r.categories,
-      }),
-    );
+      };
+      initial.current = JSON.stringify(loaded);
+      setForm(loaded);
+    });
   }, [id]);
 
+  const ingredientOrder = useReorder(form?.ingredients ?? [], (ingredients) => form && setForm({ ...form, ingredients }));
+  const stepOrder = useReorder(form?.steps ?? [], (steps) => form && setForm({ ...form, steps }));
+
   if (!form) return <p className="muted center">Ładowanie…</p>;
+
+  const cancel = () => {
+    if (JSON.stringify(form) !== initial.current && !window.confirm("Odrzucić zmiany w przepisie?")) return;
+    navigate(-1);
+  };
+
+  // Wklejenie kilku linijek (np. listy z kartki albo strony) robi z nich osobne składniki
+  const pasteIngredients = (index: number, e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const lines = e.clipboardData
+      .getData("text")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*[-•*–]\s*/, "").trim())
+      .filter(Boolean);
+    if (lines.length < 2) return;
+    e.preventDefault();
+    const pasted = lines.map((text, i) => (i === 0 ? { ...form.ingredients[index], text } : { ...emptyIngredient(), text }));
+    set("ingredients", [...form.ingredients.slice(0, index), ...pasted, ...form.ingredients.slice(index + 1)]);
+  };
 
   const set = <K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) => setForm({ ...form, [key]: value });
   const minutes = (value: string) => (value ? Number(value) : null);
@@ -79,6 +106,7 @@ export default function EditRecipePage() {
     setError("");
     try {
       const saved = id ? await api.updateRecipe(id, form) : await api.createRecipe(form);
+      forgetRecipe(saved.id);
       navigate(`/przepis/${saved.id}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -89,7 +117,7 @@ export default function EditRecipePage() {
   return (
     <form className="edit" onSubmit={save}>
       <header className="topbar">
-        <button type="button" className="link" onClick={() => navigate(-1)}>
+        <button type="button" className="link" onClick={cancel}>
           Anuluj
         </button>
         <h1>{id ? "Edycja" : "Nowy przepis"}</h1>
@@ -144,10 +172,22 @@ export default function EditRecipePage() {
       </div>
 
       <h2>Składniki</h2>
-      <p className="muted small">Druga kolumna to nazwa do wyszukiwania, np. „mąka pszenna” dla „200 g mąki pszennej”.</p>
+      <p className="muted small">
+        Druga kolumna to nazwa do wyszukiwania, np. „mąka pszenna” dla „200 g mąki pszennej”. Kolejność zmienisz, przeciągając za ⠿. Wklejenie kilku
+        linijek doda kilka składników.
+      </p>
       {form.ingredients.map((ing, i) => (
-        <div key={i} className="row ingredient-row">
-          <AutoTextarea singleLine value={ing.text} onChange={(e) => setIngredient(i, { text: e.target.value.replace(/\n/g, " ") })} placeholder="200 g mąki pszennej" />
+        <div key={i} ref={ingredientOrder.rowRef(i)} className={`row ingredient-row ${ingredientOrder.dragging === i ? "dragging" : ""}`}>
+          <span className="drag-handle" aria-label="Przeciągnij, żeby zmienić kolejność" {...ingredientOrder.handle(i)}>
+            ⠿
+          </span>
+          <AutoTextarea
+            singleLine
+            value={ing.text}
+            onChange={(e) => setIngredient(i, { text: e.target.value.replace(/\n/g, " ") })}
+            onPaste={(e) => pasteIngredients(i, e)}
+            placeholder="200 g mąki pszennej"
+          />
           <AutoTextarea singleLine value={ing.name} onChange={(e) => setIngredient(i, { name: e.target.value.replace(/\n/g, " ") })} placeholder="mąka pszenna" autoCapitalize="none" />
           <button type="button" className="icon" onClick={() => set("ingredients", form.ingredients.filter((_, j) => j !== i))} aria-label="Usuń">
             ✕
@@ -159,9 +199,12 @@ export default function EditRecipePage() {
       </button>
 
       <h2>Kroki</h2>
+      <p className="muted small">Kolejność kroków zmienisz, przeciągając za numer.</p>
       {form.steps.map((step, i) => (
-        <div key={i} className="row step-row">
-          <span className="step-number">{i + 1}</span>
+        <div key={i} ref={stepOrder.rowRef(i)} className={`row step-row ${stepOrder.dragging === i ? "dragging" : ""}`}>
+          <span className="step-number drag-handle" aria-label="Przeciągnij, żeby zmienić kolejność" {...stepOrder.handle(i)}>
+            {i + 1}
+          </span>
           <AutoTextarea rows={2} value={step.text} onChange={(e) => setStep(i, e.target.value)} />
           <button type="button" className="icon" onClick={() => set("steps", form.steps.filter((_, j) => j !== i))} aria-label="Usuń">
             ✕

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, AuthStatus, BackupFile, Ingredient } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { api, AuthStatus, BackupFile, ImageSearchProgress, Ingredient } from "../api";
+import { useToast } from "../lib/toast";
 
 const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", groq: "Groq", mistral: "Mistral" };
 
@@ -7,17 +8,59 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const [staples, setStaples] = useState<Ingredient[]>([]);
   const [newStaple, setNewStaple] = useState("");
   const [backups, setBackups] = useState<BackupFile[]>([]);
+  const [uncategorized, setUncategorized] = useState(0);
+  const [images, setImages] = useState<ImageSearchProgress | null>(null);
+  const [working, setWorking] = useState("");
+  const restoreInput = useRef<HTMLInputElement>(null);
+  const { toast, run } = useToast();
 
   const refresh = () => api.listIngredients("", true).then(setStaples);
   useEffect(() => {
     refresh();
     api.listBackups().then(setBackups);
-  }, []);
+    if (auth.ai_enabled) {
+      api.recipeStats().then((s) => setUncategorized(s.uncategorized));
+      api.imageSearchStatus().then(setImages);
+    }
+  }, [auth.ai_enabled]);
+
+  const autoCategorize = async () => {
+    setWorking("categories");
+    const result = await run(() => api.autoCategorize());
+    setWorking("");
+    if (result) {
+      setUncategorized(result.remaining);
+      toast(result.remaining ? `Przypisano ${result.updated}, zostało ${result.remaining} - stuknij jeszcze raz.` : "Gotowe!");
+    }
+  };
+
+  const findImages = async () => {
+    const status = await run(() => api.startImageSearch());
+    if (status) {
+      setImages(status);
+      toast("Szukam zdjęć w tle - postęp widać na liście przepisów.");
+    }
+  };
+
+  // Przywrócenie kopii to duża zmiana, więc tu (wyjątkowo) pytamy. Obecne dane i tak
+  // trafiają najpierw do kopii automatycznych - można do nich wrócić.
+  const restore = async (file: File | undefined) => {
+    if (restoreInput.current) restoreInput.current.value = "";
+    if (!file || !window.confirm(`Zastąpić wszystkie przepisy zawartością pliku „${file.name}”? Obecne dane zostaną zapisane jako kopia automatyczna.`)) return;
+    setWorking("restore");
+    const result = await run(() => api.restoreBackup(file));
+    setWorking("");
+    if (result) {
+      toast(`Przywrócono kopię: ${result.recipes} przepisów.`);
+      api.listBackups().then(setBackups);
+      refresh();
+    }
+  };
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaple.trim()) return;
-    await api.addStaple(newStaple);
+    if (!(await run(() => api.addStaple(newStaple)))) return;
     setNewStaple("");
     refresh();
   };
@@ -33,12 +76,18 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         <h1>Ustawienia</h1>
       </header>
 
+      {!auth.auth_required && (
+        <p className="box warning small">
+          Aplikacja nie ma hasła - każdy, kto ma do niej dostęp, może zmieniać przepisy. Ustaw hasło w opcjach dodatku (app_password).
+        </p>
+      )}
+
       <section className="box">
         <h2>Zawsze w domu</h2>
         <p className="muted small">Te składniki nie są liczone jako brakujące w „Co ugotuję?”.</p>
         <div className="chips">
           {staples.map((s) => (
-            <button key={s.id} type="button" className="chip" onClick={() => api.setStaple(s.id, false).then(refresh)}>
+            <button key={s.id} type="button" className="chip" onClick={() => run(() => api.setStaple(s.id, false)).then(refresh)}>
               {s.name} ✕
             </button>
           ))}
@@ -58,6 +107,10 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         <p className="muted small">
           Aplikacja sama robi kopię raz w tygodniu i trzyma 3 ostatnie (w folderze danych aplikacji).
         </p>
+        <button type="button" className="wide" disabled={working === "restore"} onClick={() => restoreInput.current?.click()}>
+          {working === "restore" ? "Przywracam…" : "Przywróć z pliku…"}
+        </button>
+        <input ref={restoreInput} type="file" accept=".zip,application/zip" hidden onChange={(e) => restore(e.target.files?.[0])} />
         {backups.length === 0 ? (
           <p className="muted small">Pierwsza automatyczna kopia powstanie kilka minut po uruchomieniu.</p>
         ) : (
@@ -73,6 +126,18 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           </ul>
         )}
       </section>
+
+      {auth.ai_enabled && (
+        <section className="box">
+          <h2>Porządki z AI</h2>
+          <button type="button" className="wide" disabled={working === "categories" || !uncategorized} onClick={autoCategorize}>
+            {working === "categories" ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie (${uncategorized} bez kategorii)`}
+          </button>
+          <button type="button" className="wide" disabled={!images || images.running || !images.missing} onClick={findImages}>
+            {images?.running ? `🔍 Szukam zdjęć… ${images.done}/${images.total}` : `🔍 Znajdź zdjęcia w internecie (${images?.missing ?? 0} bez zdjęcia)`}
+          </button>
+        </section>
+      )}
 
       <section className="box small">
         <h2>Informacje</h2>

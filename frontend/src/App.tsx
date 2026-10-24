@@ -1,8 +1,11 @@
 import { MouseEvent, useEffect, useLayoutEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
-import { api, AuthStatus, setUnauthorizedHandler } from "./api";
+import { api, AuthStatus, savedAuth, saveAuth, setUnauthorizedHandler } from "./api";
 import BackToTop from "./components/BackToTop";
+import Sheet from "./components/Sheet";
+import TimersBar from "./components/TimersBar";
 import { scrollToTop } from "./lib/navigation";
+import { SWIPE_BACK_DISTANCE, useEdgeSwipeBack } from "./lib/useEdgeSwipeBack";
 import ChatPage from "./pages/ChatPage";
 import CookingModePage from "./pages/CookingModePage";
 import CookPage from "./pages/CookPage";
@@ -35,6 +38,7 @@ export default function App() {
   const navigationType = useNavigationType();
   const [moreOpen, setMoreOpen] = useState(false);
   const inMore = MORE.some((m) => m.to === location.pathname);
+  const swipe = useEdgeSwipeBack();
 
   useEffect(() => setMoreOpen(false), [location.key]);
 
@@ -50,14 +54,25 @@ export default function App() {
     scrollToTop();
   };
 
-  const refreshAuth = () => api.authStatus().then(setAuth);
+  const [offline, setOffline] = useState(false);
+  const refreshAuth = () =>
+    api.authStatus().then((status) => {
+      setAuth(status);
+      saveAuth(status);
+    });
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth((a) => (a ? { ...a, authenticated: false } : a)));
-    refreshAuth().catch(() => setAuth(null));
+    // Bez internetu (np. w sklepie) otwieramy aplikację z ostatnio zapamiętanym stanem -
+    // lista zakupów działa wtedy z pamięci telefonu
+    refreshAuth().catch(() => {
+      const saved = savedAuth();
+      if (saved) setAuth(saved);
+      setOffline(true);
+    });
   }, []);
 
-  if (!auth) return <div className="center muted">Ładowanie…</div>;
+  if (!auth) return <div className="center muted">{offline ? "Brak połączenia z serwerem." : "Ładowanie…"}</div>;
   if (!auth.authenticated) return <LoginPage onLogin={refreshAuth} />;
 
   return (
@@ -78,6 +93,12 @@ export default function App() {
         </Routes>
       </main>
       <BackToTop />
+      <TimersBar />
+      {swipe > 0 && (
+        <div className={`swipe-back ${swipe >= SWIPE_BACK_DISTANCE ? "ready" : ""}`} style={{ transform: `translateX(${swipe - 40}px)` }}>
+          ‹
+        </div>
+      )}
       <nav className="tabbar">
         {TABS.map((tab) => (
           <NavLink key={tab.to} to={tab.to} end={tab.to === "/"} onClick={(e) => onTabClick(e, tab.to)}>
@@ -90,16 +111,14 @@ export default function App() {
         </button>
       </nav>
       {moreOpen && (
-        <div className="sheet-backdrop" onClick={() => setMoreOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            {MORE.map((m) => (
-              <NavLink key={m.to} to={m.to} className="sheet-tile" onClick={() => setMoreOpen(false)}>
-                <span>{m.icon}</span>
-                {m.label}
-              </NavLink>
-            ))}
-          </div>
-        </div>
+        <Sheet onClose={() => setMoreOpen(false)}>
+          {MORE.map((m) => (
+            <NavLink key={m.to} to={m.to} className="sheet-tile" onClick={() => setMoreOpen(false)}>
+              <span>{m.icon}</span>
+              {m.label}
+            </NavLink>
+          ))}
+        </Sheet>
       )}
     </>
   );
