@@ -1,28 +1,28 @@
 // Wszystkie zapytania do backendu w jednym miejscu.
 // Typy danych są generowane z backend/app/schemas.py do pliku api-types.ts
 // (python -m app.export_types) - tutaj nadajemy im krótsze nazwy używane w aplikacji.
-import type * as T from "./api-types";
+import type * as Api from "./api-types";
 
-export type IngredientLine = T.IngredientLine;
-export type RecipeSummary = T.RecipeSummary;
-export type Recipe = T.RecipeOut;
+export type IngredientLine = Api.IngredientLine;
+export type RecipeSummary = Api.RecipeSummary;
+export type Recipe = Api.RecipeOut;
 // Formularz przepisu ma zawsze wszystkie pola (serwer pozwala niektóre pominąć)
-export type RecipeInput = Required<T.RecipeIn>;
-export type Category = T.CategoryOut;
-export type Ingredient = T.IngredientOut;
-export type CookMatch = T.CookMatch;
-export type ImportJob = T.ImportJobOut;
-export type AuthStatus = T.AuthStatus;
-export type ImageSearchProgress = T.ImageSearchProgress;
-export type ShoppingItem = T.ShoppingItemOut;
-export type PlanEntry = T.MealPlanOut;
-export type AiRecipe = T.AiRecipe;
-export type ChatReply = T.ChatOut;
-export type ShoppingResult = T.ShoppingResult;
-export type BackupFile = T.BackupFile;
-export type RecipeStats = T.RecipeStats;
+export type RecipeInput = Required<Api.RecipeIn>;
+export type Category = Api.CategoryOut;
+export type Ingredient = Api.IngredientOut;
+export type CookMatch = Api.CookMatch;
+export type ImportJob = Api.ImportJobOut;
+export type AuthStatus = Api.AuthStatus;
+export type ImageSearchProgress = Api.ImageSearchProgress;
+export type ShoppingItem = Api.ShoppingItemOut;
+export type PlanEntry = Api.MealPlanOut;
+export type AiRecipe = Api.AiRecipe;
+export type ChatReply = Api.ChatOut;
+export type ShoppingResult = Api.ShoppingResult;
+export type BackupFile = Api.BackupFile;
+export type RecipeStats = Api.RecipeStats;
 
-export interface ChatMessage extends T.ChatMessage {
+export interface ChatMessage extends Api.ChatMessage {
   // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
   recipes?: RecipeSummary[];
 }
@@ -30,6 +30,25 @@ export interface ChatMessage extends T.ChatMessage {
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
+  }
+}
+
+// Ostatni stan logowania - żeby aplikacja otworzyła się bez internetu (np. lista zakupów w sklepie)
+const AUTH_KEY = "auth-status";
+
+export function saveAuth(status: AuthStatus) {
+  try {
+    localStorage.setItem(AUTH_KEY, JSON.stringify(status));
+  } catch {
+    // tryb prywatny - bez internetu aplikacja się wtedy nie otworzy, trudno
+  }
+}
+
+export function savedAuth(): AuthStatus | null {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_KEY) ?? "null");
+  } catch {
+    return null;
   }
 }
 
@@ -88,6 +107,7 @@ export const api = {
   // category: nazwa kategorii, "-" = przepisy bez kategorii, "" = wszystkie
   listRecipes: (q: string, ingredients: string[], category = "", favorite = false) =>
     request<RecipeSummary[]>("GET", `/api/recipes${query({ q, ingredients, category, favorite: favorite ? "true" : "" })}`),
+  recipeStats: () => request<RecipeStats>("GET", "/api/recipes/stats"),
   getRecipe: (id: number) => request<Recipe>("GET", `/api/recipes/${id}`),
   createRecipe: (data: RecipeInput) => request<Recipe>("POST", "/api/recipes", data),
   updateRecipe: (id: number, data: RecipeInput) => request<Recipe>("PUT", `/api/recipes/${id}`, data),
@@ -129,7 +149,9 @@ export const api = {
   deleteShoppingItem: (id: number) => request<void>("DELETE", `/api/shopping/${id}`),
   clearShopping: (onlyChecked: boolean) =>
     request<void>("POST", `/api/shopping/clear${query({ only_checked: onlyChecked ? "true" : "false" })}`),
-  sendShoppingToHa: () => request<{ added: number }>("POST", "/api/shopping/send-to-ha"),
+  sendShoppingToHa: () => request<ShoppingResult>("POST", "/api/shopping/send-to-ha"),
+  // Zmiany z listy w Home Assistant (odhaczenia, nowe pozycje) + cała lista
+  syncShopping: () => request<ShoppingItem[]>("POST", "/api/shopping/sync"),
 
   getPantry: () => request<string[]>("GET", "/api/pantry"),
   setPantry: (names: string[]) => request<string[]>("PUT", "/api/pantry", { names }),
@@ -145,6 +167,11 @@ export const api = {
   saveChatRecipe: (recipe: AiRecipe) => request<Recipe>("POST", "/api/chat/save", { recipe }),
 
   listBackups: () => request<BackupFile[]>("GET", "/api/backups"),
+  restoreBackup: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ recipes: number }>("POST", "/api/backup/restore", form);
+  },
 
   listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
   addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),

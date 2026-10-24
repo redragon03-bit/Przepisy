@@ -35,6 +35,8 @@ def test_search_ignores_polish_letters_and_case(client):
     # Słowo ze składnika i z tytułu naraz
     assert titles(client, q="kielbasa zurek") == ["Żurek śląski"]
     assert titles(client, q="maka") == ["Naleśniki"]
+    # Inna forma słowa: "śmietany" znajduje składnik "śmietana"
+    assert titles(client, q="smietany") == ["Łosoś w sosie"]
     assert titles(client, q="100%") == []
 
 

@@ -447,12 +447,34 @@ button.small,
   margin-bottom: 8px;
 }
 
-.ingredient-row textarea:first-child {
+.ingredient-row textarea:nth-of-type(1) {
   flex: 3;
 }
 
-.ingredient-row textarea:nth-child(2) {
+.ingredient-row textarea:nth-of-type(2) {
   flex: 2;
+}
+
+/* Przeciąganie wierszy w edycji (zmiana kolejności) */
+.drag-handle {
+  flex: none;
+  align-self: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+span.drag-handle:not(.step-number) {
+  padding: 8px 2px;
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.dragging {
+  opacity: 0.85;
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 18%);
+  border-radius: 10px;
+  background: var(--bg);
 }
 
 .step-row {
@@ -631,6 +653,9 @@ button.small,
   left: 50%;
   top: calc(env(safe-area-inset-top) + 12px);
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 16px;
   border-radius: 999px;
   background: var(--text, #222);
@@ -824,8 +849,17 @@ button.small,
   font-size: 18px;
 }
 
-.cooking .timers {
+/* W trybie gotowania minutniki są nad przyciskami Wstecz/Dalej (i nad pełnoekranowym widokiem) */
+.timers.cooking-timers {
   bottom: calc(env(safe-area-inset-bottom) + 84px);
+  z-index: 25;
+}
+
+.timer a {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
 
 /* Pływający przycisk "do góry" nad paskiem zakładek */
@@ -1012,4 +1046,143 @@ body:has(.chat-input) .back-to-top {
 
 .recent-item .card-placeholder {
   font-size: 28px;
+}
+
+/* "Cofnij" w komunikacie po usunięciu */
+.toast-undo {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Panel od dołu: tytuł, wiersze do wyboru (np. dni planu) i kafelek "Usuń" */
+.sheet-title {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet.sheet-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.sheet-row {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+
+.sheet-row::first-letter {
+  text-transform: uppercase;
+}
+
+button.sheet-tile {
+  font: inherit;
+  font-size: 14px;
+}
+
+.sheet-tile.danger-tile {
+  color: var(--danger);
+}
+
+.more-button {
+  font-size: 26px;
+  line-height: 1;
+  padding: 0 4px;
+  text-decoration: none;
+}
+
+/* Karta przepisu: przytrzymanie otwiera menu, więc bez systemowego podglądu linku iPhone'a */
+.card {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Gest "wróć" od lewej krawędzi ekranu */
+.swipe-back {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  z-index: 40;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+  pointer-events: none;
+}
+
+.swipe-back.ready {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Lista zakupów: działy sklepu i przesuwanie w lewo, żeby usunąć */
+h2.aisle {
+  margin: 1rem 0 0.25rem;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.swipe-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  background: color-mix(in srgb, var(--danger) 60%, transparent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.swipe-delete.ready {
+  background: var(--danger);
+}
+
+.swipe-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  background: var(--bg);
+  transition: transform 0.2s;
+}
+
+/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem */
+body:has(.timers) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 96px);
 }

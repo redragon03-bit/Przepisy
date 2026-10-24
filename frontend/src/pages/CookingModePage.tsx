@@ -1,10 +1,11 @@
 import { TouchEvent, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api, Recipe } from "../api";
-import TimersBar from "../components/TimersBar";
 import { useGoBack } from "../lib/navigation";
-import { scaleText } from "../lib/scale";
+import { cachedRecipe } from "../lib/recipeCache";
+import { scaleStep, scaleText } from "../lib/scale";
 import { findDurations } from "../lib/timers";
+import { useToast } from "../lib/toast";
 import { useTimers, useWakeLock } from "../lib/useTimers";
 
 // Tryb gotowania: jeden krok na ekranie, duża czcionka, ekran nie gaśnie.
@@ -14,15 +15,19 @@ export default function CookingModePage() {
   const [params] = useSearchParams();
   const scale = Number(params.get("skala")) || 1;
   const goBack = useGoBack(`/przepis/${id}`);
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(() => cachedRecipe(id) ?? null);
   const [error, setError] = useState("");
   const [step, setStep] = useState(-1); // -1 = najpierw lista składników
-  const { timers, now, start, remove } = useTimers();
+  const { start } = useTimers();
+  const { run } = useToast();
   useWakeLock(true);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    api.getRecipe(id).then(setRecipe).catch((e) => setError(e.message));
+    api
+      .getRecipe(id)
+      .then(setRecipe)
+      .catch((e) => !cachedRecipe(id) && setError(e.message));
   }, [id]);
 
   if (error) return <p className="error center">{error}</p>;
@@ -59,9 +64,9 @@ export default function CookingModePage() {
         <h2>{recipe.title}</h2>
         {current ? (
           <>
-            <p className="cooking-step">{current.text}</p>
+            <p className="cooking-step">{scaleStep(current.text, scale)}</p>
             {findDurations(current.text).map((d, j) => (
-              <button key={j} type="button" className="timer-button big" onClick={() => start(`Krok ${step + 1}: ${d.label}`, d.seconds)}>
+              <button key={j} type="button" className="timer-button big" onClick={() => start(`${recipe.title}, krok ${step + 1}: ${d.label}`, d.seconds, recipe.id)}>
                 ⏱ Minutnik {d.label}
               </button>
             ))}
@@ -89,16 +94,13 @@ export default function CookingModePage() {
             type="button"
             className="primary"
             onClick={async () => {
-              await api.markCooked(recipe.id);
-              goBack();
+              if (await run(() => api.markCooked(recipe.id))) goBack();
             }}
           >
             ✅ Ugotowane
           </button>
         )}
       </div>
-
-      <TimersBar timers={timers} now={now} onClose={remove} />
     </div>
   );
 }
