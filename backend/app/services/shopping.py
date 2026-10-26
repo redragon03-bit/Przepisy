@@ -7,6 +7,7 @@ odhaczone tutaj - w HA, a dopisane w HA (np. głosem przez Assist) pojawia się 
 
 import logging
 import re
+from datetime import date, timedelta
 
 import httpx
 from sqlalchemy.orm import Session
@@ -53,6 +54,27 @@ def _merged_text(item: ShoppingItem) -> str:
 
 def pantry_names(db: Session) -> list[str]:
     return [i.name for i in db.query(Ingredient).filter_by(in_pantry=True).order_by(Ingredient.name)]
+
+
+# Produkt, który trzeba zużyć w ciągu tylu dni, jest "do zużycia najpierw"
+USE_FIRST_DAYS = 3
+
+
+def expiring_names(db: Session, days: int = USE_FIRST_DAYS) -> list[str]:
+    """Produkty ze spiżarni, którym kończy się termin (najpilniejsze najpierw)."""
+    until = date.today() + timedelta(days=days)
+    items = (db.query(Ingredient).filter(Ingredient.in_pantry.is_(True), Ingredient.pantry_expires.is_not(None),
+                                         Ingredient.pantry_expires <= until)
+             .order_by(Ingredient.pantry_expires, Ingredient.name))
+    return [i.name for i in items]
+
+
+def pantry_text(db: Session) -> str:
+    """Spiżarnia dla AI, np. 'jajko, mleko (zużyć do 28.10)'."""
+    items = db.query(Ingredient).filter_by(in_pantry=True).order_by(Ingredient.name)
+    return ", ".join(
+        i.name + (f" (zużyć do {i.pantry_expires:%d.%m})" if i.pantry_expires else "") for i in items
+    ) or "nic"
 
 
 def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: bool = True,

@@ -8,10 +8,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
+from ..config import get_settings
 from ..database import get_db
 from ..models import ImportJob, Recipe
-from ..schemas import ImportJobOut, UrlImportIn
-from ..services.importer import job_upload_dir, run_image_import, run_url_import
+from ..schemas import ImportJobOut, TextImportIn, UrlImportIn
+from ..services.importer import job_upload_dir, run_image_import, run_text_import, run_url_import, save_import_text
 
 router = APIRouter(prefix="/api/imports", tags=["import"], dependencies=[Depends(require_auth)])
 
@@ -63,6 +64,21 @@ def import_images(
     return job
 
 
+@router.post("/text", response_model=ImportJobOut, status_code=202)
+def import_text(data: TextImportIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Przepis z wklejonego tekstu (np. z Messengera albo notatki) - odczytuje go AI."""
+    if not get_settings().ai_enabled:
+        raise HTTPException(400, "Tekst odczytuje AI - ustaw klucz API do AI.")
+    text = data.text.strip()
+    # Na liście importów widać początek tekstu
+    job = ImportJob(kind="text", source=" ".join(text.split())[:120])
+    db.add(job)
+    db.commit()
+    save_import_text(job.id, text)
+    background.add_task(run_text_import, job.id)
+    return job
+
+
 @router.get("", response_model=list[ImportJobOut])
 def list_imports(db: Session = Depends(get_db)):
     return db.query(ImportJob).order_by(ImportJob.id.desc()).limit(20).all()
@@ -86,9 +102,10 @@ def retry_import(job_id: int, background: BackgroundTasks, db: Session = Depends
     job = _get_job(db, job_id)
     if job.status != "failed":
         raise HTTPException(400, "Ponowić można tylko nieudany import")
-    if job.kind == "image" and not job_upload_dir(job.id).exists():
-        raise HTTPException(400, "Zdjęcia z tego importu już nie istnieją - wgraj je jeszcze raz")
+    if job.kind in ("image", "text") and not job_upload_dir(job.id).exists():
+        raise HTTPException(400, "Materiał z tego importu już nie istnieje - dodaj go jeszcze raz")
     job.status, job.error = "pending", ""
     db.commit()
-    background.add_task(run_image_import if job.kind == "image" else run_url_import, job.id)
+    run = {"image": run_image_import, "text": run_text_import, "url": run_url_import}[job.kind]
+    background.add_task(run, job.id)
     return job

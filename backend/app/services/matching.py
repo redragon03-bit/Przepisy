@@ -18,6 +18,7 @@ class Match:
     recipe: Recipe
     have: list[str]
     missing: list[str]
+    use_first: list[str]
 
 
 def covers(have: str, needed: str) -> bool:
@@ -25,7 +26,9 @@ def covers(have: str, needed: str) -> bool:
     return needed == have or needed.startswith(have + " ")
 
 
-def find_recipes(db: Session, have_names: list[str], max_missing: int = 2) -> list[Match]:
+def find_recipes(db: Session, have_names: list[str], max_missing: int = 2,
+                 use_first: list[str] = ()) -> list[Match]:
+    """`use_first` - produkty do zużycia najpierw: przepisy z nimi są wyżej."""
     have = [normalize_name(n) for n in have_names if n.strip()]
     if not have:
         return []
@@ -40,7 +43,9 @@ def find_recipes(db: Session, have_names: list[str], max_missing: int = 2) -> li
         got = [n for n in needed if any(covers(h, n) for h in have)]
         missing = [n for n in needed if n not in got]
         if got and len(missing) <= max_missing:
-            matches.append(Match(recipe=recipe, have=got, missing=missing))
-    # Najpierw najmniej braków, potem najwięcej wykorzystanych składników
-    matches.sort(key=lambda m: (len(m.missing), -len(m.have), m.recipe.title.lower()))
+            urgent = [u for u in use_first if any(covers(u, n) for n in got)]
+            matches.append(Match(recipe=recipe, have=got, missing=missing, use_first=urgent))
+    # Najpierw te, które zużywają produkty z kończącym się terminem, potem najmniej braków,
+    # potem najwięcej wykorzystanych składników
+    matches.sort(key=lambda m: (not m.use_first, len(m.missing), -len(m.have), m.recipe.title.lower()))
     return matches

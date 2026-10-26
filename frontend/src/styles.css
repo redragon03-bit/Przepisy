@@ -1186,3 +1186,104 @@ h2.aisle {
 body:has(.timers) .page {
   padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 96px);
 }
+
+/* Długie panele (dziennik, plan od AI) przewijają się w środku */
+.sheet.sheet-list {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* Warianty przepisu pod tytułem: oryginał, wege, na 8 osób... */
+a.chip {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.hint {
+  margin-top: 0;
+}
+
+.substitute {
+  white-space: pre-line;
+  margin: 0;
+}
+
+/* "Jak wyszło?" po ugotowaniu */
+.cooked-form {
+  display: grid;
+  gap: 10px;
+}
+
+.cooked-form .stars {
+  font-size: 32px;
+  justify-self: center;
+}
+
+.cook-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cook-log li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cook-log li:last-child {
+  border-bottom: none;
+}
+
+.cook-log p {
+  margin: 4px 0;
+}
+
+.cook-log img {
+  width: 100%;
+  border-radius: var(--radius);
+  margin-top: 6px;
+}
+
+/* Czytanie na głos w trybie gotowania */
+.read-aloud {
+  font-size: 24px;
+  margin-left: auto;
+}
+
+.read-aloud.on {
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+.plan-proposal {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-proposal li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.use-first {
+  color: var(--accent);
+}
+
+.card-body .use-first {
+  display: block;
+}
+
+.import-input {
+  align-items: flex-start;
+}
+
+.import-input textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.cooked-line {
+  display: block;
+  padding-left: 0;
+  text-align: left;
+}

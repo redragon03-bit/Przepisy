@@ -10,6 +10,7 @@ from ..models import Ingredient, RecipeIngredient
 from ..schemas import CookMatch, CookRequest, IngredientOut, IngredientUpdate, StapleIn
 from ..services.ingredients import get_or_create_ingredient
 from ..services.matching import find_recipes
+from ..services.shopping import expiring_names
 from .recipes import to_summary
 
 router = APIRouter(prefix="/api", tags=["składniki"], dependencies=[Depends(require_auth)])
@@ -62,6 +63,6 @@ def add_staple(data: StapleIn, db: Session = Depends(get_db)):
 @router.post("/cook", response_model=list[CookMatch])
 def what_can_i_cook(data: CookRequest, db: Session = Depends(get_db)):
     return [
-        CookMatch(recipe=to_summary(m.recipe), have=m.have, missing=m.missing)
-        for m in find_recipes(db, data.ingredients, data.max_missing)
+        CookMatch(recipe=to_summary(m.recipe), have=m.have, missing=m.missing, use_first=m.use_first)
+        for m in find_recipes(db, data.ingredients, data.max_missing, expiring_names(db))
     ]

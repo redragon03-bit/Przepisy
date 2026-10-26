@@ -1,20 +1,23 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, Recipe } from "../../api";
+import { api, formatMinutes, Recipe } from "../../api";
 import { hideRecipe, unhideRecipe } from "../../lib/hidden";
 import { forgetRecipe } from "../../lib/recipeCache";
 import { scaleStep, scaleText } from "../../lib/scale";
 import { recipeAsText, shareText } from "../../lib/share";
+import { shareAsImage } from "../../lib/shareImage";
 import { shoppingMessage } from "../../lib/shopping";
 import { useToast } from "../../lib/toast";
 import PlanDaySheet from "../PlanDaySheet";
 import Sheet, { SheetTile } from "../Sheet";
+import VariantSheet from "./VariantSheet";
 
-type Panel = "menu" | "plan" | "photo" | null;
+type Panel = "menu" | "plan" | "photo" | "share" | "variant" | null;
 
 // Menu "⋯" na ekranie przepisu: rzadziej używane akcje w jednym panelu zamiast rzędu przycisków.
-export default function RecipeMenu({ recipe, scale, servings, onChange, onSearchImages }: {
+export default function RecipeMenu({ recipe, scale, servings, onChange, onSearchImages, aiEnabled }: {
   recipe: Recipe;
+  aiEnabled: boolean;
   scale: number;
   // Porcje po przeliczeniu, np. "6 porcji" (do udostępniania)
   servings: string;
@@ -33,15 +36,22 @@ export default function RecipeMenu({ recipe, scale, servings, onChange, onSearch
     if (result) toast(shoppingMessage(result));
   };
 
+  // Składniki i kroki po przeliczeniu porcji
+  const scaled = {
+    ingredients: recipe.ingredients.map((i) => scaleText(i.text, i.amount, scale)),
+    steps: recipe.steps.map((s) => scaleStep(s.text, scale)),
+  };
+
   const share = async () => {
     close();
-    const text = recipeAsText({
-      ...recipe,
-      ingredients: recipe.ingredients.map((i) => scaleText(i.text, i.amount, scale)),
-      steps: recipe.steps.map((s) => scaleStep(s.text, scale)),
-      servings,
-    });
-    const result = await shareText(recipe.title, text);
+    const result = await shareText(recipe.title, recipeAsText({ ...recipe, ...scaled, servings }));
+    if (result) toast(result);
+  };
+
+  const shareImage = async () => {
+    close();
+    const meta = [servings, formatMinutes(recipe.total_minutes)].filter(Boolean).join(" · ");
+    const result = await run(() => shareAsImage({ title: recipe.title, meta, ...scaled, imageUrl: recipe.image_url }));
     if (result) toast(result);
   };
 
@@ -91,13 +101,25 @@ export default function RecipeMenu({ recipe, scale, servings, onChange, onSearch
           <SheetTile icon="✏️" label="Edytuj" onClick={() => navigate(`/przepis/${recipe.id}/edytuj`)} />
           <SheetTile icon="📅" label="Zaplanuj" onClick={() => setPanel("plan")} />
           <SheetTile icon="🛒" label="Do zakupów" onClick={toShopping} />
-          <SheetTile icon="📤" label="Udostępnij" onClick={share} />
+          <SheetTile icon="📤" label="Udostępnij" onClick={() => setPanel("share")} />
+          {aiEnabled && <SheetTile icon="🔀" label="Wariant" onClick={() => setPanel("variant")} />}
           <SheetTile icon="🖼️" label="Zdjęcie" onClick={() => setPanel("photo")} />
           <SheetTile icon="🔥" label={recipe.kcal == null ? "Kalorie" : "Kalorie od nowa"} onClick={nutrition} />
           <SheetTile icon="🗑️" label="Usuń" onClick={remove} danger />
         </Sheet>
       )}
       {panel === "plan" && <PlanDaySheet recipeId={recipe.id} onClose={close} />}
+      {panel === "variant" && <VariantSheet recipe={recipe} onClose={close} />}
+      {panel === "share" && (
+        <Sheet title="Udostępnij przepis" onClose={close} list>
+          <button type="button" className="sheet-row" onClick={shareImage}>
+            🖼️ Jako obrazek (ze zdjęciem)
+          </button>
+          <button type="button" className="sheet-row" onClick={share}>
+            📝 Jako tekst
+          </button>
+        </Sheet>
+      )}
       {panel === "photo" && (
         <Sheet title="Zdjęcie przepisu" onClose={close} list>
           <button

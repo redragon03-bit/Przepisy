@@ -21,6 +21,13 @@
 
 Bez żadnego klucza nie działa tłumaczenie, import ze zdjęć, czat ani liczenie kalorii.
 
+## Plan na dziś w Home Assistant
+
+Dodatek sam tworzy czujnik **sensor.przepisy_dzis** - stan to dzisiejsze dania z planu
+(np. „Gulasz”), a atrybuty: `recipes` (tytuł, czas, składniki), `tomorrow` (plan na jutro).
+Czujnik odświeża się co 15 minut i od razu po zmianie planu. Przykład automatyzacji:
+o 16:00 powiadomienie „Dziś na obiad: {{ states('sensor.przepisy_dzis') }}”.
+
 ## Jak otworzyć
 
 W przeglądarce telefonu: `http://<adres-HA>:8000`. Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).

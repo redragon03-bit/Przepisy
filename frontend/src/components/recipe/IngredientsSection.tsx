@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Recipe } from "../../api";
 import { formatAmount, scaleText } from "../../lib/scale";
+import { useLongPress } from "../../lib/useLongPress";
+import SubstituteSheet from "./SubstituteSheet";
 
-// Składniki z odhaczaniem i przeliczaniem porcji ("4 porcje" -> 6 porcji, albo mnożnik 2×)
-export default function IngredientsSection({ recipe, baseServings, servings, setServings, factor, setFactor, scale }: {
+// Składniki z odhaczaniem i przeliczaniem porcji ("4 porcje" -> 6 porcji, albo mnożnik 2×).
+// Przytrzymanie składnika pyta AI, czym go zastąpić.
+export default function IngredientsSection({ recipe, baseServings, servings, setServings, factor, setFactor, scale, aiEnabled }: {
   recipe: Recipe;
+  aiEnabled: boolean;
   baseServings: number | null;
   servings: number | null;
   setServings: (n: number) => void;
@@ -14,6 +18,7 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
 }) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [showOriginal, setShowOriginal] = useState(false);
+  const [substitute, setSubstitute] = useState<string | null>(null);
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
 
   const toggle = (index: number) => {
@@ -49,22 +54,42 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
       </div>
       <ul className="checklist">
         {recipe.ingredients.map((ing, i) => (
-          <li key={i} className={checked.has(i) ? "done" : ""} onClick={() => toggle(i)}>
-            <span className="box-icon">{checked.has(i) ? "☑" : "☐"}</span>
-            <span>
-              {scaleText(ing.text, ing.amount, scale)}
-              {showOriginal && ing.original_text && ing.original_text !== ing.text && (
-                <span className="muted small"> ({ing.original_text})</span>
-              )}
-            </span>
-          </li>
+          <IngredientRow
+            key={i}
+            text={scaleText(ing.text, ing.amount, scale)}
+            original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
+            done={checked.has(i)}
+            onToggle={() => toggle(i)}
+            onLongPress={aiEnabled ? () => setSubstitute(ing.text) : undefined}
+          />
         ))}
       </ul>
+      {aiEnabled && recipe.ingredients.length > 0 && <p className="muted small hint">Brakuje czegoś? Przytrzymaj składnik.</p>}
+      {substitute && <SubstituteSheet recipeId={recipe.id} ingredient={substitute} onClose={() => setSubstitute(null)} />}
       {hasOriginal && (
         <button type="button" className="link small" onClick={() => setShowOriginal(!showOriginal)}>
           {showOriginal ? "Ukryj oryginalne miary" : "Pokaż oryginalne miary"}
         </button>
       )}
     </>
+  );
+}
+
+function IngredientRow({ text, original, done, onToggle, onLongPress }: {
+  text: string;
+  original: string;
+  done: boolean;
+  onToggle: () => void;
+  onLongPress?: () => void;
+}) {
+  const { wasLongPress, ...longPress } = useLongPress(() => onLongPress?.());
+  return (
+    <li className={done ? "done" : ""} {...(onLongPress ? longPress : {})} onClick={() => !wasLongPress() && onToggle()}>
+      <span className="box-icon">{done ? "☑" : "☐"}</span>
+      <span>
+        {text}
+        {original && <span className="muted small"> ({original})</span>}
+      </span>
+    </li>
   );
 }

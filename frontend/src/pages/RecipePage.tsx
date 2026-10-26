@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, Recipe } from "../api";
+import CookedSheet from "../components/recipe/CookedSheet";
+import CookLogSheet from "../components/recipe/CookLogSheet";
 import ImageCandidates from "../components/recipe/ImageCandidates";
 import IngredientsSection from "../components/recipe/IngredientsSection";
 import NotesSection from "../components/recipe/NotesSection";
@@ -19,7 +21,7 @@ import { useWakeLock } from "../lib/useTimers";
 // Szczegóły przepisu. Składniki i kroki można "odhaczać" w trakcie gotowania,
 // czasy w krokach uruchamiają minutniki, a porcje można przeliczyć.
 // Rzadziej używane akcje są w menu "⋯" (RecipeMenu).
-export default function RecipePage() {
+export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
   const id = Number(useParams().id);
   const navigate = useNavigate();
   const goBack = useGoBack("/");
@@ -34,6 +36,7 @@ export default function RecipePage() {
   const [factor, setFactor] = useState(1);
   const [candidates, setCandidates] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [panel, setPanel] = useState<"cooked" | "log" | null>(null);
 
   const setRecipe = (r: Recipe) => {
     cacheRecipe(r);
@@ -47,6 +50,7 @@ export default function RecipePage() {
     setServings(parseServings(cached?.servings ?? ""));
     setFactor(1);
     setCandidates(null);
+    setPanel(null);
     api
       .getRecipe(id)
       .then((r) => {
@@ -84,13 +88,12 @@ export default function RecipePage() {
     if (saved) setRecipe(saved);
   };
 
-  const cooked = async () => {
-    const saved = await run(() => api.markCooked(recipe.id));
-    if (saved) {
-      setRecipe(saved);
-      toast("Zapisane! Smacznego 🙂");
-    }
-  };
+  // Przepis główny i jego warianty (np. "wege") - przełączanie jednym stuknięciem
+  const family = recipe.variant_of
+    ? [{ ...recipe.variant_of, variant_name: "oryginał" }, { id: recipe.id, title: recipe.title, variant_name: recipe.variant_name }, ...recipe.variants]
+    : recipe.variants.length
+      ? [{ id: recipe.id, title: recipe.title, variant_name: "oryginał" }, ...recipe.variants]
+      : [];
 
   const times = [
     recipe.prep_minutes && `przygotowanie ${formatMinutes(recipe.prep_minutes)}`,
@@ -131,6 +134,7 @@ export default function RecipePage() {
           servings={baseServings && servings ? `${servings} porcje` : recipe.servings}
           onChange={setRecipe}
           onSearchImages={searchImages}
+          aiEnabled={aiEnabled}
         />
       </header>
 
@@ -154,6 +158,21 @@ export default function RecipePage() {
         />
       )}
       <h1>{recipe.title}</h1>
+      {family.length > 0 && (
+        <div className="chips variants">
+          {family.map((v) =>
+            v.id === recipe.id ? (
+              <span key={v.id} className="chip selected">
+                {v.variant_name}
+              </span>
+            ) : (
+              <Link key={v.id} to={`/przepis/${v.id}`} replace className="chip">
+                {v.variant_name}
+              </Link>
+            ),
+          )}
+        </div>
+      )}
       {recipe.categories.length > 0 && (
         <div className="chips">
           {recipe.categories.map((c) => (
@@ -182,9 +201,10 @@ export default function RecipePage() {
         </p>
       )}
       {recipe.cooked_count > 0 && (
-        <p className="muted small">
+        <button type="button" className="link muted small cooked-line" onClick={() => setPanel("log")}>
           Ugotowane {recipe.cooked_count}× · ostatnio {new Date(recipe.last_cooked_at!).toLocaleDateString("pl-PL")}
-        </p>
+          {recipe.cook_log.length > 0 && " · dziennik ›"}
+        </button>
       )}
 
       {"wakeLock" in navigator && (
@@ -202,15 +222,27 @@ export default function RecipePage() {
         factor={factor}
         setFactor={setFactor}
         scale={scale}
+        aiEnabled={aiEnabled}
       />
       <StepsSection recipe={recipe} scale={scale} />
       <NotesSection recipe={recipe} onChange={setRecipe} />
 
       <div className="actions">
-        <button type="button" className="primary" onClick={cooked}>
+        <button type="button" className="primary" onClick={() => setPanel("cooked")}>
           ✅ Ugotowane
         </button>
       </div>
+      {panel === "cooked" && (
+        <CookedSheet
+          recipe={recipe}
+          onClose={() => setPanel(null)}
+          onSaved={(r) => {
+            setRecipe(r);
+            setPanel(null);
+          }}
+        />
+      )}
+      {panel === "log" && <CookLogSheet recipe={recipe} onChange={setRecipe} onClose={() => setPanel(null)} />}
     </article>
   );
 }

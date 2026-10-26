@@ -306,3 +306,77 @@ def chat(context: str, conversation: str) -> ChatAnswer:
     # Użytkownik czeka na ekranie - wolne AI pomijamy i pytamy następnego
     with time_limit(CHAT_SECONDS):
         return _ask_provider([text], CHAT_PROMPT, ChatAnswer)
+
+
+def recipes_from_text(text: str, categories: list[str] = ()) -> list[AiRecipe]:
+    """Przepis z wklejonego tekstu (np. wiadomość od znajomego albo notatka)."""
+    return _ask([f"Tekst przepisu wklejony przez użytkownika:\n{text}\n\nBrak obrazków.\n\n"
+                 + _categories_hint(list(categories))])
+
+
+class AiPlanDay(BaseModel):
+    day: str = Field(description="Data dnia z listy, w formacie RRRR-MM-DD")
+    recipe_id: int = Field(description="Numer przepisu z listy użytkownika")
+    reason: str = Field(description="Krótko, dlaczego ten przepis (kilka słów), albo ''")
+
+
+class AiPlan(BaseModel):
+    text: str = Field(description="1-2 zdania o planie po polsku")
+    days: list[AiPlanDay] = Field(description="Jeden przepis na każdy podany dzień")
+
+
+PLAN_PROMPT = """Jesteś asystentem kulinarnym. Układasz plan obiadów na podane dni \
+wyłącznie z przepisów zapisanych przez użytkownika (podajesz ich numery).
+
+Zasady:
+- Na każdy podany dzień dokładnie jeden przepis.
+- Przestrzegaj życzeń użytkownika (np. "raz ryba", "do 40 minut", "bez mięsa w piątek").
+- Nie powtarzaj przepisu w planie, chyba że przepisów jest za mało.
+- Różnicuj dania (nie dwa razy z rzędu to samo mięso albo makaron).
+- Chętnie wybieraj ulubione i dobrze ocenione, a także te z produktami, które trzeba \
+zużyć najpierw (kończy się ich termin).
+- Unikaj przepisów, które nie są obiadem (desery, napoje, dodatki), chyba że użytkownik prosi."""
+
+
+def suggest_plan(context: str, days: list[str], wishes: str) -> AiPlan:
+    """Plan obiadów na `days` (RRRR-MM-DD) z przepisów w `context`. Działa w tle - bez limitu czasu."""
+    text = (f"{context}\n\nDni do zaplanowania: {', '.join(days)}\n"
+            f"Życzenia użytkownika: {wishes.strip() or 'brak'}")
+    return _ask_provider([text], PLAN_PROMPT, AiPlan)
+
+
+class AiSubstitute(BaseModel):
+    text: str = Field(description="Odpowiedź po polsku: 1-3 zamienniki z ilością i krótką uwagą, jak zmieni się danie")
+
+
+SUBSTITUTE_PROMPT = """Jesteś doświadczonym kucharzem. Użytkownikowi brakuje składnika \
+do przepisu. Podaj 1-3 najlepsze zamienniki, które zwykle są w polskim domu, z ilością \
+w miejsce brakującego składnika, i krótko napisz, jak zmieni się danie. Gdy składnik \
+można po prostu pominąć, też to napisz. Pisz krótko, bez wstępów."""
+
+
+def substitute(title: str, lines: list[str], ingredient: str) -> AiSubstitute:
+    """Czym zastąpić składnik w tym przepisie."""
+    text = f"Danie: {title}\nSkładniki:\n" + "\n".join(lines) + f"\n\nBrakuje: {ingredient}"
+    with time_limit(CHAT_SECONDS):  # użytkownik czeka na ekranie przepisu
+        return _ask_provider([text], SUBSTITUTE_PROMPT, AiSubstitute)
+
+
+class AiVariant(BaseModel):
+    name: str = Field(description="Krótka nazwa wariantu, małymi literami, np. 'wege', 'na 8 osób', 'bez glutenu'")
+    recipe: AiRecipe = Field(description="Cały zmieniony przepis")
+
+
+VARIANT_PROMPT = """Jesteś asystentem kulinarnym. Dostajesz przepis użytkownika i jego \
+prośbę o wariant (np. "wersja wege", "na 8 osób", "bez laktozy"). Zwróć cały zmieniony \
+przepis: zmień tylko to, czego wymaga prośba, resztę zostaw jak w oryginale. Po polsku, \
+miary metryczne, temperatury w °C, original_text jak text, original_language "pl", \
+obrazki null, kategorie jak w oryginale (chyba że prośba je zmienia). Tytuł jak oryginał \
+z dopiskiem wariantu, np. "Gulasz (wege)". Przelicz kalorie na porcję."""
+
+
+def variant(recipe_text: str, wish: str) -> AiVariant:
+    """Wariant przepisu według prośby użytkownika."""
+    text = f"Przepis:\n{recipe_text}\n\nProśba: {wish}"
+    with time_limit(CHAT_SECONDS):  # użytkownik czeka na ekranie przepisu
+        return _ask_provider([text], VARIANT_PROMPT, AiVariant)

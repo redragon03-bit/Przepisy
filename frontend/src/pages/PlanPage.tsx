@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
+import PlanSuggestSheet from "../components/PlanSuggestSheet";
+import { nextDays } from "../lib/days";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
 
@@ -18,13 +20,15 @@ function addDays(date: Date, days: number): Date {
 }
 
 // Plan posiłków na tydzień: przepisy na każdy dzień + lista zakupów z całego tygodnia.
-export default function PlanPage() {
+// "Zaplanuj z AI" układa obiady z zapisanych przepisów.
+export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [monday, setMonday] = useState(() => mondayOf(new Date()));
   const [entries, setEntries] = useState<PlanEntry[]>([]);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [message, setMessage] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
   const { run } = useToast();
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
@@ -120,10 +124,28 @@ export default function PlanPage() {
         );
       })}
 
+      {aiEnabled && (
+        <button type="button" className="wide" onClick={() => setSuggesting(true)}>
+          ✨ Zaplanuj z AI
+        </button>
+      )}
       <button type="button" className="primary wide" onClick={toShopping}>
         🛒 Składniki z tygodnia do listy zakupów
       </button>
       {message && <p className="muted small center">{message}</p>}
+      {suggesting && (
+        <PlanSuggestSheet
+          // Dni oglądanego tygodnia od dziś (tydzień miniony: najbliższe 7 dni); na start zaznaczone te bez planu
+          days={(days.some((d) => isoDay(d) >= today) ? days.map(isoDay).filter((day) => day >= today) : nextDays().map((d) => d.day)).map(
+            (day) => ({ day, free: !entries.some((e) => e.day === day) }),
+          )}
+          onClose={() => setSuggesting(false)}
+          onSaved={() => {
+            setSuggesting(false);
+            refresh();
+          }}
+        />
+      )}
     </>
   );
 }

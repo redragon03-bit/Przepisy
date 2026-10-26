@@ -21,6 +21,9 @@ export type ChatReply = Api.ChatOut;
 export type ShoppingResult = Api.ShoppingResult;
 export type BackupFile = Api.BackupFile;
 export type RecipeStats = Api.RecipeStats;
+export type CookLogEntry = Api.CookLogOut;
+export type PantryItem = Api.PantryItem;
+export type PlanSuggestion = Api.PlanSuggestionOut;
 
 export interface ChatMessage extends Api.ChatMessage {
   // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
@@ -120,7 +123,18 @@ export const api = {
   imageSearchStatus: () => request<ImageSearchProgress>("GET", "/api/recipes/image-search"),
   startImageSearch: () => request<ImageSearchProgress>("POST", "/api/recipes/image-search"),
   calculateNutrition: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/nutrition`),
-  markCooked: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/cooked`),
+  // Wpis w dzienniku gotowania; ocena, notatka i zdjęcie są opcjonalne
+  markCooked: (id: number, entry: { rating?: number | null; note?: string; photo?: File | null } = {}) => {
+    const form = new FormData();
+    if (entry.rating) form.append("rating", String(entry.rating));
+    if (entry.note) form.append("note", entry.note);
+    if (entry.photo) form.append("photo", entry.photo);
+    return request<Recipe>("POST", `/api/recipes/${id}/cooked`, form);
+  },
+  deleteCooked: (id: number, entryId: number) => request<Recipe>("DELETE", `/api/recipes/${id}/cooked/${entryId}`),
+  substitute: (id: number, ingredient: string) =>
+    request<{ text: string }>("POST", `/api/recipes/${id}/substitute`, { ingredient }),
+  createVariant: (id: number, wish: string) => request<Recipe>("POST", `/api/recipes/${id}/variant`, { wish }),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();
     form.append("file", file);
@@ -155,6 +169,10 @@ export const api = {
 
   getPantry: () => request<string[]>("GET", "/api/pantry"),
   setPantry: (names: string[]) => request<string[]>("PUT", "/api/pantry", { names }),
+  pantryItems: () => request<PantryItem[]>("GET", "/api/pantry/items"),
+  // null = bez terminu
+  setPantryExpires: (name: string, expires: string | null) =>
+    request<PantryItem[]>("PUT", "/api/pantry/expires", { name, expires }),
 
   // Backend nie pamięta rozmowy - wysyłamy całą historię (bez list polecanych przepisów)
   chat: (messages: ChatMessage[], signal?: AbortSignal) =>
@@ -176,9 +194,13 @@ export const api = {
   listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
   addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),
   removeFromPlan: (id: number) => request<void>("DELETE", `/api/plan/${id}`),
+  // Plan od AI układa się w tle - wynik odbieramy przez getPlanSuggestion
+  suggestPlan: (days: string[], wishes: string) => request<PlanSuggestion>("POST", "/api/plan/suggest", { days, wishes }),
+  getPlanSuggestion: (id: number) => request<PlanSuggestion>("GET", `/api/plan/suggest/${id}`),
 
   // force = importuj, nawet jeśli link już jest w bazie
   importUrl: (url: string, force = false) => request<ImportJob>("POST", "/api/imports/url", { url, force }),
+  importText: (text: string) => request<ImportJob>("POST", "/api/imports/text", { text }),
   importImages: (files: File[]) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));

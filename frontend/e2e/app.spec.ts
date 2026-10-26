@@ -151,3 +151,34 @@ test("edycja: Anuluj bez zmian nie pyta, wklejenie kilku linijek dodaje składni
   await page.getByRole("button", { name: "Anuluj" }).click();
   await expect(page.getByRole("heading", { name: "Edycja" })).toBeVisible();
 });
+
+test("ugotowane z oceną i notatką trafia do dziennika", async ({ page }) => {
+  const { id } = await addRecipe("Gulasz", ["500 g wołowiny"], ["Duś 90 min."]);
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  await page.getByRole("button", { name: "✅ Ugotowane" }).click();
+  const sheet = page.getByRole("dialog", { name: "Jak wyszło?" });
+  await sheet.locator(".stars button").nth(3).click();
+  await sheet.getByPlaceholder("Notatka na następny raz").fill("mniej soli");
+  await sheet.getByRole("button", { name: "✅ Zapisz" }).click();
+  await expect(page.getByRole("status")).toContainText("Smacznego");
+  await page.getByRole("button", { name: /Ugotowane 1×/ }).click();
+  await expect(page.getByRole("dialog", { name: "Dziennik gotowania" })).toContainText("mniej soli");
+  await expect(page.getByLabel("Ocena 4 na 5").first()).toBeVisible();
+});
+
+test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
+  // Nazwy składników jak od AI (mianownik), żeby pasowały do spiżarni
+  const ingredients = [{ text: "4 pomidory", name: "pomidor" }, { text: "1 cebula", name: "cebula" }];
+  if (!(await (await server.get("/api/recipes", { params: { q: "Szakszuka" } })).json()).length)
+    await server.post("/api/recipes", { data: { title: "Szakszuka", ingredients, steps: [{ text: "Duś." }] } });
+  await server.put("/api/pantry", { data: { names: ["jajka", "mleko", "pomidor"] } });
+  await login(page);
+  await page.goto("/co-ugotowac");
+  await page.locator(".chip", { hasText: "pomidor" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Jutro" }).click();
+  await expect(page.locator(".chip", { hasText: "⏰ pomidor" })).toBeVisible();
+  await expect(page.getByText("Zużyj najpierw: pomidor (jutro)")).toBeVisible();
+  await expect(page.locator(".grid .card").first()).toContainText("Szakszuka");
+  await expect(page.locator(".grid .card").first()).toContainText("zużyje: pomidor");
+});
