@@ -236,3 +236,11 @@ def test_today_sensor_is_sent_to_home_assistant(client, monkeypatch):
     plan_sensor.publish()
     assert sent["url"] == "http://ha.local:8123/api/states/sensor.przepisy_dzis"
     assert sent["auth"] == "Bearer token" and sent["body"]["state"] == "nic nie zaplanowano"
+
+
+def test_ai_text_with_literal_newlines_is_cleaned(client, monkeypatch):
+    recipe = make_recipe(client, "Tortilla", ["sos słodko-kwaśny"])
+    monkeypatch.setattr(ai, "_ask_provider", lambda content, system, schema: ai.AiSubstitute(
+        text="• Ketchup z miodem.\\n• Sos teriyaki.\\n"))
+    answer = client.post(f"/api/recipes/{recipe['id']}/substitute", json={"ingredient": "sos"}).json()
+    assert answer["text"] == "• Ketchup z miodem.\n• Sos teriyaki."

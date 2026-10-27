@@ -1203,9 +1203,9 @@ a.chip {
   margin-top: 0;
 }
 
-.substitute {
-  white-space: pre-line;
-  margin: 0;
+/* Każdy zamiennik w osobnym akapicie */
+.substitute p {
+  margin: 0 0 10px;
 }
 
 /* "Jak wyszło?" po ugotowaniu */
