@@ -17,7 +17,13 @@ export default function SubstituteSheet({ recipeId, ingredient, onClose }: { rec
 
   return (
     <Sheet title={`Czym zastąpić: ${ingredient}?`} onClose={onClose} list>
-      {error ? <p className="error">{error}</p> : answer ? <p className="substitute">{answer}</p> : <p className="muted">Pytam AI…</p>}
+      {error ? <p className="error">{error}</p> : answer ? (
+        <div className="substitute">
+          {answer.split("\n").filter((line) => line.trim()).map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      ) : <p className="muted">Pytam AI…</p>}
     </Sheet>
   );
 }

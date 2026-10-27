@@ -167,6 +167,11 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
     raise AiError("Żadne AI nie odpowiedziało. " + " ".join(errors))
 
 
+def clean_text(text: str) -> str:
+    """Tekst od AI do pokazania: niektóre AI wpisują w JSON-ie dosłowne "\\n" zamiast nowej linii."""
+    return text.replace("\\r\\n", "\n").replace("\\n", "\n").strip()
+
+
 def _categories_hint(categories: list[str]) -> str:
     return (
         "Istniejące kategorie: " + (", ".join(categories) or "brak") + "\n"
@@ -305,7 +310,9 @@ def chat(context: str, conversation: str) -> ChatAnswer:
     text = f"{context}\n\nRozmowa:\n{conversation}\n\nOdpowiedz na ostatnią wiadomość użytkownika."
     # Użytkownik czeka na ekranie - wolne AI pomijamy i pytamy następnego
     with time_limit(CHAT_SECONDS):
-        return _ask_provider([text], CHAT_PROMPT, ChatAnswer)
+        answer = _ask_provider([text], CHAT_PROMPT, ChatAnswer)
+    answer.text = clean_text(answer.text)
+    return answer
 
 
 def recipes_from_text(text: str, categories: list[str] = ()) -> list[AiRecipe]:
@@ -342,11 +349,14 @@ def suggest_plan(context: str, days: list[str], wishes: str) -> AiPlan:
     """Plan obiadów na `days` (RRRR-MM-DD) z przepisów w `context`. Działa w tle - bez limitu czasu."""
     text = (f"{context}\n\nDni do zaplanowania: {', '.join(days)}\n"
             f"Życzenia użytkownika: {wishes.strip() or 'brak'}")
-    return _ask_provider([text], PLAN_PROMPT, AiPlan)
+    plan = _ask_provider([text], PLAN_PROMPT, AiPlan)
+    plan.text = clean_text(plan.text)
+    return plan
 
 
 class AiSubstitute(BaseModel):
-    text: str = Field(description="Odpowiedź po polsku: 1-3 zamienniki z ilością i krótką uwagą, jak zmieni się danie")
+    text: str = Field(description="Odpowiedź po polsku: 1-3 zamienniki, każdy w osobnej linii od '• ', "
+                      "z ilością i krótką uwagą, jak zmieni się danie")
 
 
 SUBSTITUTE_PROMPT = """Jesteś doświadczonym kucharzem. Użytkownikowi brakuje składnika \
@@ -359,7 +369,9 @@ def substitute(title: str, lines: list[str], ingredient: str) -> AiSubstitute:
     """Czym zastąpić składnik w tym przepisie."""
     text = f"Danie: {title}\nSkładniki:\n" + "\n".join(lines) + f"\n\nBrakuje: {ingredient}"
     with time_limit(CHAT_SECONDS):  # użytkownik czeka na ekranie przepisu
-        return _ask_provider([text], SUBSTITUTE_PROMPT, AiSubstitute)
+        answer = _ask_provider([text], SUBSTITUTE_PROMPT, AiSubstitute)
+    answer.text = clean_text(answer.text)
+    return answer
 
 
 class AiVariant(BaseModel):
