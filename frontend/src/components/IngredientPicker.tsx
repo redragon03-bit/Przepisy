@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { api, Ingredient } from "../api";
 
 interface Props {
   value: string[];
   onChange: (names: string[]) => void;
   placeholder?: string;
+  // Zamiast usuwania stuknięciem: własna akcja (np. panel z terminem w spiżarni) i własny podpis chipsa
+  onChipClick?: (name: string) => void;
+  chipLabel?: (name: string) => ReactNode;
 }
 
 // Pole do wybierania składników: wpisujesz, dostajesz podpowiedzi z bazy,
 // wybrane składniki pokazują się jako "chipsy" do usunięcia jednym tapnięciem.
-export default function IngredientPicker({ value, onChange, placeholder }: Props) {
+export default function IngredientPicker({ value, onChange, placeholder, onChipClick, chipLabel }: Props) {
   const [text, setText] = useState("");
   const [suggestions, setSuggestions] = useState<Ingredient[]>([]);
 
@@ -38,8 +41,13 @@ export default function IngredientPicker({ value, onChange, placeholder }: Props
       {value.length > 0 && (
         <div className="chips">
           {value.map((name) => (
-            <button key={name} type="button" className="chip" onClick={() => onChange(value.filter((n) => n !== name))}>
-              {name} ✕
+            <button
+              key={name}
+              type="button"
+              className="chip"
+              onClick={() => (onChipClick ? onChipClick(name) : onChange(value.filter((n) => n !== name)))}
+            >
+              {chipLabel ? chipLabel(name) : `${name} ✕`}
             </button>
           ))}
         </div>

@@ -53,7 +53,7 @@ class RecipeSummary(BaseModel):
     # Miniatura do list (kilka razy mniejszy plik niż image_url)
     thumb_url: str | None
     total_minutes: int | None
-    source_type: Literal["url", "image", "manual", "ai"]
+    source_type: Literal["url", "image", "text", "manual", "ai"]
     categories: list[str]
     favorite: bool
     rating: int | None
@@ -65,6 +65,21 @@ class RecipeSummary(BaseModel):
 class RecipeStats(BaseModel):
     total: int = Field(description="Wszystkie przepisy")
     uncategorized: int = Field(description="Przepisy bez kategorii")
+
+
+class VariantRef(BaseModel):
+    id: int
+    title: str
+    # Krótka nazwa wariantu, np. "wege"; pusta dla przepisu głównego
+    variant_name: str
+
+
+class CookLogOut(BaseModel):
+    id: int
+    cooked_at: datetime
+    rating: int | None
+    note: str
+    image_url: str | None
 
 
 class RecipeOut(RecipeSummary):
@@ -84,6 +99,13 @@ class RecipeOut(RecipeSummary):
     steps: list[StepOut]
     # Surowe nazwy plików obrazków kroków - potrzebne formularzowi edycji
     step_images: list[str | None]
+    # Przepis, którego to jest wariant (None = przepis główny)
+    variant_of: VariantRef | None
+    variant_name: str
+    # Warianty tego przepisu (a dla wariantu: pozostałe warianty tego samego przepisu)
+    variants: list[VariantRef]
+    # Dziennik gotowania, najnowsze najpierw
+    cook_log: list[CookLogOut]
 
 
 class RecipeIn(BaseModel):
@@ -106,6 +128,18 @@ class RecipePatch(BaseModel):
     favorite: bool | None = None
     rating: int | None = Field(default=None, ge=0, le=5, description="0 = usuń ocenę")
     notes: str | None = None
+
+
+class SubstituteIn(BaseModel):
+    ingredient: str = Field(min_length=1, description="Linijka składnika, którego brakuje")
+
+
+class SubstituteOut(BaseModel):
+    text: str
+
+
+class VariantIn(BaseModel):
+    wish: str = Field(min_length=2, max_length=300, description="Np. 'wersja wege', 'na 8 osób'")
 
 
 class ShoppingItemOut(BaseModel):
@@ -154,6 +188,17 @@ class PantryIn(BaseModel):
     names: list[str] = Field(description="Wszystkie produkty, które są teraz w domu")
 
 
+class PantryItem(BaseModel):
+    name: str
+    # Do kiedy trzeba zużyć; None = bez terminu
+    expires: date | None
+
+
+class PantryExpiresIn(BaseModel):
+    name: str
+    expires: date | None
+
+
 class MealPlanIn(BaseModel):
     day: date
     recipe_id: int
@@ -163,6 +208,25 @@ class MealPlanOut(BaseModel):
     id: int
     day: date
     recipe: "RecipeSummary"
+
+
+class PlanSuggestionIn(BaseModel):
+    days: list[date] = Field(min_length=1, max_length=14)
+    wishes: str = Field(default="", max_length=500, description="Np. 'raz ryba, do 40 minut'")
+
+
+class PlanSuggestionDay(BaseModel):
+    day: date
+    recipe: RecipeSummary
+    reason: str
+
+
+class PlanSuggestionOut(BaseModel):
+    id: int
+    status: Literal["running", "done", "failed"]
+    error: str
+    text: str
+    days: list[PlanSuggestionDay]
 
 
 class ImageFromUrl(BaseModel):
@@ -245,6 +309,8 @@ class CookMatch(BaseModel):
     recipe: RecipeSummary
     have: list[str]
     missing: list[str]
+    # Produkty ze spiżarni, którym kończy się termin, a ten przepis je zużywa
+    use_first: list[str]
 
 
 class UrlImportIn(BaseModel):
@@ -253,11 +319,15 @@ class UrlImportIn(BaseModel):
     force: bool = False
 
 
+class TextImportIn(BaseModel):
+    text: str = Field(min_length=10, max_length=50_000, description="Tekst przepisu")
+
+
 class ImportJobOut(BaseModel):
     model_config = ConfigDict(from_attributes=True, json_schema_serialization_defaults_required=True)
 
     id: int
-    kind: Literal["url", "image"]
+    kind: Literal["url", "image", "text"]
     source: str
     # "duplicate" = link już był w bazie (recipe_id wskazuje ten przepis)
     status: Literal["pending", "running", "done", "failed", "duplicate"]

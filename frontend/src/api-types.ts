@@ -96,10 +96,19 @@ export interface ChatSaveIn {
   recipe: AiRecipe;
 }
 
+export interface CookLogOut {
+  id: number;
+  cooked_at: string;
+  rating: number | null;
+  note: string;
+  image_url: string | null;
+}
+
 export interface CookMatch {
   recipe: RecipeSummary;
   have: string[];
   missing: string[];
+  use_first: string[];
 }
 
 export interface CookRequest {
@@ -121,7 +130,7 @@ export interface ImageSearchProgress {
 
 export interface ImportJobOut {
   id: number;
-  kind: "url" | "image";
+  kind: "url" | "image" | "text";
   source: string;
   status: "pending" | "running" | "done" | "failed" | "duplicate";
   error: string;
@@ -176,9 +185,39 @@ export interface MealPlanOut {
   recipe: RecipeSummary;
 }
 
+export interface PantryExpiresIn {
+  name: string;
+  expires: string | null;
+}
+
 export interface PantryIn {
   // Wszystkie produkty, które są teraz w domu
   names: string[];
+}
+
+export interface PantryItem {
+  name: string;
+  expires: string | null;
+}
+
+export interface PlanSuggestionDay {
+  day: string;
+  recipe: RecipeSummary;
+  reason: string;
+}
+
+export interface PlanSuggestionIn {
+  days: string[];
+  // Np. 'raz ryba, do 40 minut'
+  wishes?: string;
+}
+
+export interface PlanSuggestionOut {
+  id: number;
+  status: "running" | "done" | "failed";
+  error: string;
+  text: string;
+  days: PlanSuggestionDay[];
 }
 
 export interface RecipeIn {
@@ -201,7 +240,7 @@ export interface RecipeOut {
   image_url: string | null;
   thumb_url: string | null;
   total_minutes: number | null;
-  source_type: "url" | "image" | "manual" | "ai";
+  source_type: "url" | "image" | "text" | "manual" | "ai";
   categories: string[];
   favorite: boolean;
   rating: number | null;
@@ -222,6 +261,10 @@ export interface RecipeOut {
   ingredients: IngredientLine[];
   steps: StepOut[];
   step_images: (string | null)[];
+  variant_of: VariantRef | null;
+  variant_name: string;
+  variants: VariantRef[];
+  cook_log: CookLogOut[];
 }
 
 // Szybka zmiana pojedynczych pól bez wysyłania całego formularza.
@@ -245,7 +288,7 @@ export interface RecipeSummary {
   image_url: string | null;
   thumb_url: string | null;
   total_minutes: number | null;
-  source_type: "url" | "image" | "manual" | "ai";
+  source_type: "url" | "image" | "text" | "manual" | "ai";
   categories: string[];
   favorite: boolean;
   rating: number | null;
@@ -309,7 +352,32 @@ export interface StepOut {
   image_url: string | null;
 }
 
+export interface SubstituteIn {
+  // Linijka składnika, którego brakuje
+  ingredient: string;
+}
+
+export interface SubstituteOut {
+  text: string;
+}
+
+export interface TextImportIn {
+  // Tekst przepisu
+  text: string;
+}
+
 export interface UrlImportIn {
   url: string;
   force?: boolean;
+}
+
+export interface VariantIn {
+  // Np. 'wersja wege', 'na 8 osób'
+  wish: string;
+}
+
+export interface VariantRef {
+  id: number;
+  title: string;
+  variant_name: string;
 }

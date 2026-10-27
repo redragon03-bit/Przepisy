@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ImportJob } from "../api";
+import AutoTextarea from "../components/AutoTextarea";
 
 const STATUS_LABEL: Record<ImportJob["status"], string> = {
   pending: "⏳ w kolejce",
@@ -21,7 +22,17 @@ function findUrl(text: string): string {
   return text.match(/https?:\/\/\S+/)?.[0] ?? "";
 }
 
-// Dodawanie przepisów: z linku albo ze zdjęć/screenów.
+// Sam link (ewentualnie z krótkim podpisem, jak przy udostępnianiu z TikToka) = import z linku;
+// dłuższy tekst = przepis wklejony jako tekst (np. z Messengera)
+function isJustLink(text: string): boolean {
+  const url = findUrl(text);
+  return !!url && text.replace(url, "").trim().length < 80;
+}
+
+const JOB_ICON: Record<ImportJob["kind"], string> = { url: "", image: "📷 ", text: "📝 " };
+
+// Dodawanie przepisów: z linku (strona albo film z TikToka/YouTube/Instagrama),
+// z wklejonego tekstu albo ze zdjęć/screenów.
 // Import trwa kilkanaście sekund, więc działa w tle - lista poniżej pokazuje postęp.
 export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [params, setParams] = useSearchParams();
@@ -37,7 +48,8 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
     setError("");
     setBusy(true);
     try {
-      await api.importUrl(link.trim(), force);
+      if (isJustLink(link) || force) await api.importUrl(findUrl(link) || link.trim(), force);
+      else await api.importText(link.trim());
       setUrl("");
       await refresh();
     } catch (e) {
@@ -50,7 +62,8 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
   // Link przekazany w adresie strony (menu "Udostępnij" na Androidzie albo Skrót iOS):
   // /dodaj?url=https://... -> od razu importujemy
   useEffect(() => {
-    const shared = params.get("url") || findUrl(params.get("text") ?? "");
+    // Udostępniony tekst bez linku (np. przepis z notatek) importujemy jako tekst
+    const shared = params.get("url") || params.get("text") || "";
     if (shared) {
       setParams({}, { replace: true });
       startUrlImport(shared);
@@ -80,7 +93,7 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
 
   const paste = async () => {
     try {
-      setUrl(findUrl(await navigator.clipboard.readText()) || url);
+      setUrl((await navigator.clipboard.readText()) || url);
     } catch {
       setError("Przeglądarka nie pozwoliła odczytać schowka - wklej link ręcznie.");
     }
@@ -117,24 +130,26 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
       )}
 
       <section className="box">
-        <h2>Z linku</h2>
-        <form
-          className="row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            startUrlImport(url);
-          }}
-        >
-          {/* Zwykła klawiatura zamiast "url" - ma spację, którą przesuwa się kursor w linku */}
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        <h2>Z linku albo tekstu</h2>
+        <p className="muted small">Link do strony albo filmu (TikTok, YouTube, Instagram) – albo cały przepis wklejony jako tekst.</p>
+        <div className="row import-input">
+          <AutoTextarea
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://… albo tekst przepisu"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            rows={1}
+          />
           {"clipboard" in navigator && "readText" in navigator.clipboard && (
             <button type="button" onClick={paste}>
               Wklej
             </button>
           )}
-        </form>
-        <button className="primary wide" disabled={!url.trim() || busy} onClick={() => startUrlImport(url)}>
-          Importuj
+        </div>
+        <button className="primary wide" disabled={!url.trim() || busy || (!isJustLink(url) && !aiEnabled)} onClick={() => startUrlImport(url)}>
+          {url.trim() && !isJustLink(url) ? "Importuj tekst" : "Importuj"}
         </button>
       </section>
 
@@ -155,7 +170,7 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
           <ul className="jobs">
             {jobs.map((job) => (
               <li key={job.id}>
-                <div className="job-source">{job.kind === "url" ? job.source : `📷 ${job.source}`}</div>
+                <div className="job-source">{JOB_ICON[job.kind] + job.source}</div>
                 <div className="small">
                   {STATUS_LABEL[job.status]}
                   {job.status === "done" && job.recipe_count > 1 && (

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..database import SessionLocal
 from ..models import ImportJob, Recipe, RecipeIngredient, Step
-from . import ai, fetcher, image_search, images, scraper
+from . import ai, fetcher, image_search, images, scraper, video
 from .categories import category_names, set_categories
 from .ingredients import get_or_create_ingredient, guess_ingredient_name
 
@@ -135,8 +135,13 @@ def _run(job_id: int, work) -> None:
 
 
 def _import_url(db: Session, job: ImportJob) -> list[Recipe]:
-    html, final_url = fetcher.fetch_html(job.source)
-    page = scraper.read_page(html, final_url)
+    if video.is_video_url(job.source):
+        if not get_settings().ai_enabled:
+            raise ai.AiError("Przepis z filmu odczytuje AI - ustaw klucz API do AI.")
+        page = video.read_video(job.source)
+    else:
+        html, final_url = fetcher.fetch_html(job.source)
+        page = scraper.read_page(html, final_url)
     if get_settings().ai_enabled:
         # Każdy przepis dostaje własne kopie zdjęć, żeby usunięcie jednego
         # przepisu nie skasowało zdjęcia drugiemu
@@ -170,6 +175,24 @@ def _import_images(db: Session, job: ImportJob) -> list[Recipe]:
     return recipes
 
 
+def save_import_text(job_id: int, text: str) -> None:
+    folder = job_upload_dir(job_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "text.txt").write_text(text, encoding="utf-8")
+
+
+def _import_text(db: Session, job: ImportJob) -> list[Recipe]:
+    file = job_upload_dir(job.id) / "text.txt"
+    if not file.exists():
+        raise ai.AiError("Tekst z tego importu już nie istnieje - wklej go jeszcze raz.")
+    recipes = [
+        save_ai_recipe(db, data, "text", "", [], lambda source: None)
+        for data in ai.recipes_from_text(file.read_text(encoding="utf-8"), category_names(db))
+    ]
+    shutil.rmtree(file.parent, ignore_errors=True)
+    return recipes
+
+
 # Zdjęcia z nieudanego importu trzymamy tyle dni, żeby dało się go ponowić
 KEEP_FAILED_UPLOADS_DAYS = 7
 
@@ -190,3 +213,7 @@ def run_url_import(job_id: int) -> None:
 
 def run_image_import(job_id: int) -> None:
     _run(job_id, _import_images)
+
+
+def run_text_import(job_id: int) -> None:
+    _run(job_id, _import_text)

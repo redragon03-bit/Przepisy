@@ -1,39 +1,20 @@
-import { TouchEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatMinutes, RecipeSummary } from "../api";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
+import { useLongPress } from "../lib/useLongPress";
 import PlanDaySheet from "./PlanDaySheet";
 import Sheet, { SheetTile } from "./Sheet";
-
-const LONG_PRESS_MS = 500;
 
 // Karta przepisu na liście. Przytrzymanie palcem otwiera szybkie menu
 // (ulubione, plan, zakupy) bez wchodzenia w przepis.
 export default function RecipeCard({ recipe, children }: { recipe: RecipeSummary; children?: React.ReactNode }) {
   const [menu, setMenu] = useState<"menu" | "plan" | null>(null);
   const [favorite, setFavorite] = useState(recipe.favorite);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const start = useRef<{ x: number; y: number } | null>(null);
-  const pressed = useRef(false);
   const { toast, run } = useToast();
+  const { wasLongPress, ...longPress } = useLongPress(() => setMenu("menu"));
   useEffect(() => setFavorite(recipe.favorite), [recipe.favorite]);
-
-  const onTouchStart = (e: TouchEvent) => {
-    pressed.current = false;
-    start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    timer.current = setTimeout(() => {
-      pressed.current = true;
-      navigator.vibrate?.(10);
-      setMenu("menu");
-    }, LONG_PRESS_MS);
-  };
-  const onTouchMove = (e: TouchEvent) => {
-    const from = start.current;
-    // Przewijanie listy to nie przytrzymanie
-    if (from && Math.hypot(e.touches[0].clientX - from.x, e.touches[0].clientY - from.y) > 10) clearTimeout(timer.current);
-  };
-  const onTouchEnd = () => clearTimeout(timer.current);
 
   const toggleFavorite = async () => {
     setMenu(null);
@@ -52,12 +33,9 @@ export default function RecipeCard({ recipe, children }: { recipe: RecipeSummary
       <Link
         to={`/przepis/${recipe.id}`}
         className="card"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onContextMenu={(e) => e.preventDefault()}
+        {...longPress}
         onClick={(e) => {
-          if (pressed.current) e.preventDefault(); // puszczenie palca po przytrzymaniu nie otwiera przepisu
+          if (wasLongPress()) e.preventDefault(); // puszczenie palca po przytrzymaniu nie otwiera przepisu
         }}
       >
         {recipe.thumb_url ? (

@@ -41,7 +41,7 @@ class Recipe(Base):
     prep_minutes: Mapped[int | None]
     cook_minutes: Mapped[int | None]
     total_minutes: Mapped[int | None]
-    # "url", "image" albo "manual"
+    # "url", "image", "text" (wklejony tekst), "ai" (z czatu) albo "manual"
     source_type: Mapped[str] = mapped_column(String(20), default="manual")
     source_url: Mapped[str] = mapped_column(String(2000), default="")
     # Język oryginału, np. "en". Pusty = nie wiadomo.
@@ -60,6 +60,10 @@ class Recipe(Base):
     protein: Mapped[int | None]
     fat: Mapped[int | None]
     carbs: Mapped[int | None]
+    # Wariant innego przepisu (np. "wege", "na 8 osób") - pokazywany przy nim, nie na liście
+    variant_of: Mapped[int | None] = mapped_column(ForeignKey("recipes.id", ondelete="SET NULL"))
+    # Krótka nazwa wariantu, np. "wege"
+    variant_name: Mapped[str] = mapped_column(String(100), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -71,6 +75,11 @@ class Recipe(Base):
     )
     categories: Mapped[list[Category]] = relationship(
         secondary=recipe_categories, order_by=Category.name, lazy="selectin"
+    )
+    parent: Mapped["Recipe | None"] = relationship(remote_side="Recipe.id", back_populates="variants")
+    variants: Mapped[list["Recipe"]] = relationship(back_populates="parent", order_by="Recipe.id")
+    cook_log: Mapped[list["CookLogEntry"]] = relationship(
+        back_populates="recipe", cascade="all, delete-orphan", order_by="CookLogEntry.cooked_at.desc()"
     )
 
 
@@ -96,6 +105,8 @@ class Ingredient(Base):
     is_staple: Mapped[bool] = mapped_column(default=False)
     # Spiżarnia: produkt jest teraz w domu (pomijany na liście zakupów)
     in_pantry: Mapped[bool] = mapped_column(default=False, server_default="0")
+    # Do kiedy produkt ze spiżarni trzeba zużyć (None = nie wiadomo / bez znaczenia)
+    pantry_expires: Mapped[date | None]
 
 
 class RecipeIngredient(Base):
@@ -122,7 +133,7 @@ class ImportJob(Base):
     __tablename__ = "import_jobs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # "url" albo "image"
+    # "url", "image" albo "text" (wklejony tekst; sam tekst leży w folderze zadania)
     kind: Mapped[str] = mapped_column(String(20))
     # Link albo lista nazw plików oddzielona przecinkami
     source: Mapped[str] = mapped_column(String(2000))
@@ -167,3 +178,19 @@ class MealPlanEntry(Base):
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
 
     recipe: Mapped[Recipe] = relationship(lazy="joined")
+
+
+class CookLogEntry(Base):
+    """Dziennik gotowania: każde "Ugotowane" z opcjonalną oceną, notatką i zdjęciem."""
+
+    __tablename__ = "cook_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    cooked_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Ocena tego gotowania 1-5; None = bez oceny
+    rating: Mapped[int | None]
+    note: Mapped[str] = mapped_column(Text, default="")
+    image: Mapped[str | None] = mapped_column(String(200))
+
+    recipe: Mapped[Recipe] = relationship(back_populates="cook_log")

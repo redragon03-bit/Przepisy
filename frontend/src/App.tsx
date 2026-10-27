@@ -80,14 +80,14 @@ export default function App() {
       <main className="page">
         <Routes>
           <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />
-          <Route path="/przepis/:id" element={<RecipePage />} />
+          <Route path="/przepis/:id" element={<RecipePage aiEnabled={auth.ai_enabled} />} />
           <Route path="/przepis/:id/edytuj" element={<EditRecipePage />} />
           <Route path="/przepis/:id/gotuj" element={<CookingModePage />} />
           <Route path="/czat" element={<ChatPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/nowy" element={<EditRecipePage />} />
           <Route path="/dodaj" element={<ImportPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/co-ugotowac" element={<CookPage />} />
-          <Route path="/plan" element={<PlanPage />} />
+          <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
         </Routes>

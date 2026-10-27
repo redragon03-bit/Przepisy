@@ -17,7 +17,7 @@ from ..models import Ingredient, Recipe
 from ..schemas import ChatIn, ChatMessage, ChatOut, ChatSaveIn, RecipeOut
 from ..services import ai, importer
 from ..services.categories import category_names
-from ..services.shopping import pantry_names
+from ..services.shopping import pantry_text
 from .recipes import to_out, to_summary
 
 router = APIRouter(prefix="/api/chat", tags=["czat"], dependencies=[Depends(require_auth)])
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/chat", tags=["czat"], dependencies=[Depends(requ
 WEEKDAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
 
 
-def _recipe_line(recipe: Recipe) -> str:
+def recipe_line(recipe: Recipe) -> str:
     """Jedna krótka linijka o przepisie dla AI, np. '12. Pierogi [Obiad] 90 min, ulubiony: mąka, ser, ziemniak'.
 
     Lista trafia do AI przy każdej wiadomości, więc jest jak najkrótsza: bez podstawowych
@@ -80,10 +80,10 @@ def _context(db: Session, messages: list[ChatMessage]) -> str:
         f"Dziś: {WEEKDAYS[today.weekday()]}, {today}",
         "Przepisy użytkownika:" if len(recipes) == len(every)
         else f"Przepisy użytkownika (najbardziej pasujące {len(recipes)} z {len(every)}):",
-        *([_recipe_line(r) for r in recipes] or ["(brak)"]),
+        *([recipe_line(r) for r in recipes] or ["(brak)"]),
         "",
         # Spiżarnia to tylko to, co użytkownik zaznaczył - nie wszystko, co ma w domu
-        "Zaznaczone w spiżarni (lista niepełna): " + (", ".join(pantry_names(db)) or "nic"),
+        "Zaznaczone w spiżarni (lista niepełna): " + pantry_text(db),
         "Podstawowe produkty, które zwykle są w domu: " + (", ".join(_staple_names(db)) or "nie podano"),
         "Kategorie: " + ", ".join(category_names(db)),
     ])

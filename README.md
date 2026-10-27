@@ -65,9 +65,18 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 | Funkcja | Backend | Frontend |
 |---|---|---|
 | Lista zakupów (działy sklepu, działa offline, dwustronna synchronizacja z listą `todo` w HA) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
-| Plan posiłków na tydzień | `routers/plan.py` | `pages/PlanPage.tsx` |
+| Plan posiłków na tydzień; „Zaplanuj z AI” (w tle, wynik w pamięci serwera do zapisania) | `routers/plan.py`, `ai.suggest_plan` | `pages/PlanPage.tsx`, `components/PlanSuggestSheet.tsx` |
+| Plan na dziś w HA: czujnik `sensor.przepisy_dzis` (stan = tytuły, atrybuty: składniki, plan na jutro), odświeżany co 15 min i po zmianie planu | `services/plan_sensor.py` | – |
+| Import z wklejonego tekstu (to samo pole co link) | `POST /api/imports/text`, `ai.recipes_from_text` | `pages/ImportPage.tsx` |
+| Import z filmu (TikTok, YouTube, Instagram): opis i napisy przez yt-dlp | `services/video.py` | – |
+| Dziennik gotowania („Ugotowane” z oceną, notatką, zdjęciem; ocena przepisu = średnia z 5 ostatnich) | `models.CookLogEntry`, `POST/DELETE .../cooked` | `components/recipe/CookedSheet.tsx`, `CookLogSheet.tsx` |
+| Warianty przepisu od AI („wege”, „na 8 osób”) - przy przepisie głównym, nie na liście | `Recipe.variant_of`, `POST .../variant` | `components/recipe/VariantSheet.tsx` |
+| Zamienniki składników (przytrzymaj składnik) | `POST .../substitute` | `components/recipe/SubstituteSheet.tsx` |
+| Spiżarnia z terminami: „Zużyj najpierw” w „Co ugotuję?”, czacie i planie od AI | `routers/pantry.py`, `services/matching.py` | `pages/CookPage.tsx` |
+| Czytanie kroków na głos (🔊 w trybie gotowania, głos telefonu) | – | `lib/speech.ts` |
+| Udostępnianie jako obrazek (rysowany w telefonie) | – | `lib/shareImage.ts` |
 | Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
-| Ulubione, ocena, „Ugotowane”, notatki | `PATCH /api/recipes/{id}`, `POST .../cooked` | `pages/RecipePage.tsx` |
+| Ulubione, ocena, notatki | `PATCH /api/recipes/{id}` | `pages/RecipePage.tsx` |
 | Minutniki w krokach („10 min” → przycisk) | – | `lib/timers.ts` |
 | Szukanie zdjęć w internecie dla przepisów bez zdjęcia (AI wyszukuje strony, bierzemy ich `og:image`; zapas: Openverse). Automatycznie po imporcie, hurtowo z listy, ręcznie w przepisie | `services/image_search.py`, `ai.search_recipe_pages` | `RecipePage.tsx`, `RecipesPage.tsx` |
 | Wykrywanie duplikatów linków | `routers/imports.py` (status `duplicate`) | `pages/ImportPage.tsx` |
@@ -368,8 +377,9 @@ danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać ko
 
 ## Znane ograniczenia
 
-- **Instagram, TikTok, YouTube, Facebook** – przepis jest zwykle w filmie albo za
-  logowaniem; link nie zadziała. Zrób screen opisu i zaimportuj zdjęcie.
+- **Instagram, TikTok, YouTube, Facebook** – AI czyta tylko opis i napisy filmu (nie ogląda go).
+  Gdy przepis jest wyłącznie pokazany w filmie albo film wymaga logowania (często Instagram),
+  zrób screen opisu i zaimportuj zdjęcie.
 - **Strony blokujące roboty / z paywallem** – import pokaże błąd; użyj screena.
 - **Przeliczanie „cups” na gramy** jest przybliżone (zależy od produktu). Oryginalne
   miary zobaczysz w przepisie („Pokaż oryginalne miary”) i poprawisz w edycji.

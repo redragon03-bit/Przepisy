@@ -2,14 +2,16 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
+from ..config import get_settings
 from ..database import fold, get_db
-from ..models import Category, Ingredient, Recipe, RecipeIngredient, Step
+from ..models import Category, CookLogEntry, Ingredient, Recipe, RecipeIngredient, Step
 from ..schemas import (
+    CookLogOut,
     ImageFromUrl,
     ImageSearchProgress,
     IngredientLine,
@@ -19,10 +21,14 @@ from ..schemas import (
     RecipeStats,
     RecipeSummary,
     StepOut,
+    SubstituteIn,
+    SubstituteOut,
+    VariantIn,
+    VariantRef,
     image_url,
     thumb_url,
 )
-from ..services import ai, fetcher, image_search, images
+from ..services import ai, fetcher, image_search, images, importer
 from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, guess_ingredient_name, normalize_name
 
@@ -67,7 +73,24 @@ def to_out(recipe: Recipe) -> RecipeOut:
         ],
         steps=[StepOut(text=s.text, image_url=image_url(s.image)) for s in recipe.steps],
         step_images=[s.image for s in recipe.steps],
+        variant_of=_ref(recipe.parent) if recipe.parent else None,
+        variant_name=recipe.variant_name,
+        variants=[_ref(v) for v in _variants(recipe)],
+        cook_log=[
+            CookLogOut(id=e.id, cooked_at=e.cooked_at, rating=e.rating, note=e.note, image_url=image_url(e.image))
+            for e in recipe.cook_log
+        ],
     )
+
+
+def _ref(recipe: Recipe) -> VariantRef:
+    return VariantRef(id=recipe.id, title=recipe.title, variant_name=recipe.variant_name)
+
+
+def _variants(recipe: Recipe) -> list[Recipe]:
+    """Warianty przepisu; dla wariantu - jego "rodzeństwo" (bez niego samego)."""
+    family = recipe.parent.variants if recipe.parent else recipe.variants
+    return [v for v in family if v.id != recipe.id]
 
 
 def _get(db: Session, recipe_id: int) -> Recipe:
@@ -85,7 +108,8 @@ def list_recipes(
     favorite: bool = Query(default=False, description="Tylko ulubione"),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Recipe)
+    # Warianty (np. "wege") widać na stronie przepisu głównego, nie na liście
+    query = db.query(Recipe).filter(Recipe.variant_of.is_(None))
     if favorite:
         query = query.filter(Recipe.favorite.is_(True))
     # Każde słowo musi być w tytule albo w nazwie któregoś składnika.
@@ -113,10 +137,8 @@ def list_recipes(
 @router.get("/stats", response_model=RecipeStats)
 def recipe_stats(db: Session = Depends(get_db)):
     """Liczniki do paska kategorii - bez pobierania całej listy przepisów."""
-    return RecipeStats(
-        total=db.query(Recipe).count(),
-        uncategorized=db.query(Recipe).filter(~Recipe.categories.any()).count(),
-    )
+    main = db.query(Recipe).filter(Recipe.variant_of.is_(None))
+    return RecipeStats(total=main.count(), uncategorized=main.filter(~Recipe.categories.any()).count())
 
 
 def _search_progress(db: Session) -> ImageSearchProgress:
@@ -202,20 +224,103 @@ def patch_recipe(recipe_id: int, data: RecipePatch, db: Session = Depends(get_db
     return to_out(recipe)
 
 
+# Ocena przepisu to średnia z tylu ostatnich ocenionych gotowań - zmienia się z czasem
+RATING_FROM_LAST = 5
+
+
+def _rating_from_log(recipe: Recipe) -> None:
+    ratings = [e.rating for e in recipe.cook_log if e.rating][:RATING_FROM_LAST]
+    if ratings:
+        recipe.rating = round(sum(ratings) / len(ratings))
+
+
 @router.post("/{recipe_id}/cooked", response_model=RecipeOut)
-def mark_cooked(recipe_id: int, db: Session = Depends(get_db)):
-    """Przycisk "Ugotowane": licznik i data ostatniego gotowania."""
+def mark_cooked(
+    recipe_id: int,
+    rating: int | None = Form(default=None, ge=1, le=5),
+    note: str = Form(default="", max_length=2000),
+    photo: UploadFile | None = File(default=None, description="Zdjęcie tego, co wyszło"),
+    db: Session = Depends(get_db),
+):
+    """Przycisk "Ugotowane": wpis w dzienniku gotowania (ocena, notatka i zdjęcie - wszystko opcjonalne)."""
     recipe = _get(db, recipe_id)
+    image = None
+    if photo is not None and photo.size:
+        try:
+            image = images.save_image_bytes(photo.file.read())
+        except Exception as exc:
+            raise HTTPException(400, "Nie udało się odczytać zdjęcia") from exc
     recipe.cooked_count += 1
     recipe.last_cooked_at = datetime.now()
+    recipe.cook_log.insert(0, CookLogEntry(cooked_at=recipe.last_cooked_at, rating=rating,
+                                           note=note.strip(), image=image))
+    _rating_from_log(recipe)
     db.commit()
     return to_out(recipe)
+
+
+@router.delete("/{recipe_id}/cooked/{entry_id}", response_model=RecipeOut)
+def delete_cooked(recipe_id: int, entry_id: int, db: Session = Depends(get_db)):
+    """Usuwa wpis z dziennika (np. "Ugotowane" wciśnięte przez pomyłkę)."""
+    recipe = _get(db, recipe_id)
+    entry = next((e for e in recipe.cook_log if e.id == entry_id), None)
+    if entry is None:
+        raise HTTPException(404, "Nie ma takiego wpisu")
+    recipe.cook_log.remove(entry)
+    images.delete_image(entry.image)
+    recipe.cooked_count = max(recipe.cooked_count - 1, 0)
+    recipe.last_cooked_at = recipe.cook_log[0].cooked_at if recipe.cook_log else None
+    db.commit()
+    return to_out(recipe)
+
+
+@router.post("/{recipe_id}/substitute", response_model=SubstituteOut)
+def substitute(recipe_id: int, data: SubstituteIn, db: Session = Depends(get_db)):
+    """Czym zastąpić składnik, którego brakuje - odpowiedź AI dla tego przepisu."""
+    recipe = _get(db, recipe_id)
+    try:
+        answer = ai.substitute(recipe.title, [ri.text for ri in recipe.ingredients], data.ingredient)
+    except ai.AiError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return SubstituteOut(text=answer.text)
+
+
+def recipe_text(recipe: Recipe) -> str:
+    """Przepis jako zwykły tekst dla AI."""
+    lines = [f"Tytuł: {recipe.title}", f"Porcje: {recipe.servings or 'nie podano'}",
+             f"Kategorie: {', '.join(c.name for c in recipe.categories) or 'brak'}", "Składniki:"]
+    lines += [f"- {ri.text}" for ri in recipe.ingredients]
+    lines.append("Kroki:")
+    lines += [f"{i}. {s.text}" for i, s in enumerate(recipe.steps, 1)]
+    return "\n".join(lines)
+
+
+@router.post("/{recipe_id}/variant", response_model=RecipeOut, status_code=201)
+def create_variant(recipe_id: int, data: VariantIn, db: Session = Depends(get_db)):
+    """AI tworzy wariant przepisu (np. "wersja wege"), zapisany przy przepisie głównym."""
+    recipe = _get(db, recipe_id)
+    main = recipe.parent or recipe  # wariant wariantu też należy do przepisu głównego
+    try:
+        answer = ai.variant(recipe_text(recipe), data.wish)
+    except ai.AiError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    variant = importer.save_ai_recipe(db, answer.recipe, "ai", "", [], lambda _source: None)
+    variant.variant_name = answer.name.strip()[:100] or data.wish.strip()[:100]
+    variant.parent = main
+    variant.source_url = recipe.source_url
+    if recipe.image:
+        # Własna kopia zdjęcia - usunięcie jednego przepisu nie kasuje zdjęcia drugiemu
+        original = get_settings().images_dir / recipe.image
+        if original.exists():
+            variant.image = images.save_image_bytes(original.read_bytes())
+    db.commit()
+    return to_out(variant)
 
 
 @router.delete("/{recipe_id}", status_code=204)
 def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
     recipe = _get(db, recipe_id)
-    files = [recipe.image] + [s.image for s in recipe.steps]
+    files = [recipe.image] + [s.image for s in recipe.steps] + [e.image for e in recipe.cook_log]
     db.delete(recipe)
     db.commit()
     for filename in files:

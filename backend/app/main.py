@@ -16,7 +16,7 @@ from .config import get_settings
 from .database import init_db
 from .routers import auth, backup, categories, chat, imports, ingredients, pantry, plan, recipes, shopping
 from .services import backup as backup_service
-from .services import images
+from .services import images, plan_sensor
 from .services.importer import remove_stale_uploads
 
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +27,7 @@ async def lifespan(_app: FastAPI):
     init_db()
     remove_stale_uploads()
     backup_service.start_scheduler()
+    plan_sensor.start_scheduler()
     yield
 
 

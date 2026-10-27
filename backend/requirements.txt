@@ -17,3 +17,5 @@ anthropic==1.15.0
 google-genai==2.31.0
 # Podpisywanie ciasteczka sesji
 itsdangerous==2.2.0
+# Opis i napisy filmów (TikTok, YouTube, Instagram) do importu przepisu z filmu
+yt-dlp==2026.10.21

@@ -13,3 +13,8 @@ export function nextDays(count = 7): { day: string; label: string }[] {
 export function dayLabel(day: string): string {
   return new Date(`${day}T12:00`).toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
 }
+
+// Krótko, do przycisków: "pon. 27"
+export function shortDayLabel(day: string): string {
+  return new Date(`${day}T12:00`).toLocaleDateString("pl-PL", { weekday: "short", day: "numeric" }).replace(",", "");
+}

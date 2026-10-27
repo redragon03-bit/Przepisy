@@ -78,6 +78,9 @@ ADDED_COLUMNS = [
     ("recipes", "carbs", "INTEGER"),
     ("ingredients", "in_pantry", "BOOLEAN NOT NULL DEFAULT 0"),
     ("shopping_items", "ha_text", "VARCHAR(500) NOT NULL DEFAULT ''"),
+    ("recipes", "variant_of", "INTEGER REFERENCES recipes(id) ON DELETE SET NULL"),
+    ("recipes", "variant_name", "VARCHAR(100) NOT NULL DEFAULT ''"),
+    ("ingredients", "pantry_expires", "DATE"),
 ]
 
 
