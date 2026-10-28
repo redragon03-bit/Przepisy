@@ -209,7 +209,9 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   await dateInput.focus(); // jak na iPhonie: kalendarz otwarty, pole ma fokus
   await dateInput.fill(day);
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(dateInput).toHaveValue(day);
   await dateInput.blur();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Zużyj najpierw: pomidor (za 2 dni)")).toBeVisible();
 });
 
