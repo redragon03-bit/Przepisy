@@ -7,6 +7,8 @@ services:
     # image: ghcr.io/redragon03-bit/przepisy:latest
     ports:
       - "8000:8000"
+      # https - tylko gdy w .env podasz SSL_CERTFILE i SSL_KEYFILE (patrz README, "HTTPS")
+      - "8443:8443"
     volumes:
       - ./data:/data
     env_file: .env

@@ -152,7 +152,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
           <p className="muted small center">Przesuń pozycję w lewo, żeby ją usunąć.</p>
           <div className="actions">
             {done.length > 0 && (
-              <button type="button" onClick={() => removeLater("Usunięto kupione", done, [{ op: "clear", onlyChecked: true }])}>
+              <button type="button" onClick={() => removeLater(done.some((i) => i.recipes) ? "Usunięto kupione - produkty z przepisów są teraz w spiżarni" : "Usunięto kupione", done, [{ op: "clear", onlyChecked: true }])}>
                 Usuń kupione
               </button>
             )}

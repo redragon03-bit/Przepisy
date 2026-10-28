@@ -5,6 +5,7 @@ import BackToTop from "./components/BackToTop";
 import Sheet from "./components/Sheet";
 import TimersBar from "./components/TimersBar";
 import { scrollToTop } from "./lib/navigation";
+import { prefetchPlanned } from "./lib/recipeCache";
 import { SWIPE_BACK_DISTANCE, useEdgeSwipeBack } from "./lib/useEdgeSwipeBack";
 import ChatPage from "./pages/ChatPage";
 import CookingModePage from "./pages/CookingModePage";
@@ -65,11 +66,15 @@ export default function App() {
     setUnauthorizedHandler(() => setAuth((a) => (a ? { ...a, authenticated: false } : a)));
     // Bez internetu (np. w sklepie) otwieramy aplikację z ostatnio zapamiętanym stanem -
     // lista zakupów działa wtedy z pamięci telefonu
-    refreshAuth().catch(() => {
-      const saved = savedAuth();
-      if (saved) setAuth(saved);
-      setOffline(true);
-    });
+    refreshAuth().then(
+      // Przepisy z planu na tydzień trafiają do pamięci telefonu - do gotowania bez internetu
+      () => prefetchPlanned().catch(() => {}),
+      () => {
+        const saved = savedAuth();
+        if (saved) setAuth(saved);
+        setOffline(true);
+      },
+    );
   }, []);
 
   if (!auth) return <div className="center muted">{offline ? "Brak połączenia z serwerem." : "Ładowanie…"}</div>;

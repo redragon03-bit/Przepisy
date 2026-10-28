@@ -64,7 +64,10 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
   }, [id]);
 
   // "Nie wygaszaj ekranu" - przydatne, gdy telefon leży w kuchni
-  useWakeLock(keepAwake, () => setKeepAwake(false));
+  useWakeLock(keepAwake, () => {
+    setKeepAwake(false);
+    toast("Telefon nie pozwolił utrzymać włączonego ekranu.");
+  });
 
   if (error) return <p className="error center">{error}</p>;
   if (!recipe) return <p className="muted center">Ładowanie…</p>;

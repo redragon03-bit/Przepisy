@@ -13,7 +13,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import Ingredient, Recipe, ShoppingItem
+from ..models import Ingredient, MealPlanEntry, Recipe, ShoppingItem
 from .matching import covers
 
 log = logging.getLogger(__name__)
@@ -31,25 +31,100 @@ def format_amount(amount: float) -> str:
     return text.replace(".", ",")
 
 
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+_FRACTIONS = {"½": 1 / 2, "⅓": 1 / 3, "⅔": 2 / 3, "¼": 1 / 4, "¾": 3 / 4, "⅛": 1 / 8}
+_NICE_FRACTIONS = [(1 / 4, "¼"), (1 / 3, "⅓"), (1 / 2, "½"), (2 / 3, "⅔"), (3 / 4, "¾")]
+# Jedna ilość: "1 1/2", "1/2", "1½", "½", "1,5", "200"; zakres: "2-3".
+# Ta sama logika co frontend/src/lib/scale.ts.
+_QUANTITY = r"(?:\d+\s+\d+/\d+|\d+/\d+|\d*[½⅓⅔¼¾⅛]|\d+(?:[.,]\d+)?)"
+_QUANTITY_RANGE = re.compile(rf"(?<![\d/.,½⅓⅔¼¾⅛])({_QUANTITY})(?:(\s*[-–]\s*)({_QUANTITY}))?")
+# Po tych jednostkach ilość zostaje dziesiętna: "1,5 kg", nie "1 ½ kg"
+_METRIC = re.compile(r"\s*(kg|dag|g|ml|l)(?![^\W\d_])")
+
+
+def parse_quantity(text: str) -> float:
+    """'1 1/2' -> 1.5, '½' -> 0.5, '1,5' -> 1.5."""
+    text = text.strip()
+    if mixed := re.fullmatch(r"(\d+)\s+(\d+)/(\d+)", text):
+        return int(mixed[1]) + int(mixed[2]) / int(mixed[3])
+    if fraction := re.fullmatch(r"(\d+)/(\d+)", text):
+        return int(fraction[1]) / int(fraction[2])
+    if unicode := re.fullmatch(r"(\d*)([½⅓⅔¼¾⅛])", text):
+        return int(unicode[1] or 0) + _FRACTIONS[unicode[2]]
+    return float(text.replace(",", "."))
+
+
+def format_kitchen_amount(amount: float) -> str:
+    """1.5 -> '1 ½', 0.25 -> '¼'; gdy nie pasuje żaden ładny ułamek - jak format_amount."""
+    if amount >= 10:
+        return format_amount(amount)
+    whole = int(amount)
+    rest = amount - whole
+    if rest < 0.01:
+        return str(whole)
+    nice = next((symbol for value, symbol in _NICE_FRACTIONS if abs(rest - value) < 0.02), None)
+    if nice is None:
+        return format_amount(amount)
+    return f"{whole} {nice}" if whole else nice
 
 
 def scale_text(text: str, amount: float | None, factor: float) -> str:
     """Przelicza ilość w linijce, np. ('200 g mąki', 200, 1.5) -> '300 g mąki'.
 
-    Zmieniamy tylko pierwszą liczbę i tylko gdy to ta sama ilość co `amount`
-    (żeby nie zepsuć np. "jajka rozmiar L, 2 sztuki" w nietypowym zapisie).
+    Zmieniamy tylko pierwszą ilość (albo zakres "2-3") i tylko gdy to ta sama ilość co `amount`
+    (żeby nie zepsuć np. "jajka rozmiar L, 2 sztuki" w nietypowym zapisie). Bez `amount`
+    zmieniamy ilość na początku linijki - tak samo jak frontend (scaleText).
     """
-    if factor == 1 or amount is None:
+    if factor == 1:
         return text
-    match = _NUMBER.search(text)
-    if match and abs(float(match.group().replace(",", ".")) - amount) < 0.01:
-        return text[:match.start()] + format_amount(amount * factor) + text[match.end():]
-    return f"{text} (×{format_amount(factor)})"
+    match = _QUANTITY_RANGE.search(text)
+    if amount is None:
+        # Bez ilości (przepis wpisany ręcznie) zmieniamy tylko ilość na początku linijki
+        if not match or text[:match.start()].strip():
+            return text
+    elif not match or abs(parse_quantity(match[1]) - amount) >= 0.01:
+        return f"{text} (×{format_amount(factor)})"
+    after = text[match.end():]
+    fmt = format_amount if _METRIC.match(after) else format_kitchen_amount
+    scaled = fmt(parse_quantity(match[1]) * factor)
+    if match[3]:
+        scaled += match[2] + fmt(parse_quantity(match[3]) * factor)
+    return text[:match.start()] + scaled + after
+
+
+# Jednostki sprowadzane do wspólnej przy łączeniu pozycji: "0,5 kg" + "200 g" = "700 g"
+_TO_BASE = {"kg": ("g", 1000), "dag": ("g", 10), "g": ("g", 1), "l": ("ml", 1000), "ml": ("ml", 1)}
+
+
+def _base(amount: float | None, unit: str) -> tuple[float | None, str]:
+    base_unit, multiplier = _TO_BASE.get(unit.strip().lower().rstrip("."), (unit, 1))
+    return (amount * multiplier if amount is not None else None), base_unit
 
 
 def _merged_text(item: ShoppingItem) -> str:
-    return f"{format_amount(item.amount)} {item.unit} {item.name}".replace("  ", " ")
+    amount, unit = item.amount, item.unit
+    if unit in ("g", "ml") and amount is not None and amount >= 1000:
+        amount, unit = amount / 1000, {"g": "kg", "ml": "l"}[unit]
+    return f"{format_amount(amount)} {unit} {item.name}".replace("  ", " ")
+
+
+def parse_servings(servings: str) -> int | None:
+    """'4 porcje' -> 4, 'na 6 osób' -> 6, '' -> None (jak parseServings we frontendzie)."""
+    match = re.search(r"\d+", servings or "")
+    return int(match.group()) if match and int(match.group()) > 0 else None
+
+
+def plan_factor(entry: MealPlanEntry) -> float:
+    """Mnożnik ilości dla dania z planu: porcje w planie / porcje w przepisie."""
+    base = parse_servings(entry.recipe.servings)
+    return entry.servings / base if entry.servings and base else 1
+
+
+def move_to_pantry(db: Session, items: list[ShoppingItem]) -> list[str]:
+    """Kupione produkty z przepisów trafiają do spiżarni. Zwraca ich nazwy."""
+    names = sorted({i.name for i in items if i.name})
+    for ingredient in db.query(Ingredient).filter(Ingredient.name.in_(names)):
+        ingredient.in_pantry = True
+    return names
 
 
 def pantry_names(db: Session) -> list[str]:
@@ -98,8 +173,10 @@ def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: boo
                 skipped.append(name)
             continue
         amount = line.amount * factor if line.amount is not None else None
+        base_amount, base_unit = _base(amount, line.unit)
         # Pozycji wysłanych już do HA nie zmieniamy - w HA zostałby stary tekst
-        same = next((i for i in open_items if i.name == name and i.unit == line.unit and not i.ha_text), None)
+        same = next((i for i in open_items if i.name == name and _base(i.amount, i.unit)[1] == base_unit
+                     and not i.ha_text), None)
         if same is None:
             item = ShoppingItem(name=name, text=scale_text(line.text, line.amount, factor),
                                 amount=amount, unit=line.unit, recipes=recipe.title)
@@ -107,7 +184,8 @@ def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: boo
             open_items.append(item)
         else:
             if same.amount is not None and amount is not None:
-                same.amount += amount
+                same.amount = _base(same.amount, same.unit)[0] + base_amount
+                same.unit = base_unit
                 same.text = _merged_text(same)
             if recipe.title not in same.recipes.split(", "):
                 same.recipes = f"{same.recipes}, {recipe.title}" if same.recipes else recipe.title

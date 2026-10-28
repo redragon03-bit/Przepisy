@@ -392,3 +392,29 @@ def variant(recipe_text: str, wish: str) -> AiVariant:
     text = f"Przepis:\n{recipe_text}\n\nProśba: {wish}"
     with time_limit(CHAT_SECONDS):  # użytkownik czeka na ekranie przepisu
         return _ask_provider([text], VARIANT_PROMPT, AiVariant)
+
+
+class AiDuplicateGroup(BaseModel):
+    names: list[str] = Field(
+        description="Nazwy z listy oznaczające ten sam produkt (co najmniej 2), dokładnie jak na liście")
+
+
+class AiDuplicates(BaseModel):
+    groups: list[AiDuplicateGroup]
+
+
+DUPLICATES_PROMPT = """Dostajesz listę nazw składników z przepisów użytkownika. Znajdź nazwy, \
+które oznaczają DOKŁADNIE ten sam produkt w zakupach, zapisany inaczej: inna forma \
+gramatyczna ("pomidory" i "pomidor"), synonim ("ziemniak" i "kartofel"), literówka albo \
+nazwa po angielsku. Nie łącz różnych produktów: "ser" i "ser żółty", "masło" i "masło \
+klarowane", "mąka pszenna" i "mąka" to RÓŻNE produkty. Gdy nie masz pewności, nie łącz. \
+Przepisuj nazwy dokładnie tak, jak są na liście."""
+
+
+def find_duplicate_ingredients(names: list[str]) -> list[list[str]]:
+    """Grupy nazw tego samego produktu według AI (tylko nazwy z listy)."""
+    known = set(names)
+    with time_limit(CHAT_SECONDS):  # użytkownik czeka w Ustawieniach
+        answer = _ask_provider(["Składniki:\n" + "\n".join(names)], DUPLICATES_PROMPT, AiDuplicates)
+    groups = [[n for n in dict.fromkeys(g.names) if n in known] for g in answer.groups]
+    return [g for g in groups if len(g) > 1]

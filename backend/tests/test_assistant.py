@@ -32,11 +32,11 @@ def test_pantry_is_skipped_on_shopping_list(client):
     recipe = make_recipe(client, "Jajecznica", [("3 jajka", "jajko", 3, "szt."), ("50 g sera żółtego", "ser żółty", 50, "g")])
     assert client.put("/api/pantry", json={"names": ["Ser", "jajko"]}).json() == ["jajko", "ser"]
     result = client.post("/api/shopping/from-recipe", json={"recipe_id": recipe["id"]}).json()
-    assert result == {"added": 0, "skipped": ["jajko", "ser żółty"]}
+    assert result == {"added": 0, "skipped": ["jajko", "ser żółty"], "already": 0}
     # Zapis całej spiżarni zastępuje poprzednią
     assert client.put("/api/pantry", json={"names": ["jajko"]}).json() == ["jajko"]
     result = client.post("/api/shopping/from-recipe", json={"recipe_id": recipe["id"]}).json()
-    assert result == {"added": 1, "skipped": ["jajko"]}
+    assert result == {"added": 1, "skipped": ["jajko"], "already": 0}
     assert client.get("/api/pantry").json() == ["jajko"]
 
 

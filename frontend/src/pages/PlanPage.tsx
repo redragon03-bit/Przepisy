@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
 import PlanSuggestSheet from "../components/PlanSuggestSheet";
+import Sheet from "../components/Sheet";
 import { nextDays } from "../lib/days";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
@@ -29,6 +30,8 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [message, setMessage] = useState("");
   const [suggesting, setSuggesting] = useState(false);
+  // Pozycja planu, dla której wybieramy liczbę porcji
+  const [servingsFor, setServingsFor] = useState<PlanEntry | null>(null);
   const { run } = useToast();
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
@@ -92,6 +95,11 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
                 <Link to={`/przepis/${entry.recipe.id}`} className="grow">
                   {entry.recipe.title}
                 </Link>
+                {entry.base_servings && (
+                  <button type="button" className="link muted small" onClick={() => setServingsFor(entry)} aria-label="Liczba porcji">
+                    {entry.servings ?? entry.base_servings} por.
+                  </button>
+                )}
                 <button
                   type="button"
                   className="icon"
@@ -133,6 +141,24 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
         🛒 Składniki z tygodnia do listy zakupów
       </button>
       {message && <p className="muted small center">{message}</p>}
+      {servingsFor && (
+        <Sheet title="Na ile porcji?" onClose={() => setServingsFor(null)} list>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              className="sheet-row"
+              onClick={async () => {
+                setServingsFor(null);
+                if (await run(() => api.setPlanServings(servingsFor.id, n))) refresh();
+              }}
+            >
+              {n} {n === (servingsFor.servings ?? servingsFor.base_servings) ? "✓" : ""}
+              {n === servingsFor.base_servings ? <span className="muted small"> (jak w przepisie)</span> : null}
+            </button>
+          ))}
+        </Sheet>
+      )}
       {suggesting && (
         <PlanSuggestSheet
           // Dni oglądanego tygodnia od dziś (tydzień miniony: najbliższe 7 dni); na start zaznaczone te bez planu

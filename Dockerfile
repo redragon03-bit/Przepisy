@@ -22,6 +22,7 @@ ENV DATA_DIR=/data \
     STATIC_DIR=/app/static \
     PYTHONUNBUFFERED=1
 VOLUME /data
-EXPOSE 8000
+# 8000 = http, 8443 = https (tylko gdy podano certyfikat, patrz app/serve.py)
+EXPOSE 8000 8443
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["python", "-m", "app.serve"]

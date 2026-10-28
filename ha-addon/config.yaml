@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
 name: Przepisy
-version: "0.6.1"
+version: "0.7.0"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -16,8 +16,14 @@ homeassistant_api: true
 # Aplikacja ma własny port - otwierasz ją w przeglądarce telefonu, nie w panelu HA
 ports:
   8000/tcp: 8000
+  8443/tcp: 8443
 ports_description:
-  8000/tcp: Aplikacja Przepisy
+  8000/tcp: Aplikacja Przepisy (http)
+  8443/tcp: Aplikacja Przepisy (https, gdy jest certyfikat)
+# Certyfikat HTTPS z dodatku Tailscale leży w /ssl (patrz DOCS.md)
+map:
+  - type: ssl
+    read_only: true
 webui: "http://[HOST]:[PORT:8000]"
 # Cotygodniowe kopie aplikacji nie trafiają do kopii HA (HA i tak ma całą bazę i zdjęcia)
 backup_exclude:
@@ -35,6 +41,9 @@ options:
   anthropic_api_key: ""
   claude_model: claude-sonnet-5-5
   ha_todo_entity: todo.shopping_list
+  ha_notify: ""
+  certfile: tailscale.crt
+  keyfile: tailscale.key
 schema:
   app_password: password
   ai_provider: list(auto|gemini|groq|mistral|anthropic)
@@ -48,3 +57,6 @@ schema:
   anthropic_api_key: password?
   claude_model: str
   ha_todo_entity: str?
+  ha_notify: str?
+  certfile: str?
+  keyfile: str?

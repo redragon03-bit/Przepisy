@@ -182,3 +182,49 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   await expect(page.locator(".grid .card").first()).toContainText("Szakszuka");
   await expect(page.locator(".grid .card").first()).toContainText("zużyje: pomidor");
 });
+
+test("tryb gotowania: składniki przy kroku i ten sam krok po ponownym otwarciu", async ({ page }) => {
+  await login(page);
+  await page.locator(".grid .card", { hasText: "Żurek śląski" }).click();
+  await page.getByRole("link", { name: /Tryb gotowania/ }).click();
+  await page.getByRole("button", { name: "Zaczynamy ›" }).click();
+  await expect(page.locator(".cooking-step")).toHaveText("Gotuj kiełbasę 20 min.");
+  await expect(page.locator(".step-ingredients")).toHaveText("500 g kiełbasy białej");
+  await page.getByRole("button", { name: "Dalej ›" }).click();
+  // iPhone zamknął aplikację w tle - po otwarciu jesteśmy na tym samym kroku
+  await page.reload();
+  await expect(page.locator(".cooking-step")).toHaveText("Wlej 1 l zakwasu.");
+  await expect(page.getByText("Krok 2 z 2")).toBeVisible();
+});
+
+test("otwarty wcześniej przepis działa bez internetu", async ({ page, context }) => {
+  await login(page);
+  await page.locator(".grid .card", { hasText: "Sałatka grecka" }).click();
+  await expect(page.getByText("200 g fety")).toBeVisible();
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
+  await context.setOffline(true);
+  // Lista i przepis z pamięci telefonu
+  await page.getByPlaceholder("Szukaj po nazwie albo składniku…").fill("sałatka");
+  await page.locator(".grid .card", { hasText: "Sałatka grecka" }).click();
+  await expect(page.getByText("200 g fety")).toBeVisible();
+  await context.setOffline(false);
+});
+
+test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  const recipe = await addRecipe("Gulasz na plan", ["500 g wołowiny"], ["Duś 90 min."]);
+  const monday = new Date();
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const day = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  await server.post("/api/plan", { data: { day, recipe_id: recipe.id } });
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Plan" }).click();
+  await page.getByRole("button", { name: "Liczba porcji" }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "8", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Liczba porcji" }).first()).toHaveText("8 por.");
+  await page.getByRole("button", { name: /Składniki z tygodnia/ }).click();
+  await expect(page.getByText(/Dodano do listy zakupów/)).toBeVisible();
+  const items = (await (await server.get("/api/shopping")).json()) as { text: string }[];
+  expect(items.map((i) => i.text)).toContain("1000 g wołowiny");
+});

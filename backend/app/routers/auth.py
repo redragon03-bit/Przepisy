@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from ..auth import (
     COOKIE_MAX_AGE,
     COOKIE_NAME,
+    client_address,
     is_authenticated,
     make_session_token,
     password_ok,
@@ -13,6 +14,7 @@ from ..auth import (
 )
 from ..config import get_settings
 from ..schemas import AuthStatus, LoginIn
+from ..services import timer_notify
 
 router = APIRouter(prefix="/api/auth", tags=["logowanie"])
 
@@ -27,12 +29,13 @@ def status(request: Request):
         ai_provider=settings.active_ai_provider,
         ai_providers=settings.ai_providers,
         ha_enabled=settings.home_assistant is not None,
+        notify_enabled=timer_notify.enabled(),
     )
 
 
 @router.post("/login", status_code=204)
 def login(data: LoginIn, request: Request, response: Response):
-    client = request.client.host if request.client else "?"
+    client = client_address(request)
     wait = seconds_locked(client)
     if wait:
         raise HTTPException(429, f"Za dużo prób - spróbuj za {wait} s.")
