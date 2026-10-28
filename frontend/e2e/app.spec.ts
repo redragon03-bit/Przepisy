@@ -206,6 +206,7 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   const day = `${inTwoDays.getFullYear()}-${String(inTwoDays.getMonth() + 1).padStart(2, "0")}-${String(inTwoDays.getDate()).padStart(2, "0")}`;
   await page.locator(".chip", { hasText: "pomidor" }).click();
   const dateInput = page.getByRole("dialog").locator('input[type="date"]');
+  await dateInput.focus(); // jak na iPhonie: kalendarz otwarty, pole ma fokus
   await dateInput.fill(day);
   await expect(page.getByRole("dialog")).toBeVisible();
   await dateInput.blur();

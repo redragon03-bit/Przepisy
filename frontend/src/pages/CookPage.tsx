@@ -164,9 +164,13 @@ export default function CookPage() {
               type="date"
               min={isoDay(new Date())}
               value={otherDay}
-              onChange={(e) => setOtherDay(e.target.value)}
               // iPhone zmienia wartość już przy otwarciu kalendarza i przy każdym stuknięciu w dzień -
-              // zapisujemy dopiero po zamknięciu kalendarza, inaczej okno znika, zanim wybierzesz datę
+              // zapisujemy dopiero po zamknięciu kalendarza (pole traci fokus), inaczej okno znika,
+              // zanim wybierzesz datę. Zmiana bez fokusu (np. inna przeglądarka) zapisuje się od razu.
+              onChange={(e) => {
+                setOtherDay(e.target.value);
+                if (e.target.value && document.activeElement !== e.target) setTerm(editing, e.target.value);
+              }}
               onBlur={() => otherDay && otherDay !== expires[editing] && setTerm(editing, otherDay)}
             />
           </label>
