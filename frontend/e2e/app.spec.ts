@@ -210,7 +210,9 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   await dateInput.fill(day);
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(dateInput).toHaveValue(day);
-  await dateInput.blur();
+  // Zamknięcie kalendarza = pole traci fokus. Nowy Chromium bez okna (CI) nie wysyła zdarzeń
+  // fokusu, więc wysyłamy je sami.
+  await dateInput.dispatchEvent("focusout");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Zużyj najpierw: pomidor (za 2 dni)")).toBeVisible();
 });
