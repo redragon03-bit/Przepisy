@@ -244,6 +244,39 @@ button.small,
   margin: 8px 0;
 }
 
+/* Pole z przyciskiem × do czyszczenia (widoczny tylko, gdy coś wpisano) */
+.search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-field input {
+  padding-right: 40px;
+}
+
+/* Własny przycisk × zamiast systemowego, żeby nie było dwóch */
+.search-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-field .search-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
 .search button.active {
   background: var(--accent-soft);
   border-color: var(--accent);

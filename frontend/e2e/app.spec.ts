@@ -48,6 +48,12 @@ test("szukanie bez ogonków i powrót do listy z zachowanym filtrem", async ({ p
   await page.getByRole("button", { name: "‹ Wróć" }).click();
   await expect(page.getByPlaceholder("Szukaj w przepisach…")).toHaveValue("feta");
 
+  // Przycisk × czyści pole i znika
+  await page.getByRole("button", { name: "Wyczyść wyszukiwanie" }).click();
+  await expect(page.getByPlaceholder("Szukaj w przepisach…")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Wyczyść wyszukiwanie" })).toHaveCount(0);
+  await expect(page.locator(".grid .card")).not.toHaveCount(1);
+
   // Szukanie w krokach przepisu
   await page.getByPlaceholder("Szukaj w przepisach…").fill("pokroj");
   await expect(page.locator(".grid .card")).toHaveCount(1);
