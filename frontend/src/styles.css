@@ -1297,3 +1297,14 @@ a.chip {
   padding-left: 0;
   text-align: left;
 }
+
+/* Jak używać */
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.help-list li {
+  margin: 6px 0;
+  line-height: 1.4;
+}

@@ -35,18 +35,31 @@ test.afterAll(async () => {
 
 test("szukanie bez ogonków i powrót do listy z zachowanym filtrem", async ({ page }) => {
   await login(page);
-  await page.getByPlaceholder("Szukaj po nazwie albo składniku…").fill("zurek");
+  await page.getByPlaceholder("Szukaj w przepisach…").fill("zurek");
   await expect(page.locator(".grid .card")).toHaveCount(1);
   await expect(page.locator(".grid .card")).toContainText("Żurek śląski");
 
   // Szukanie po składniku
-  await page.getByPlaceholder("Szukaj po nazwie albo składniku…").fill("feta");
+  await page.getByPlaceholder("Szukaj w przepisach…").fill("feta");
   await expect(page.locator(".grid .card")).toHaveCount(1);
   await expect(page.locator(".grid .card")).toContainText("Sałatka grecka");
   await page.locator(".grid .card").first().click();
   await expect(page.getByRole("heading", { name: "Sałatka grecka" })).toBeVisible();
   await page.getByRole("button", { name: "‹ Wróć" }).click();
-  await expect(page.getByPlaceholder("Szukaj po nazwie albo składniku…")).toHaveValue("feta");
+  await expect(page.getByPlaceholder("Szukaj w przepisach…")).toHaveValue("feta");
+
+  // Szukanie w krokach przepisu
+  await page.getByPlaceholder("Szukaj w przepisach…").fill("pokroj");
+  await expect(page.locator(".grid .card")).toHaveCount(1);
+  await expect(page.locator(".grid .card")).toContainText("Sałatka grecka");
+});
+
+test("przewodnik „Jak używać” pod „Więcej”", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Jak używać" }).click();
+  await expect(page.getByRole("heading", { name: "Jak używać" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Tryb gotowania/ })).toBeVisible();
 });
 
 test("menu ⋯ na przepisie, przeliczanie ilości w krokach i minutnik na innych ekranach", async ({ page }) => {
@@ -204,7 +217,7 @@ test("otwarty wcześniej przepis działa bez internetu", async ({ page, context 
   await page.getByRole("button", { name: "‹ Wróć" }).click();
   await context.setOffline(true);
   // Lista i przepis z pamięci telefonu
-  await page.getByPlaceholder("Szukaj po nazwie albo składniku…").fill("sałatka");
+  await page.getByPlaceholder("Szukaj w przepisach…").fill("sałatka");
   await page.locator(".grid .card", { hasText: "Sałatka grecka" }).click();
   await expect(page.getByText("200 g fety")).toBeVisible();
   await context.setOffline(false);

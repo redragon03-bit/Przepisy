@@ -8,10 +8,7 @@ Instagram i Facebook często wymagają logowania - wtedy pokazujemy błąd z pod
 import re
 from urllib.parse import urlparse
 
-from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError
-
-from . import fetcher
+from . import fetcher, ytdlp_update
 from .scraper import PageContent
 
 VIDEO_SITES = ("tiktok.com", "youtube.com", "youtu.be", "instagram.com", "facebook.com", "fb.watch")
@@ -28,7 +25,8 @@ def is_video_url(url: str) -> bool:
 def _extract_info(url: str) -> dict:
     options = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True,
                "socket_timeout": 20}
-    with YoutubeDL(options) as ydl:
+    # Najnowszy yt-dlp, jaki mamy - aplikacja pobiera go co tydzień (patrz ytdlp_update.py)
+    with ytdlp_update.module().YoutubeDL(options) as ydl:
         return ydl.extract_info(url, download=False)
 
 
@@ -60,9 +58,10 @@ def vtt_to_text(vtt: str) -> str:
 
 def read_video(url: str) -> PageContent:
     """Tytuł, opis i napisy filmu jako "strona" dla AI. Miniatura filmu to jedyny obrazek."""
+    download_error = ytdlp_update.module().utils.DownloadError
     try:
         info = _extract_info(url)
-    except DownloadError as exc:
+    except download_error as exc:
         message = str(exc)
         if "login" in message.lower() or "cookies" in message.lower():
             raise fetcher.FetchError(

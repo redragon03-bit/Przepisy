@@ -20,6 +20,7 @@ export type AiRecipe = Api.AiRecipe;
 export type ChatReply = Api.ChatOut;
 export type ShoppingResult = Api.ShoppingResult;
 export type BackupFile = Api.BackupFile;
+export type CalendarLink = Api.CalendarLink;
 export type RecipeStats = Api.RecipeStats;
 export type CookLogEntry = Api.CookLogOut;
 export type PantryItem = Api.PantryItem;
@@ -189,6 +190,7 @@ export const api = {
   saveChatRecipe: (recipe: AiRecipe) => request<Recipe>("POST", "/api/chat/save", { recipe }),
 
   listBackups: () => request<BackupFile[]>("GET", "/api/backups"),
+  calendarLink: () => request<CalendarLink>("GET", "/api/calendar/link"),
   restoreBackup: (file: File) => {
     const form = new FormData();
     form.append("file", file);

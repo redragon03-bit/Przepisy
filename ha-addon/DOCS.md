@@ -37,7 +37,14 @@ o 16:00 powiadomienie „Dziś na obiad: {{ states('sensor.przepisy_dzis') }}”
 
 ## Jak otworzyć
 
-W przeglądarce telefonu: `http://<adres-HA>:8000`, a z certyfikatem `https://<nazwa-HA>.<sieć>.ts.net:8443`
-(przez https ekran nie gaśnie w trybie gotowania i aplikacja otwiera się bez internetu). Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).
+W przeglądarce telefonu: `http://<adres-HA>:8000`. Z HTTPS (usługa Tailscale, opis w README → „HTTPS”) adres to `https://przepisy.<sieć>.ts.net` – wtedy aplikacja otwiera się bez internetu, a ekran nie gaśnie w trybie gotowania. Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).
 
 Więcej w README repozytorium.
+
+## Plan posiłków w kalendarzu HA
+
+W aplikacji: Ustawienia → „Plan posiłków jako kalendarz” → kopiuj adres. W HA dodaj
+integrację **Remote calendar** (Kalendarz zdalny) i wklej ten adres, zmieniając początek
+na `http://127.0.0.1:8000` (HA pobiera plik bezpośrednio z dodatku). Zmiana hasła
+aplikacji zmienia też adres kalendarza.
+

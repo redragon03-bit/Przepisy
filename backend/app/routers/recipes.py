@@ -112,14 +112,21 @@ def list_recipes(
     query = db.query(Recipe).filter(Recipe.variant_of.is_(None))
     if favorite:
         query = query.filter(Recipe.favorite.is_(True))
-    # Każde słowo musi być w tytule albo w nazwie któregoś składnika.
+    # Każde słowo musi być w tytule, składnikach, opisie, krokach albo notatkach.
     # fold() pomija wielkość liter i ogonki: "zurek" znajdzie "Żurek".
     for word in fold(q).split():
         # Bez ostatniej litery dłuższe słowa łapią polską odmianę: "feta" znajdzie "fety"
         word = word[:-1] if len(word) >= 4 else word
         pattern = "%" + word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         in_ingredient = RecipeIngredient.ingredient.has(func.fold(Ingredient.name).like(pattern, escape="\\"))
-        query = query.filter(func.fold(Recipe.title).like(pattern, escape="\\") | Recipe.ingredients.any(in_ingredient))
+        in_step = Recipe.steps.any(func.fold(Step.text).like(pattern, escape="\\"))
+        query = query.filter(
+            func.fold(Recipe.title).like(pattern, escape="\\")
+            | Recipe.ingredients.any(in_ingredient)
+            | func.fold(Recipe.description).like(pattern, escape="\\")
+            | func.fold(Recipe.notes).like(pattern, escape="\\")
+            | in_step
+        )
     if category == "-":
         query = query.filter(~Recipe.categories.any())
     elif category.strip():

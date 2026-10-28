@@ -13,6 +13,7 @@ from ..database import get_db
 from ..models import ImportJob, Recipe
 from ..schemas import ImportJobOut, TextImportIn, UrlImportIn
 from ..services.importer import job_upload_dir, run_image_import, run_text_import, run_url_import, save_import_text
+from ..services.urls import url_key
 
 router = APIRouter(prefix="/api/imports", tags=["import"], dependencies=[Depends(require_auth)])
 
@@ -20,12 +21,19 @@ MAX_FILES = 10
 MAX_FILE_BYTES = 20 * 1024 * 1024
 
 
+def _same_link(db: Session, url: str) -> Recipe | None:
+    """Przepis z tym samym linkiem, także zapisanym inaczej (m., www., utm_..., youtu.be)."""
+    key = url_key(url)
+    recipes = db.query(Recipe).filter(Recipe.source_url != "").order_by(Recipe.id)
+    return next((r for r in recipes if url_key(r.source_url) == key), None)
+
+
 @router.post("/url", response_model=ImportJobOut, status_code=202)
 def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Depends(get_db)):
     url = data.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "Podaj pełny link, zaczynający się od https://")
-    existing = db.query(Recipe).filter_by(source_url=url).order_by(Recipe.id).first()
+    existing = _same_link(db, url)
     if existing and not data.force:
         # Nie importujemy drugi raz - frontend pokaże "już masz" z linkiem i "importuj mimo to"
         job = ImportJob(kind="url", source=url, status="duplicate", recipe_id=existing.id,

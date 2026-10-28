@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     # Powiadomienie na telefon, gdy minutnik się skończy: usługa notify w HA, np.
     # "mobile_app_iphone" (aplikacja Home Assistant na iPhonie). Kilka - po przecinku. Puste = wyłączone.
     ha_notify: str = ""
+    # Raz w tygodniu pobieraj najnowszy yt-dlp (import filmów z TikToka itp.)
+    ytdlp_auto_update: bool = True
     # HTTPS (patrz serve.py): certyfikat i klucz, np. z Tailscale. Puste = tylko http.
     ssl_certfile: Path | None = None
     ssl_keyfile: Path | None = None

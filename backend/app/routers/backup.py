@@ -7,11 +7,14 @@ from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.orm import Session
 
 from ..auth import require_auth
+from ..database import get_db
+from ..models import Recipe
 from ..schemas import BackupFile, RestoreResult
-from ..services import backup
+from ..services import backup, schema_org
 
 router = APIRouter(prefix="/api", tags=["kopia"], dependencies=[Depends(require_auth)])
 
@@ -24,6 +27,15 @@ def download_backup(background: BackgroundTasks):
     # Pliki tymczasowe usuwamy dopiero po wysłaniu odpowiedzi
     background.add_task(shutil.rmtree, tmp, ignore_errors=True)
     return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+
+
+@router.get("/backup/schema-org")
+def download_schema_org(db: Session = Depends(get_db)):
+    """Wszystkie przepisy jako schema.org/Recipe (JSON) - do przeniesienia do innej aplikacji."""
+    recipes = db.query(Recipe).order_by(Recipe.id).all()
+    name = f"przepisy-schema-org-{date.today()}.json"
+    return JSONResponse(schema_org.export(recipes),
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/backups", response_model=list[BackupFile])

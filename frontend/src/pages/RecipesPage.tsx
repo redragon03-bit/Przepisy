@@ -92,7 +92,7 @@ function RecipeStrip({ title, recipes }: { title: string; recipes: RecipeSummary
 // i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
 let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: number; total: number } | null = null;
 
-// Strona główna: lista przepisów z wyszukiwaniem po nazwie, kategorii i składnikach.
+// Strona główna: lista przepisów z wyszukiwaniem (nazwa, składniki, opis, kroki, notatki), kategorią i składnikami.
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
   const [q, setQ] = useState(saved.q);
@@ -215,7 +215,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          placeholder="Szukaj po nazwie albo składniku…"
+          placeholder="Szukaj w przepisach…"
         />
         <button type="button" className={showFilters || activeFilters ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
           Filtry{activeFilters ? ` ${activeFilters}` : ""}

@@ -9,6 +9,7 @@ import pytest
 os.environ["DATA_DIR"] = tempfile.mkdtemp()
 os.environ["APP_PASSWORD"] = "tajne"
 os.environ["ANTHROPIC_API_KEY"] = ""
+os.environ["YTDLP_AUTO_UPDATE"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
