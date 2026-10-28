@@ -200,6 +200,16 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   await expect(page.getByText("Zużyj najpierw: pomidor (jutro)")).toBeVisible();
   await expect(page.locator(".grid .card").first()).toContainText("Szakszuka");
   await expect(page.locator(".grid .card").first()).toContainText("zużyje: pomidor");
+
+  // "Inna data": okno zostaje otwarte przy wyborze dnia, termin zapisuje się po zamknięciu kalendarza
+  const inTwoDays = new Date(Date.now() + 2 * 86_400_000);
+  const day = `${inTwoDays.getFullYear()}-${String(inTwoDays.getMonth() + 1).padStart(2, "0")}-${String(inTwoDays.getDate()).padStart(2, "0")}`;
+  await page.locator(".chip", { hasText: "pomidor" }).click();
+  const dateInput = page.getByRole("dialog").locator('input[type="date"]');
+  await dateInput.fill(day);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await dateInput.blur();
+  await expect(page.getByText("Zużyj najpierw: pomidor (za 2 dni)")).toBeVisible();
 });
 
 test("tryb gotowania: składniki przy kroku i ten sam krok po ponownym otwarciu", async ({ page }) => {

@@ -74,6 +74,10 @@ export default function CookPage() {
     setHave(await api.setPantry(names));
   };
 
+  // Data wybierana w kalendarzu "Inna data" (zapisywana po jego zamknięciu)
+  const [otherDay, setOtherDay] = useState("");
+  useEffect(() => setOtherDay(editing ? (expires[editing] ?? "") : ""), [editing, expires]);
+
   const setTerm = async (name: string, day: string | null) => {
     setEditing(null);
     const items = await run(() => api.setPantryExpires(name, day));
@@ -156,7 +160,15 @@ export default function CookPage() {
           ))}
           <label className="sheet-row">
             Inna data:{" "}
-            <input type="date" min={isoDay(new Date())} onChange={(e) => e.target.value && setTerm(editing, e.target.value)} />
+            <input
+              type="date"
+              min={isoDay(new Date())}
+              value={otherDay}
+              onChange={(e) => setOtherDay(e.target.value)}
+              // iPhone zmienia wartość już przy otwarciu kalendarza i przy każdym stuknięciu w dzień -
+              // zapisujemy dopiero po zamknięciu kalendarza, inaczej okno znika, zanim wybierzesz datę
+              onBlur={() => otherDay && otherDay !== expires[editing] && setTerm(editing, otherDay)}
+            />
           </label>
           {expires[editing] && (
             <button type="button" className="sheet-row" onClick={() => setTerm(editing, null)}>
