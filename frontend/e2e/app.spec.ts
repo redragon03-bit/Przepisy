@@ -47,6 +47,12 @@ test("szukanie bez ogonków i powrót do listy z zachowanym filtrem", async ({ p
   await expect(page.getByRole("heading", { name: "Sałatka grecka" })).toBeVisible();
   await page.getByRole("button", { name: "‹ Wróć" }).click();
   await expect(page.getByPlaceholder("Szukaj po nazwie albo składniku…")).toHaveValue("feta");
+
+  // Przycisk × czyści pole i znika
+  await page.getByRole("button", { name: "Wyczyść wyszukiwanie" }).click();
+  await expect(page.getByPlaceholder("Szukaj po nazwie albo składniku…")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Wyczyść wyszukiwanie" })).toHaveCount(0);
+  await expect(page.locator(".grid .card")).not.toHaveCount(1);
 });
 
 test("menu ⋯ na przepisie, przeliczanie ilości w krokach i minutnik na innych ekranach", async ({ page }) => {

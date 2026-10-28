@@ -95,6 +95,7 @@ let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: nu
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
   const [q, setQ] = useState(saved.q);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [ingredients, setIngredients] = useState<string[]>(saved.ingredients);
   const [category, setCategory] = useState(saved.category);
   const [favorites, setFavorites] = useState(saved.favorites);
@@ -208,14 +209,32 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         )}
       </header>
       <div className="search sticky">
-        <input
-          type="search"
-          enterKeyHint="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          placeholder="Szukaj po nazwie albo składniku…"
-        />
+        <div className="search-field">
+          <input
+            ref={searchInput}
+            type="search"
+            enterKeyHint="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            placeholder="Szukaj po nazwie albo składniku…"
+          />
+          {q && (
+            <button
+              type="button"
+              className="search-clear"
+              aria-label="Wyczyść wyszukiwanie"
+              // Bez tego pole straciłoby fokus i klawiatura na iPhonie by się schowała
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setQ("");
+                searchInput.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
         <button type="button" className={showFilters || activeFilters ? "active" : ""} onClick={() => setShowFilters(!showFilters)}>
           Filtry{activeFilters ? ` ${activeFilters}` : ""}
         </button>
