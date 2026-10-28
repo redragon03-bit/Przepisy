@@ -4,7 +4,7 @@ Aplikacja do przechowywania przepisów. Wrzucasz link albo zdjęcie/screen, a ap
 odczytuje przepis, tłumaczy go na polski, przelicza miary na metryczne i zapisuje jako
 instrukcję krok po kroku (razem ze zdjęciami ze strony). Potem możesz:
 
-- szukać przepisów po nazwie i po składnikach,
+- szukać przepisów po nazwie, składnikach, krokach i notatkach,
 - wpisać, co masz w domu (spiżarnia), i zobaczyć, co z tego ugotujesz („Co ugotuję?”),
 - zapytać czat („mam ochotę na coś ostrego, ale bez ryżu”) – poleca Twoje przepisy albo
   wymyśla nowy, który zapisujesz jednym przyciskiem,
@@ -79,7 +79,12 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 | Ulubione, ocena, notatki | `PATCH /api/recipes/{id}` | `pages/RecipePage.tsx` |
 | Minutniki w krokach („10 min” → przycisk) | – | `lib/timers.ts` |
 | Szukanie zdjęć w internecie dla przepisów bez zdjęcia (AI wyszukuje strony, bierzemy ich `og:image`; zapas: Openverse). Automatycznie po imporcie, hurtowo z listy, ręcznie w przepisie | `services/image_search.py`, `ai.search_recipe_pages` | `RecipePage.tsx`, `RecipesPage.tsx` |
-| Wykrywanie duplikatów linków | `routers/imports.py` (status `duplicate`) | `pages/ImportPage.tsx` |
+| Wykrywanie duplikatów linków (także `m.`/`www.`, `utm_…`, `youtu.be` – `url_key`) | `routers/imports.py` (status `duplicate`), `services/urls.py` | `pages/ImportPage.tsx` |
+| Szukanie w tytule, składnikach, opisie, krokach i notatkach | `GET /api/recipes?q=` | `pages/RecipesPage.tsx` |
+| Plan posiłków jako kalendarz `.ics` (adres z tokenem, np. dla „Remote calendar” w HA) | `routers/calendar.py`, `services/calendar_feed.py` | `pages/SettingsPage.tsx` |
+| Eksport przepisów w formacie schema.org (JSON) – przeprowadzka do Mealie/Tandoor | `GET /api/backup/schema-org`, `services/schema_org.py` | `pages/SettingsPage.tsx` |
+| Świeży yt-dlp: raz w tygodniu aplikacja pobiera najnowszy do `data/pylib` (bez przebudowy obrazu) | `services/ytdlp_update.py` | – |
+| Przewodnik „Jak używać” (pod „Więcej”) | – | `pages/HelpPage.tsx` |
 
 Wysyłka do HA: jako dodatek HA działa sama (`homeassistant_api: true` daje token).
 Poza HA ustaw `HA_URL` i `HA_TOKEN` (token długoterminowy z profilu użytkownika HA).
@@ -172,6 +177,7 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | `CLAUDE_MODEL`      | Model Claude. Tańszy: `claude-haiku-5-5`, droższy: `claude-opus-5-5` | `claude-sonnet-5-5` |
 | `DATA_DIR`          | Folder na bazę i zdjęcia                                          | `./data` (`/data` w Dockerze) |
 | `STATIC_DIR`        | Folder ze zbudowanym frontendem (ustawiony w Dockerze)            | puste             |
+| `YTDLP_AUTO_UPDATE` | Raz w tygodniu pobieraj najnowszy yt-dlp do `DATA_DIR/pylib`      | `true`            |
 
 **Które AI wybrać?** Wystarczy jeden klucz.
 
@@ -238,27 +244,52 @@ Działa z każdego miejsca, a aplikacja nie jest wystawiona publicznie do intern
 
 ### HTTPS (zalecane)
 
-Przez zwykłe `http://` aplikacja działa, ale Safari wyłącza wtedy kilka rzeczy: ekran
-gaśnie w trybie gotowania (blokada wygaszania działa tylko przez https), aplikacja nie
-otwiera się bez internetu (service worker) i nie działa przycisk „Wklej”.
+Przez zwykłe `http://` aplikacja działa, ale Safari wyłącza wtedy kilka rzeczy:
+- aplikacja nie otwiera się z ikony bez internetu (service worker działa tylko przez https),
+- ekran gaśnie w trybie gotowania (blokada wygaszania – Wake Lock),
+- nie działa przycisk „Wklej” i kopiowanie adresu kalendarza.
 
-Aplikacja sama obsługuje HTTPS na porcie **8443**, gdy dostanie certyfikat. Darmowy
-certyfikat daje Tailscale – w HA z dodatkiem **Tailscale with features**:
+Najprościej dać HTTPS przez **usługę Tailscale** (Tailscale Services): Tailscale sam
+wystawia certyfikat, obsługuje https i przekazuje ruch do aplikacji. W HA z dodatkiem
+**Tailscale with features**:
 
-1. W panelu Tailscale (login.tailscale.com) → **DNS** włącz **MagicDNS** i **HTTPS Certificates**.
-2. W opcjach dodatku Tailscale ustaw:
-   - `share_homeassistant`: `serve` (Tailscale tworzy wtedy certyfikat; samo HA pod tym
-     adresem zadziała dopiero po ustawieniu `trusted_proxies` w HA, ale do Przepisów to niepotrzebne),
-   - `lets_encrypt_certfile`: `tailscale.crt`,
-   - `lets_encrypt_keyfile`: `tailscale.key`.
-3. Uruchom ponownie dodatek Tailscale, a potem dodatek Przepisy.
-4. Otwórz `https://<nazwa-HA>.<twoja-sieć>.ts.net:8443` (pełną nazwę widać w aplikacji
-   Tailscale) i dodaj tę stronę do ekranu początkowego. To nowy adres, więc trzeba się raz
-   zalogować.
+1. Panel Tailscale (login.tailscale.com) → **DNS**: włącz **MagicDNS** i **HTTPS Certificates**.
+2. **Access controls** → JSON editor: dopisz właściciela tagu i automatyczne zatwierdzanie usługi:
+   ```json
+   "tagOwners": { "tag:ha": ["autogroup:admin"] },
+   "autoApprovers": { "services": { "svc:przepisy": ["tag:ha"] } },
+   ```
+   Jeśli używasz **Funnel** na tym samym HA (np. dla serwera MCP), dopisz `"tag:ha"` do
+   `target` w `nodeAttrs` z `"funnel"` – otagowane urządzenie przestaje należeć do
+   `autogroup:member` i bez tego Funnel przestaje działać.
+3. **Services**: zdefiniuj usługę `przepisy`, port `443`.
+4. Dopiero teraz w opcjach dodatku Tailscale ustaw (kolejność jest ważna – tag bez
+   kroku 2 zatrzymuje dodatek):
+   ```yaml
+   advertise_tags: ["tag:ha"]
+   services:
+     - name: svc:przepisy
+       target: http://127.0.0.1:8000
+       protocol: https
+       port: 443
+   ```
+   i uruchom go ponownie.
+5. Otwórz `https://przepisy.<twoja-sieć>.ts.net` (pierwsze wejście trwa dłużej – powstaje
+   certyfikat), zaloguj się i dodaj stronę do ekranu początkowego.
 
-Tailscale sam odnawia certyfikat, a aplikacja wczytuje nowy bez restartu. Stary adres
-`http://…:8000` dalej działa (np. dla Skrótu iOS). Poza HA podaj pliki w zmiennych
-`SSL_CERTFILE` i `SSL_KEYFILE` (np. z `tailscale cert`).
+Adres działa tylko z włączonym Tailscale (także w domu). Stary `http://…:8000` dalej działa
+w domowej sieci (np. dla Skrótu iOS), ale bez trybu offline.
+
+**Dlaczego nie `share_homeassistant: serve` i własny port aplikacji?** Próbowaliśmy:
+dodatek Tailscale przekazuje ruch IPv6 z sieci Tailscale na adres link-local hosta i tam
+się on gubi, a Safari łączy się z nazwą `….ts.net` właśnie przez IPv6 – strona ładuje się
+bez końca. Do tego przy włączonym `serve` Tailscale sam zajmuje port 8443. Usługa
+Tailscale obsługuje połączenie u siebie, więc tych problemów nie ma.
+
+Aplikacja umie też sama obsłużyć HTTPS (port 8443 w kontenerze), gdy dostanie pliki
+certyfikatu w `SSL_CERTFILE` i `SSL_KEYFILE` (w dodatku: opcje `certfile`/`keyfile`, pliki
+z folderu `/ssl`). To przydaje się poza HA, np. w `docker compose` z certyfikatem z
+`tailscale cert`. Aplikacja co godzinę sprawdza, czy certyfikat się zmienił, i wczytuje nowy.
 
 ---
 

@@ -72,6 +72,10 @@ export interface BackupFile {
   created_at: string;
 }
 
+export interface CalendarLink {
+  path: string;
+}
+
 export interface CategoryOut {
   name: string;
   recipe_count: number;

@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
 name: Przepisy
-version: "0.7.0"
+version: "0.8.0"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -28,6 +28,9 @@ webui: "http://[HOST]:[PORT:8000]"
 # Cotygodniowe kopie aplikacji nie trafiają do kopii HA (HA i tak ma całą bazę i zdjęcia)
 backup_exclude:
   - "*/backups/*"
+  # Pobrany automatycznie yt-dlp (patrz services/ytdlp_update.py) - pobierze się na nowo
+  - "*/pylib/*"
+  - "*/pylib-new/*"
 options:
   app_password: ""
   ai_provider: auto

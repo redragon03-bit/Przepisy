@@ -272,6 +272,10 @@ class ChatSaveIn(BaseModel):
     recipe: AiRecipe
 
 
+class CalendarLink(BaseModel):
+    path: str
+
+
 class BackupFile(BaseModel):
     name: str
     size: int

@@ -35,6 +35,19 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
     }
   };
 
+  // Adres z tokenem - kalendarz pobiera go sam, bez logowania. `app` = adres do linków w wydarzeniach.
+  const copyCalendar = async () => {
+    const link = await run(() => api.calendarLink());
+    if (!link) return;
+    const url = `${location.origin}${link.path}&app=${encodeURIComponent(location.origin)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Skopiowano adres kalendarza.");
+    } catch {
+      window.prompt("Adres kalendarza:", url);
+    }
+  };
+
   const findDuplicates = async () => {
     setWorking("duplicates");
     const found = await run(() => api.findDuplicateIngredients());
@@ -124,6 +137,12 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           Pobierz kopię
         </a>
         <p className="muted small">
+          Przeprowadzka do innej aplikacji (Mealie, Tandoor, Paprika):{" "}
+          <a href="/api/backup/schema-org" download>
+            przepisy w formacie schema.org
+          </a>
+        </p>
+        <p className="muted small">
           Aplikacja sama robi kopię raz w tygodniu i trzyma 3 ostatnie (w folderze danych aplikacji).
         </p>
         <button type="button" className="wide" disabled={working === "restore"} onClick={() => restoreInput.current?.click()}>
@@ -183,6 +202,12 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         <p>Powiadomienia z minutników: {auth.notify_enabled ? "przez Home Assistant ✅" : "wyłączone (opcja ha_notify dodatku)"}</p>
         <p>
           Połączenie: {window.isSecureContext ? "https ✅" : "http – bez pracy offline i bez utrzymywania włączonego ekranu (patrz README, HTTPS)"}
+        </p>
+        <p>
+          Plan posiłków jako kalendarz (HA, Google, iPhone):{" "}
+          <button type="button" className="link" onClick={copyCalendar}>
+            kopiuj adres
+          </button>
         </p>
         <p className="muted">
           Na iPhonie: w Safari stuknij „Udostępnij” → „Do ekranu początkowego”, żeby mieć aplikację jako ikonę.

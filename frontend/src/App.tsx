@@ -11,6 +11,7 @@ import ChatPage from "./pages/ChatPage";
 import CookingModePage from "./pages/CookingModePage";
 import CookPage from "./pages/CookPage";
 import EditRecipePage from "./pages/EditRecipePage";
+import HelpPage from "./pages/HelpPage";
 import ImportPage from "./pages/ImportPage";
 import LoginPage from "./pages/LoginPage";
 import PlanPage from "./pages/PlanPage";
@@ -31,6 +32,7 @@ const MORE = [
   { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
   { to: "/plan", icon: "📅", label: "Plan" },
   { to: "/ustawienia", icon: "⚙️", label: "Ustawienia" },
+  { to: "/pomoc", icon: "💡", label: "Jak używać" },
 ];
 
 export default function App() {
@@ -95,6 +97,7 @@ export default function App() {
           <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
+          <Route path="/pomoc" element={<HelpPage />} />
         </Routes>
       </main>
       <BackToTop />

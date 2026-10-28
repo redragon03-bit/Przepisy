@@ -21,7 +21,7 @@ export default defineConfig({
     launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : undefined,
   },
   webServer: {
-    command: `sh -c 'DATA_DIR=$(mktemp -d) APP_PASSWORD=test STATIC_DIR=../frontend/dist ${process.env.PYTHON ?? "python"} -m uvicorn app.main:app --port ${PORT}'`,
+    command: `sh -c 'DATA_DIR=$(mktemp -d) APP_PASSWORD=test YTDLP_AUTO_UPDATE=false STATIC_DIR=../frontend/dist ${process.env.PYTHON ?? "python"} -m uvicorn app.main:app --port ${PORT}'`,
     cwd: "../backend",
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
