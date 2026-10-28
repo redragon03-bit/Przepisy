@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { api, Recipe } from "../../api";
+import { clearProgress } from "../../lib/progress";
 import { useToast } from "../../lib/toast";
 import AutoTextarea from "../AutoTextarea";
 import Sheet from "../Sheet";
@@ -20,6 +21,7 @@ export default function CookedSheet({ recipe, onSaved, onClose }: { recipe: Reci
     const saved = await run(() => api.markCooked(recipe.id, { rating: rating || null, note, photo }));
     setSaving(false);
     if (saved) {
+      clearProgress(recipe.id);
       onSaved(saved);
       toast("Zapisane! Smacznego 🙂");
     }

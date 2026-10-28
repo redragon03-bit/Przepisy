@@ -80,9 +80,14 @@ def add_from_plan(data: ShoppingFromPlan, db: Session = Depends(get_db)):
     """Składniki wszystkich przepisów zaplanowanych między `start` a `end` (włącznie)."""
     entries = db.query(MealPlanEntry).filter(MealPlanEntry.day.between(data.start, data.end)).all()
     skipped: list[str] = []
-    added = sum(shopping.add_recipe(db, e.recipe, 1, data.skip_staples, skipped) for e in entries)
+    added = 0
+    # Dania, których składniki już dodano (drugie stuknięcie), pomijamy - inaczej ilości by się podwoiły
+    new = [e for e in entries if not e.in_shopping]
+    for entry in new:
+        added += shopping.add_recipe(db, entry.recipe, shopping.plan_factor(entry), data.skip_staples, skipped)
+        entry.in_shopping = True
     db.commit()
-    return ShoppingResult(added=added, skipped=skipped)
+    return ShoppingResult(added=added, skipped=skipped, already=len(entries) - len(new))
 
 
 @router.patch("/{item_id}", response_model=ShoppingItemOut)
@@ -109,10 +114,15 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
 @router.post("/clear", status_code=204)
 def clear(only_checked: bool = True, db: Session = Depends(get_db)):
-    """Usuwa odhaczone pozycje (albo wszystkie, gdy only_checked=false)."""
+    """Usuwa odhaczone pozycje i dopisuje je do spiżarni (albo usuwa wszystkie, gdy only_checked=false)."""
     query = db.query(ShoppingItem)
     if only_checked:
         query = query.filter(ShoppingItem.checked.is_(True))
+        # Kupione produkty z przepisów są teraz w domu
+        shopping.move_to_pantry(db, query.all())
+    else:
+        # Cała lista wyczyszczona - plan można znów dodać do zakupów
+        db.query(MealPlanEntry).update({"in_shopping": False})
     shopping.update_in_home_assistant([(i.ha_text, "remove") for i in query if i.ha_text])
     query.delete()
     db.commit()

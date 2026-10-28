@@ -27,7 +27,11 @@ HA_OPTION_TO_ENV = {
     "mistral_api_key": "MISTRAL_API_KEY",
     "mistral_model": "MISTRAL_MODEL",
     "ha_todo_entity": "HA_TODO_ENTITY",
+    "ha_notify": "HA_NOTIFY",
 }
+# Pliki certyfikatu z folderu /ssl w HA (patrz serve.py)
+# (opcja, zmienna, nazwa domyślna - także dla starszych instalacji, które tej opcji jeszcze nie mają)
+HA_SSL_OPTIONS = [("certfile", "SSL_CERTFILE", "tailscale.crt"), ("keyfile", "SSL_KEYFILE", "tailscale.key")]
 
 
 def _load_home_assistant_options() -> None:
@@ -40,6 +44,10 @@ def _load_home_assistant_options() -> None:
         # "-" to "puste" - starsze wersje dodatku wymagały wpisania czegoś w każde pole
         if value and value != "-":
             os.environ[env_name] = str(value)
+    for option, env_name, default in HA_SSL_OPTIONS:
+        value = options.get(option) or default
+        if value != "-":
+            os.environ[env_name] = f"/ssl/{value}"
 
 
 # Kolejność AI przy AI_PROVIDER=auto. Claude jest płatny - skoro podano do niego klucz,
@@ -87,6 +95,13 @@ class Settings(BaseSettings):
     ha_url: str = ""
     ha_token: str = ""
     ha_todo_entity: str = "todo.shopping_list"
+    # Powiadomienie na telefon, gdy minutnik się skończy: usługa notify w HA, np.
+    # "mobile_app_iphone" (aplikacja Home Assistant na iPhonie). Kilka - po przecinku. Puste = wyłączone.
+    ha_notify: str = ""
+    # HTTPS (patrz serve.py): certyfikat i klucz, np. z Tailscale. Puste = tylko http.
+    ssl_certfile: Path | None = None
+    ssl_keyfile: Path | None = None
+    https_port: int = 8443
     # Folder ze zbudowanym frontendem (frontend/dist). Puste = nie serwujemy frontendu.
     static_dir: Path | None = None
 

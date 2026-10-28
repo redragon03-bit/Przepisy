@@ -820,6 +820,16 @@ span.drag-handle:not(.step-number) {
   line-height: 1.4;
 }
 
+/* Składniki użyte w bieżącym kroku */
+.step-ingredients {
+  font-size: 19px;
+  line-height: 1.5;
+  padding: 10px 12px 10px 30px;
+  margin: 12px 0;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
 .cooking-ingredients {
   font-size: 21px;
   line-height: 1.6;

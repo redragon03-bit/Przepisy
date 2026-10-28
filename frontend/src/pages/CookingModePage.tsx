@@ -3,9 +3,11 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { api, Recipe } from "../api";
 import CookedSheet from "../components/recipe/CookedSheet";
 import { useGoBack } from "../lib/navigation";
+import { useSavedState } from "../lib/progress";
 import { cachedRecipe } from "../lib/recipeCache";
 import { scaleStep, scaleText } from "../lib/scale";
 import { canSpeak, readAloudPreference, saveReadAloudPreference, speak, stopSpeaking } from "../lib/speech";
+import { stepIngredients } from "../lib/stepIngredients";
 import { findDurations } from "../lib/timers";
 import { useTimers, useWakeLock } from "../lib/useTimers";
 
@@ -19,11 +21,14 @@ export default function CookingModePage() {
   const goBack = useGoBack(`/przepis/${id}`);
   const [recipe, setRecipe] = useState<Recipe | null>(() => cachedRecipe(id) ?? null);
   const [error, setError] = useState("");
-  const [step, setStep] = useState(-1); // -1 = najpierw lista składników
+  // -1 = najpierw lista składników; krok jest zapamiętany, gdy iPhone zamknie aplikację w tle
+  const [step, setStep] = useSavedState(`cooking-step-${id}`, -1);
   const { start } = useTimers();
   const [readAloud, setReadAloud] = useState(readAloudPreference);
   const [finishing, setFinishing] = useState(false);
-  useWakeLock(true);
+  // Bez https Safari nie pozwala trzymać włączonego ekranu - mówimy o tym, zamiast udawać, że działa
+  const [screenMaySleep, setScreenMaySleep] = useState(() => !("wakeLock" in navigator));
+  useWakeLock(true, () => setScreenMaySleep(true));
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -52,6 +57,8 @@ export default function CookingModePage() {
 
   const last = recipe.steps.length - 1;
   const current = step >= 0 ? recipe.steps[step] : null;
+  // Składniki użyte w tym kroku - żeby nie wracać do listy
+  const used = current ? stepIngredients(recipe.ingredients, [current.text])[0] : [];
 
   // Przesunięcie palcem w lewo = następny krok, w prawo = poprzedni
   const onTouchStart = (e: TouchEvent) => {
@@ -82,6 +89,11 @@ export default function CookingModePage() {
         )}
       </header>
 
+      {screenMaySleep && (
+        <p className="muted small center">
+          Ekran może gasnąć{window.isSecureContext ? "" : " – przez adres https aplikacja utrzyma go włączony"}.
+        </p>
+      )}
       <div className="cooking-body" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <h2>{recipe.title}</h2>
         {current ? (
@@ -90,6 +102,13 @@ export default function CookingModePage() {
             <p className="cooking-step" onClick={() => readAloud && speak(text)}>
               {text}
             </p>
+            {used.length > 0 && (
+              <ul className="step-ingredients">
+                {used.map((i) => (
+                  <li key={i}>{scaleText(recipe.ingredients[i].text, recipe.ingredients[i].amount, scale)}</li>
+                ))}
+              </ul>
+            )}
             {findDurations(current.text).map((d, j) => (
               <button key={j} type="button" className="timer-button big" onClick={() => start(`${recipe.title}, krok ${step + 1}: ${d.label}`, d.seconds, recipe.id)}>
                 ⏱ Minutnik {d.label}

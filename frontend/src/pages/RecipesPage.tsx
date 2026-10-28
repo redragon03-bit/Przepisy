@@ -6,6 +6,7 @@ import RecipeCard from "../components/RecipeCard";
 import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
+import { listRecipes } from "../lib/recipeCache";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
 
 // Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
@@ -146,7 +147,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       setImages(status);
       if (status.found !== found.current || !status.running) {
         found.current = status.found;
-        api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
+        listRecipes(q, ingredients, category, favorites).then(setRecipes);
       }
     }, 3000);
     return () => clearInterval(timer);
@@ -165,12 +166,12 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   }, []);
 
   const { pull, refreshing, ready } = usePullToRefresh(() =>
-    Promise.all([api.listRecipes(q, ingredients, category, favorites).then(setRecipes), loadCategories(), api.imageSearchStatus().then(setImages)]),
+    Promise.all([listRecipes(q, ingredients, category, favorites).then(setRecipes), loadCategories(), api.imageSearchStatus().then(setImages)]),
   );
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      api.listRecipes(q, ingredients, category, favorites).then(setRecipes);
+      listRecipes(q, ingredients, category, favorites).then(setRecipes);
     }, 250);
     return () => clearTimeout(timer);
   }, [q, ingredients, category, favorites]);

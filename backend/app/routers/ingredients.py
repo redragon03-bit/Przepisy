@@ -5,10 +5,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import require_auth
+from ..config import get_settings
 from ..database import get_db
 from ..models import Ingredient, RecipeIngredient
-from ..schemas import CookMatch, CookRequest, IngredientOut, IngredientUpdate, StapleIn
-from ..services.ingredients import get_or_create_ingredient
+from ..schemas import CookMatch, CookRequest, DuplicateGroup, IngredientOut, IngredientUpdate, MergeIn, StapleIn
+from ..services import ai
+from ..services.ingredients import get_or_create_ingredient, group_similar, merge_ingredients, normalize_name
 from ..services.matching import find_recipes
 from ..services.shopping import expiring_names
 from .recipes import to_summary
@@ -58,6 +60,56 @@ def add_staple(data: StapleIn, db: Session = Depends(get_db)):
     ingredient.is_staple = True
     db.commit()
     return ingredient
+
+
+# Tyle najczęstszych składników najwyżej widzi AI (darmowe limity)
+MAX_DUPLICATE_NAMES = 400
+
+
+@router.get("/ingredients/duplicates", response_model=list[DuplicateGroup])
+def find_duplicates(db: Session = Depends(get_db)):
+    """Składniki zapisane na kilka sposobów ("pomidor", "pomidory") - do połączenia jednym stuknięciem.
+
+    Podobne formy wyrazu znajdujemy sami; synonimy ("kartofel") dokłada AI, jeśli jest.
+    """
+    count = func.count(RecipeIngredient.id)
+    rows = (db.query(Ingredient.name, count).join(RecipeIngredient, RecipeIngredient.ingredient_id == Ingredient.id)
+            .group_by(Ingredient.id).order_by(count.desc(), Ingredient.name).limit(MAX_DUPLICATE_NAMES).all())
+    counts = dict(rows)
+    groups = group_similar(list(counts))
+    if get_settings().ai_enabled:
+        try:
+            for group in ai.find_duplicate_ingredients(list(counts)):
+                group = [n for n in group if n in counts]  # tylko nazwy z bazy
+                if len(group) < 2:
+                    continue
+                # Grupę AI łączymy z naszą, jeśli mają wspólną nazwę
+                same = next((g for g in groups if set(g) & set(group)), None)
+                if same is None:
+                    groups.append(group)
+                else:
+                    same.extend(n for n in group if n not in same)
+        except ai.AiError:
+            pass  # bez AI zostają podobne formy wyrazu
+    result = []
+    for group in groups:
+        # Zostaje nazwa z największą liczbą przepisów, przy remisie krótsza
+        keep = min(group, key=lambda n: (-counts[n], len(n), n))
+        result.append(DuplicateGroup(keep=keep, others=[n for n in group if n != keep],
+                                     recipe_count=sum(counts[n] for n in group)))
+    return result
+
+
+@router.post("/ingredients/merge", status_code=204)
+def merge(data: MergeIn, db: Session = Depends(get_db)):
+    """Łączy składniki `others` w `keep` (przepisy, lista zakupów, spiżarnia)."""
+    keep = db.query(Ingredient).filter_by(name=normalize_name(data.keep)).one_or_none()
+    if keep is None:
+        raise HTTPException(404, "Nie ma takiego składnika")
+    names = [normalize_name(n) for n in data.others]
+    others = db.query(Ingredient).filter(Ingredient.name.in_(names), Ingredient.id != keep.id).all()
+    merge_ingredients(db, keep, others)
+    db.commit()
 
 
 @router.post("/cook", response_model=list[CookMatch])

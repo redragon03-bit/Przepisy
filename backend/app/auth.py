@@ -50,12 +50,19 @@ def seconds_locked(client: str) -> int:
     return max(0, round(until - time.monotonic())) if count >= MAX_FAILURES else 0
 
 
+def client_address(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
+
 def record_login(client: str, success: bool) -> None:
     if success:
         _failures.pop(client, None)
         return
     count, until = _failures.get(client, (0, 0.0))
     now = time.monotonic()
+    if len(_failures) > 1000:  # nie trzymamy w pamięci starych adresów bez końca
+        for old in [c for c, (_n, u) in _failures.items() if u < now]:
+            del _failures[old]
     # Złe próby liczymy od nowa, gdy od poprzedniej minęło LOCK_SECONDS
     count = 1 if now > until else count + 1
     _failures[client] = (count, now + LOCK_SECONDS)
@@ -66,7 +73,13 @@ def is_authenticated(request: Request) -> bool:
         return True  # hasło nie ustawione = wszyscy wpuszczeni
     header = request.headers.get("X-App-Password")
     if header is not None:
-        return password_ok(header)
+        # Hasło w nagłówku (Skróty iOS) ma ten sam limit złych prób co ekran logowania
+        client = client_address(request)
+        if seconds_locked(client):
+            return False
+        ok = password_ok(header)
+        record_login(client, ok)
+        return ok
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return False

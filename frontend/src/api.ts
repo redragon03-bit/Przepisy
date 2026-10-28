@@ -24,6 +24,7 @@ export type RecipeStats = Api.RecipeStats;
 export type CookLogEntry = Api.CookLogOut;
 export type PantryItem = Api.PantryItem;
 export type PlanSuggestion = Api.PlanSuggestionOut;
+export type DuplicateGroup = Api.DuplicateGroup;
 
 export interface ChatMessage extends Api.ChatMessage {
   // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
@@ -148,6 +149,9 @@ export const api = {
     request<Ingredient[]>("GET", `/api/ingredients${query({ q, staples_only: staplesOnly ? "true" : "" })}`),
   setStaple: (id: number, isStaple: boolean) =>
     request<Ingredient>("PATCH", `/api/ingredients/${id}`, { is_staple: isStaple }),
+  // Ten sam produkt zapisany na kilka sposobów ("pomidor", "pomidory") i ich łączenie
+  findDuplicateIngredients: () => request<DuplicateGroup[]>("GET", "/api/ingredients/duplicates"),
+  mergeIngredients: (keep: string, others: string[]) => request<void>("POST", "/api/ingredients/merge", { keep, others }),
   addStaple: (name: string) => request<Ingredient>("POST", "/api/ingredients/staples", { name }),
   whatCanICook: (ingredients: string[], maxMissing: number) =>
     request<CookMatch[]>("POST", "/api/cook", { ingredients, max_missing: maxMissing }),
@@ -193,10 +197,16 @@ export const api = {
 
   listPlan: (start: string, end: string) => request<PlanEntry[]>("GET", `/api/plan${query({ start, end })}`),
   addToPlan: (day: string, recipeId: number) => request<PlanEntry>("POST", "/api/plan", { day, recipe_id: recipeId }),
+  // Na ile porcji gotujemy - przelicza ilości na liście zakupów
+  setPlanServings: (id: number, servings: number) => request<PlanEntry>("PATCH", `/api/plan/${id}`, { servings }),
   removeFromPlan: (id: number) => request<void>("DELETE", `/api/plan/${id}`),
   // Plan od AI układa się w tle - wynik odbieramy przez getPlanSuggestion
   suggestPlan: (days: string[], wishes: string) => request<PlanSuggestion>("POST", "/api/plan/suggest", { days, wishes }),
   getPlanSuggestion: (id: number) => request<PlanSuggestion>("GET", `/api/plan/suggest/${id}`),
+
+  // Powiadomienie z Home Assistant o końcu minutnika (gdy ustawiono ha_notify)
+  startTimer: (id: number, label: string, seconds: number) => request<void>("POST", "/api/timers", { id, label, seconds }),
+  cancelTimer: (id: number) => request<void>("DELETE", `/api/timers/${id}`),
 
   // force = importuj, nawet jeśli link już jest w bazie
   importUrl: (url: string, force = false) => request<ImportJob>("POST", "/api/imports/url", { url, force }),

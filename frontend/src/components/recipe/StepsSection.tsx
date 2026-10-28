@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Recipe } from "../../api";
+import { useCheckedSet } from "../../lib/progress";
 import { scaleStep } from "../../lib/scale";
 import { findDurations } from "../../lib/timers";
 import { useTimers } from "../../lib/useTimers";
@@ -8,15 +8,8 @@ import { useTimers } from "../../lib/useTimers";
 // Kroki z odhaczaniem; czasy w krokach ("10 min") uruchamiają minutniki,
 // a ilości ("200 g mąki") są przeliczane razem z porcjami.
 export default function StepsSection({ recipe, scale }: { recipe: Recipe; scale: number }) {
-  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [checked, toggle] = useCheckedSet(`checked-steps-${recipe.id}`);
   const { start } = useTimers();
-
-  const toggle = (index: number) => {
-    const next = new Set(checked);
-    if (next.has(index)) next.delete(index);
-    else next.add(index);
-    setChecked(next);
-  };
 
   return (
     <>

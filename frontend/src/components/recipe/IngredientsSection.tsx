@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Recipe } from "../../api";
+import { useCheckedSet } from "../../lib/progress";
 import { formatAmount, scaleText } from "../../lib/scale";
 import { useLongPress } from "../../lib/useLongPress";
 import SubstituteSheet from "./SubstituteSheet";
@@ -16,17 +17,11 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   setFactor: (f: number) => void;
   scale: number;
 }) {
-  const [checked, setChecked] = useState<Set<number>>(new Set());
+  // Odhaczone składniki zostają po powrocie do aplikacji (patrz lib/progress.ts)
+  const [checked, toggle] = useCheckedSet(`checked-ingredients-${recipe.id}`);
   const [showOriginal, setShowOriginal] = useState(false);
   const [substitute, setSubstitute] = useState<string | null>(null);
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
-
-  const toggle = (index: number) => {
-    const next = new Set(checked);
-    if (next.has(index)) next.delete(index);
-    else next.add(index);
-    setChecked(next);
-  };
 
   return (
     <>

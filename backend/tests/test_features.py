@@ -21,8 +21,14 @@ def test_scale_text():
     assert scale_text("200 g mąki pszennej", 200, 1.5) == "300 g mąki pszennej"
     assert scale_text("1,5 łyżki cukru", 1.5, 2) == "3 łyżki cukru"
     assert scale_text("szczypta soli", None, 2) == "szczypta soli"
+    assert scale_text("500 g wołowiny", None, 2) == "1000 g wołowiny"
     assert scale_text("jajka rozmiar L", 2, 2) == "jajka rozmiar L (×2)"
     assert format_amount(0.333) == "0,33"
+    # Ułamki i zakresy
+    assert scale_text("1/2 szklanki mleka", 0.5, 3) == "1 ½ szklanki mleka"
+    assert scale_text("1 1/2 szklanki mąki", 1.5, 2) == "3 szklanki mąki"
+    assert scale_text("2-3 ząbki czosnku", 2, 2) == "4-6 ząbki czosnku"
+    assert scale_text("1 kg ziemniaków", 1, 1.5) == "1,5 kg ziemniaków"
 
 
 def test_favorite_rating_cooked(client):

@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from .auth import require_auth
 from .config import get_settings
 from .database import init_db
-from .routers import auth, backup, categories, chat, imports, ingredients, pantry, plan, recipes, shopping
+from .routers import auth, backup, categories, chat, imports, ingredients, pantry, plan, recipes, shopping, timers
 from .services import backup as backup_service
 from .services import images, plan_sensor
 from .services.importer import remove_stale_uploads
@@ -42,6 +42,7 @@ app.include_router(pantry.router)
 app.include_router(chat.router)
 app.include_router(imports.router)
 app.include_router(backup.router)
+app.include_router(timers.router)
 
 
 @app.get("/api/health")

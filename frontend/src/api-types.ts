@@ -56,6 +56,7 @@ export interface AuthStatus {
   ai_provider: string | null;
   ai_providers: string[];
   ha_enabled: boolean;
+  notify_enabled: boolean;
 }
 
 export interface AutoCategorizeOut {
@@ -114,6 +115,15 @@ export interface CookMatch {
 export interface CookRequest {
   ingredients: string[];
   max_missing?: number;
+}
+
+export interface DuplicateGroup {
+  // Nazwa, która zostanie (najczęściej używana)
+  keep: string;
+  // Nazwy do połączenia z `keep`
+  others: string[];
+  // W ilu przepisach występują wszystkie razem
+  recipe_count: number;
 }
 
 export interface ImageFromUrl {
@@ -183,6 +193,20 @@ export interface MealPlanOut {
   id: number;
   day: string;
   recipe: RecipeSummary;
+  // Na ile porcji gotujemy; None = jak w przepisie
+  servings: number | null;
+  // Porcje z przepisu (np. 4), None = nie podano
+  base_servings: number | null;
+  in_shopping: boolean;
+}
+
+export interface MealPlanPatch {
+  servings: number;
+}
+
+export interface MergeIn {
+  keep: string;
+  others: string[];
 }
 
 export interface PantryExpiresIn {
@@ -336,6 +360,7 @@ export interface ShoppingItemPatch {
 export interface ShoppingResult {
   added: number;
   skipped: string[];
+  already: number;
 }
 
 export interface StapleIn {
@@ -364,6 +389,13 @@ export interface SubstituteOut {
 export interface TextImportIn {
   // Tekst przepisu
   text: string;
+}
+
+export interface TimerIn {
+  // Numer minutnika nadany przez telefon
+  id: number;
+  label: string;
+  seconds: number;
 }
 
 export interface UrlImportIn {

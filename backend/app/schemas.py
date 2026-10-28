@@ -182,6 +182,8 @@ class ShoppingResult(BaseModel):
     added: int
     # Składniki pominięte, bo są w spiżarni
     skipped: list[str] = []
+    # Ile dań z planu pominięto, bo ich składniki już są na liście
+    already: int = 0
 
 
 class PantryIn(BaseModel):
@@ -208,6 +210,13 @@ class MealPlanOut(BaseModel):
     id: int
     day: date
     recipe: "RecipeSummary"
+    servings: int | None = Field(default=None, description="Na ile porcji gotujemy; None = jak w przepisie")
+    base_servings: int | None = Field(default=None, description="Porcje z przepisu (np. 4), None = nie podano")
+    in_shopping: bool = False
+
+
+class MealPlanPatch(BaseModel):
+    servings: int = Field(ge=1, le=50)
 
 
 class PlanSuggestionIn(BaseModel):
@@ -351,3 +360,22 @@ class AuthStatus(BaseModel):
     ai_providers: list[str]
     # Czy lista zakupów może być wysłana do Home Assistant
     ha_enabled: bool
+    # Czy koniec minutnika przychodzi jako powiadomienie z Home Assistant (opcja ha_notify)
+    notify_enabled: bool = False
+
+
+class TimerIn(BaseModel):
+    id: int = Field(description="Numer minutnika nadany przez telefon")
+    label: str = Field(max_length=300)
+    seconds: int = Field(ge=1, le=24 * 3600)
+
+
+class DuplicateGroup(BaseModel):
+    keep: str = Field(description="Nazwa, która zostanie (najczęściej używana)")
+    others: list[str] = Field(description="Nazwy do połączenia z `keep`")
+    recipe_count: int = Field(description="W ilu przepisach występują wszystkie razem")
+
+
+class MergeIn(BaseModel):
+    keep: str
+    others: list[str] = Field(min_length=1)

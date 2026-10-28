@@ -11,5 +11,7 @@
     "skipLibCheck": true,
     "types": ["vite/client", "vite-plugin-pwa/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // Testy uruchamia sam Node (npm test), nie wchodzą do aplikacji
+  "exclude": ["src/**/*.test.ts"]
 }

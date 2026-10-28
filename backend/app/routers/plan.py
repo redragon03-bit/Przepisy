@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session
 from ..auth import require_auth
 from ..database import SessionLocal, get_db
 from ..models import MealPlanEntry, Recipe
-from ..schemas import MealPlanIn, MealPlanOut, PlanSuggestionDay, PlanSuggestionIn, PlanSuggestionOut
+from ..schemas import MealPlanIn, MealPlanOut, MealPlanPatch, PlanSuggestionDay, PlanSuggestionIn, PlanSuggestionOut
 from ..services import ai, plan_sensor
-from ..services.shopping import pantry_text
+from ..services.shopping import pantry_text, parse_servings
 from .chat import WEEKDAYS, recipe_line
 from .recipes import to_summary
 
@@ -21,7 +21,8 @@ log = logging.getLogger(__name__)
 
 
 def to_out(entry: MealPlanEntry) -> MealPlanOut:
-    return MealPlanOut(id=entry.id, day=entry.day, recipe=to_summary(entry.recipe))
+    return MealPlanOut(id=entry.id, day=entry.day, recipe=to_summary(entry.recipe), servings=entry.servings,
+                       base_servings=parse_servings(entry.recipe.servings), in_shopping=entry.in_shopping)
 
 
 @router.get("", response_model=list[MealPlanOut])
@@ -45,6 +46,17 @@ def add_to_plan(data: MealPlanIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(entry)
     plan_sensor.publish_in_background()
+    return to_out(entry)
+
+
+@router.patch("/{entry_id}", response_model=MealPlanOut)
+def update_plan_entry(entry_id: int, data: MealPlanPatch, db: Session = Depends(get_db)):
+    """Na ile porcji gotujemy - ilości na liście zakupów będą przeliczone."""
+    entry = db.get(MealPlanEntry, entry_id)
+    if entry is None:
+        raise HTTPException(404, "Nie ma takiej pozycji planu")
+    entry.servings = data.servings
+    db.commit()
     return to_out(entry)
 
 

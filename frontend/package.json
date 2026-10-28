@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "oxlint",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -19,6 +19,13 @@
   Domyślnie `todo.shopping_list` - tworzy ją integracja **Lista zakupów** (Ustawienia →
   Urządzenia i usługi → Dodaj integrację → „Lista zakupów”). Możesz podać też inną listę `todo.*`.
 
+- **ha_notify** - powiadomienie na telefon, gdy minutnik się skończy (nawet przy zgaszonym ekranie).
+  Wpisz usługę z aplikacji Home Assistant na iPhonie, np. `mobile_app_iphone`
+  (Narzędzia deweloperskie → Akcje → wpisz „notify.”). Kilka - po przecinku. Puste = wyłączone.
+- **certfile**, **keyfile** - pliki certyfikatu HTTPS w folderze `/ssl` (domyślnie `tailscale.crt`
+  i `tailscale.key` z dodatku Tailscale). Gdy ich nie ma, aplikacja działa tylko przez http.
+  Jak włączyć HTTPS: README, rozdział „HTTPS”.
+
 Bez żadnego klucza nie działa tłumaczenie, import ze zdjęć, czat ani liczenie kalorii.
 
 ## Plan na dziś w Home Assistant
@@ -30,6 +37,7 @@ o 16:00 powiadomienie „Dziś na obiad: {{ states('sensor.przepisy_dzis') }}”
 
 ## Jak otworzyć
 
-W przeglądarce telefonu: `http://<adres-HA>:8000`. Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).
+W przeglądarce telefonu: `http://<adres-HA>:8000`, a z certyfikatem `https://<nazwa-HA>.<sieć>.ts.net:8443`
+(przez https ekran nie gaśnie w trybie gotowania i aplikacja otwiera się bez internetu). Dane (baza i zdjęcia) są w folderze dodatku i trafiają do kopii zapasowych HA. Aplikacja dodatkowo raz w tygodniu robi własną kopię (3 ostatnie, do pobrania w Ustawieniach).
 
 Więcej w README repozytorium.

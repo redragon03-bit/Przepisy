@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, AuthStatus, BackupFile, ImageSearchProgress, Ingredient } from "../api";
+import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient } from "../api";
 import { useToast } from "../lib/toast";
 
 const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", groq: "Groq", mistral: "Mistral" };
@@ -11,6 +11,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const [uncategorized, setUncategorized] = useState(0);
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
   const [working, setWorking] = useState("");
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
   const { toast, run } = useToast();
 
@@ -31,6 +32,24 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
     if (result) {
       setUncategorized(result.remaining);
       toast(result.remaining ? `Przypisano ${result.updated}, zostało ${result.remaining} - stuknij jeszcze raz.` : "Gotowe!");
+    }
+  };
+
+  const findDuplicates = async () => {
+    setWorking("duplicates");
+    const found = await run(() => api.findDuplicateIngredients());
+    setWorking("");
+    if (found) {
+      setDuplicates(found);
+      if (!found.length) toast("Nie znalazłem podwójnych składników.");
+    }
+  };
+
+  const merge = async (group: DuplicateGroup) => {
+    // run() zwraca undefined także po błędzie, więc odpowiedź bez treści zamieniamy na true
+    if (await run(() => api.mergeIngredients(group.keep, group.others).then(() => true))) {
+      setDuplicates((list) => list && list.filter((g) => g !== group));
+      toast(`Połączono w „${group.keep}”.`);
     }
   };
 
@@ -127,17 +146,32 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         )}
       </section>
 
-      {auth.ai_enabled && (
-        <section className="box">
-          <h2>Porządki z AI</h2>
-          <button type="button" className="wide" disabled={working === "categories" || !uncategorized} onClick={autoCategorize}>
-            {working === "categories" ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie (${uncategorized} bez kategorii)`}
-          </button>
-          <button type="button" className="wide" disabled={!images || images.running || !images.missing} onClick={findImages}>
-            {images?.running ? `🔍 Szukam zdjęć… ${images.done}/${images.total}` : `🔍 Znajdź zdjęcia w internecie (${images?.missing ?? 0} bez zdjęcia)`}
-          </button>
-        </section>
-      )}
+      <section className="box">
+        <h2>Porządki</h2>
+        {auth.ai_enabled && (
+          <>
+            <button type="button" className="wide" disabled={working === "categories" || !uncategorized} onClick={autoCategorize}>
+              {working === "categories" ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie (${uncategorized} bez kategorii)`}
+            </button>
+            <button type="button" className="wide" disabled={!images || images.running || !images.missing} onClick={findImages}>
+              {images?.running ? `🔍 Szukam zdjęć… ${images.done}/${images.total}` : `🔍 Znajdź zdjęcia w internecie (${images?.missing ?? 0} bez zdjęcia)`}
+            </button>
+          </>
+        )}
+        <button type="button" className="wide" disabled={working === "duplicates"} onClick={findDuplicates}>
+          {working === "duplicates" ? "Szukam…" : "🧹 Znajdź podwójne składniki"}
+        </button>
+        {duplicates && duplicates.length > 0 && (
+          <>
+            <p className="muted small">Ten sam produkt zapisany inaczej psuje wyszukiwanie i „Co ugotuję?”. Stuknij, żeby połączyć.</p>
+            {duplicates.map((g) => (
+              <button key={g.keep} type="button" className="sheet-row" onClick={() => merge(g)}>
+                {g.others.join(", ")} → <b>{g.keep}</b> <span className="muted small">({g.recipe_count} przepisów)</span>
+              </button>
+            ))}
+          </>
+        )}
+      </section>
 
       <section className="box small">
         <h2>Informacje</h2>
@@ -146,6 +180,10 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           {auth.ai_providers.length ? auth.ai_providers.map((p) => AI_NAMES[p] ?? p).join(" → ") + " ✅" : "wyłączone (brak klucza API)"}
         </p>
         <p>Home Assistant: {auth.ha_enabled ? "wysyłanie listy zakupów działa ✅" : "nie skonfigurowane"}</p>
+        <p>Powiadomienia z minutników: {auth.notify_enabled ? "przez Home Assistant ✅" : "wyłączone (opcja ha_notify dodatku)"}</p>
+        <p>
+          Połączenie: {window.isSecureContext ? "https ✅" : "http – bez pracy offline i bez utrzymywania włączonego ekranu (patrz README, HTTPS)"}
+        </p>
         <p className="muted">
           Na iPhonie: w Safari stuknij „Udostępnij” → „Do ekranu początkowego”, żeby mieć aplikację jako ikonę.
         </p>

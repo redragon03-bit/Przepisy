@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { api } from "../api";
 import { beep, unlockSound } from "./timers";
 
 export interface Timer {
@@ -78,11 +79,17 @@ export function TimersProvider({ children }: { children: ReactNode }) {
 
   const start = (label: string, seconds: number, recipeId?: number) => {
     unlockSound();
-    setNow(Date.now());
-    setTimers((list) => [...list, { id: Date.now(), label, endsAt: Date.now() + seconds * 1000, done: false, recipeId }]);
+    const id = Date.now();
+    setNow(id);
+    setTimers((list) => [...list, { id, label, endsAt: id + seconds * 1000, done: false, recipeId }]);
+    // Serwer przypomni przez Home Assistant, nawet gdy telefon ma zgaszony ekran (jeśli to ustawiono)
+    api.startTimer(id, label, seconds).catch(() => {});
   };
 
-  const remove = (id: number) => setTimers((list) => list.filter((t) => t.id !== id));
+  const remove = (id: number) => {
+    setTimers((list) => list.filter((t) => t.id !== id));
+    api.cancelTimer(id).catch(() => {});
+  };
 
   return <TimersContext.Provider value={{ timers, now, start, remove }}>{children}</TimersContext.Provider>;
 }

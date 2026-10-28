@@ -176,6 +176,10 @@ class MealPlanEntry(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     day: Mapped[date]
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    # Na ile porcji gotujemy (None = tyle, ile w przepisie) - przelicza ilości na liście zakupów
+    servings: Mapped[int | None]
+    # Składniki są już na liście zakupów - drugi raz ich nie dodajemy
+    in_shopping: Mapped[bool] = mapped_column(default=False, server_default="0")
 
     recipe: Mapped[Recipe] = relationship(lazy="joined")
 

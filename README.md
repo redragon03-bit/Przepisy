@@ -236,12 +236,29 @@ Nie potrzebujesz własnej domeny. Najprostsza i darmowa droga to **Tailscale**
 
 Działa z każdego miejsca, a aplikacja nie jest wystawiona publicznie do internetu.
 
-**Uwaga o HTTPS:** przez zwykłe `http://` aplikacja działa w pełni (także dodana do
-ekranu głównego), ale Safari wyłącza wtedy dwie rzeczy: pamięć podręczną offline
-(service worker) i przycisk „Wklej” (link wklejasz ręcznie). Gdy przeniesiesz się na
-Synology, możesz dodać HTTPS za darmo poleceniem
-`tailscale serve --bg --https=443 http://localhost:8000` – dostaniesz adres
-`https://<nazwa>.<twoja-sieć>.ts.net`.
+### HTTPS (zalecane)
+
+Przez zwykłe `http://` aplikacja działa, ale Safari wyłącza wtedy kilka rzeczy: ekran
+gaśnie w trybie gotowania (blokada wygaszania działa tylko przez https), aplikacja nie
+otwiera się bez internetu (service worker) i nie działa przycisk „Wklej”.
+
+Aplikacja sama obsługuje HTTPS na porcie **8443**, gdy dostanie certyfikat. Darmowy
+certyfikat daje Tailscale – w HA z dodatkiem **Tailscale with features**:
+
+1. W panelu Tailscale (login.tailscale.com) → **DNS** włącz **MagicDNS** i **HTTPS Certificates**.
+2. W opcjach dodatku Tailscale ustaw:
+   - `share_homeassistant`: `serve` (Tailscale tworzy wtedy certyfikat; samo HA pod tym
+     adresem zadziała dopiero po ustawieniu `trusted_proxies` w HA, ale do Przepisów to niepotrzebne),
+   - `lets_encrypt_certfile`: `tailscale.crt`,
+   - `lets_encrypt_keyfile`: `tailscale.key`.
+3. Uruchom ponownie dodatek Tailscale, a potem dodatek Przepisy.
+4. Otwórz `https://<nazwa-HA>.<twoja-sieć>.ts.net:8443` (pełną nazwę widać w aplikacji
+   Tailscale) i dodaj tę stronę do ekranu początkowego. To nowy adres, więc trzeba się raz
+   zalogować.
+
+Tailscale sam odnawia certyfikat, a aplikacja wczytuje nowy bez restartu. Stary adres
+`http://…:8000` dalej działa (np. dla Skrótu iOS). Poza HA podaj pliki w zmiennych
+`SSL_CERTFILE` i `SSL_KEYFILE` (np. z `tailscale cert`).
 
 ---
 
@@ -285,6 +302,7 @@ backend/
     models.py          ← TABELE w bazie (Recipe, Step, Ingredient, RecipeIngredient, ImportJob)
     schemas.py         ← format JSON w API (co wysyła/odbiera frontend)
     auth.py            ← logowanie hasłem (ciasteczko albo nagłówek X-App-Password)
+    serve.py           ← start serwera w Dockerze: http (8000) i https (8443, gdy jest certyfikat)
     routers/           ← ADRESY API, każdy plik to grupa endpointów
       recipes.py       ←   /api/recipes      lista, wyszukiwanie, dodawanie, edycja, usuwanie
       ingredients.py   ←   /api/ingredients, /api/cook
