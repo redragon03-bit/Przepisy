@@ -170,6 +170,9 @@ class FakeHomeAssistant:
         service = request.url.path.rsplit("/", 1)[1]
         body = json.loads(request.read())
         if service == "add_item":
+            # Jak wbudowana "Lista zakupów" w HA: bez obsługi opisów pozycji
+            if "description" in body:
+                return httpx.Response(400, json={"message": "Entity does not support setting field: description"})
             self.items.append({"summary": body["item"], "status": "needs_action"})
         elif service == "update_item":
             next(i for i in self.items if i["summary"] == body["item"])["status"] = body["status"]
@@ -222,4 +225,6 @@ def test_shopping_does_not_merge_into_item_already_in_home_assistant(client, hom
     client.post("/api/shopping/from-recipe", json={"recipe_id": recipe["id"]})
     client.post("/api/shopping/send-to-ha")
     client.post("/api/shopping/from-recipe", json={"recipe_id": recipe["id"]})
+    # Pozycja z przepisu ma opis, którego lista w HA nie przyjmuje - trafia tam bez niego
+    assert [i["summary"] for i in home_assistant.items] == ["200 g mąki"]
     assert [i["text"] for i in client.get("/api/shopping").json()] == ["200 g mąki", "200 g mąki"]

@@ -203,6 +203,7 @@ def _post(client: httpx.Client, url: str, service: str, data: dict, response: bo
         raise ShoppingError(
             f"Home Assistant odpowiedział błędem {result.status_code}. "
             f"Sprawdź, czy istnieje lista {settings.ha_todo_entity}."
+            + (f" Odpowiedź HA: {result.text[:200]}" if result.text else "")
         )
     return result
 
@@ -218,13 +219,21 @@ def _ha_client() -> tuple[httpx.Client, str]:
 def send_to_home_assistant(items: list[ShoppingItem]) -> None:
     """Dodaje pozycje do listy "Do zrobienia" w Home Assistant (usługa todo.add_item)."""
     client, url = _ha_client()
+    # Wbudowana "Lista zakupów" w HA nie ma opisów pozycji i odrzuca pole description błędem 400,
+    # więc przy pierwszym takim błędzie wysyłamy dalej bez opisu
+    with_description = True
     try:
         with client:
             for item in items:
-                _post(client, url, "add_item", {
-                    "item": item.text,
-                    "description": f"Do: {item.recipes}" if item.recipes else "",
-                })
+                data = {"item": item.text}
+                if with_description and item.recipes:
+                    try:
+                        _post(client, url, "add_item", {**data, "description": f"Do: {item.recipes}"})
+                    except ShoppingError:
+                        with_description = False
+                        _post(client, url, "add_item", data)
+                else:
+                    _post(client, url, "add_item", data)
                 item.ha_text = item.text
     except httpx.HTTPError as exc:
         raise ShoppingError("Nie udało się połączyć z Home Assistant.") from exc
