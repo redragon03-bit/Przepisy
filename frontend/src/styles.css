@@ -98,6 +98,16 @@ select {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+/* Safari na iPhonie daje polu daty własną minimalną szerokość - bez tego wystaje poza okno */
+input[type="date"] {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: var(--muted);
