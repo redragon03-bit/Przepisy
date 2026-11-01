@@ -104,7 +104,7 @@ jobs:
       # Numer wersji z ha-addon/config.yaml - dodatek HA pobiera obraz o tym numerze
       - id: version
         run: echo "version=$(grep '^version:' ha-addon/config.yaml | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
