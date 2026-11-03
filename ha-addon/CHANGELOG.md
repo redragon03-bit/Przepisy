@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.9.2
+
+- Promocje: z Blixa tylko oferty z ceną (krótsza lista, 2–3 razy mniej pracy dla AI);
+  gazetki odczytane wcześniej bez cen są czytane jeszcze raz.
+- Promocje: gazetki czytane na zmianę ze wszystkich sklepów, żeby Kaufland nie czekał
+  na wszystkie gazetki Biedronki; na ekranie widać, którą gazetkę AI teraz czyta.
+- Czytanie gazetek najpierw lżejszym modelem Gemini (wyższe darmowe limity).
+
 ## 0.9.1
 
 - Lista zakupów: „Wyślij do HA” nie kończy się błędem 400, gdy lista zadań w HA

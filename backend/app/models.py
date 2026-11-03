@@ -219,6 +219,8 @@ class PromoLeaflet(Base):
     # "done" albo "failed" (wtedy spróbujemy jeszcze raz przy następnym sprawdzeniu)
     status: Mapped[str] = mapped_column(String(20), default="done")
     error: Mapped[str] = mapped_column(Text, default="")
+    # Wersja odczytu (services/promotions.py: PARSER_VERSION) - starsze czytamy jeszcze raz
+    parser: Mapped[int] = mapped_column(default=1, server_default="1")
     fetched_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     promotions: Mapped[list["Promotion"]] = relationship(

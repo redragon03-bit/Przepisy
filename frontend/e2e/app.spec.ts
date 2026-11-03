@@ -271,7 +271,7 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   const promos = [promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"), promo(2, "Lidl", "Mąka pszenna typ 450", "mąka pszenna", "1,79 zł")];
   await page.route("**/api/promotions", (route) => route.fulfill({ json: promos }));
   await page.route("**/api/promotions/status", (route) =>
-    route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, last_check: null, errors: [], leaflets: [] } }),
+    route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
   );
   let added = false;
   await page.route("**/api/promotions/1/shopping", (route) => {

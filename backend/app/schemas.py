@@ -414,6 +414,8 @@ class PromoStatus(BaseModel):
     # Sieci z ustawień (puste = promocje wyłączone)
     stores: list[str]
     running: bool
+    # Co teraz czytamy, np. "Biedronka: Od poniedziałku (3/9)"
+    progress: str
     last_check: datetime | None
     errors: list[str]
     leaflets: list[PromoLeafletOut]

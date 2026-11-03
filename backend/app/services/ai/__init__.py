@@ -34,6 +34,7 @@ from .base import (  # noqa: F401
     Content,
     _limit,
     _timeout,
+    bulk,
     time_limit,
 )
 from .claude import _ask_claude, _search_claude
@@ -469,7 +470,8 @@ def promotions_from_text(store: str, title: str, text: str) -> list[AiPromotion]
     products: dict[str, AiPromotion] = {}
     for chunk in _chunks(text, PROMOTIONS_CHUNK):
         material = f"Sklep: {store}\nGazetka: {title}\n\nTekst gazetki:\n{chunk}"
-        result = _ask_provider([material], PROMOTIONS_PROMPT, AiPromotions)
+        with bulk():
+            result = _ask_provider([material], PROMOTIONS_PROMPT, AiPromotions)
         for product in result.products:
             product.name, product.ingredient = product.name.strip(), product.ingredient.strip().lower()
             if product.name and product.ingredient:

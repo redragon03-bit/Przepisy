@@ -10,7 +10,7 @@ from google.genai import types as genai_types
 from pydantic import BaseModel
 
 from ...config import get_settings
-from .base import _URL, SEARCH_PROMPT, AiError, Content, _limit, _timeout
+from .base import _URL, SEARCH_PROMPT, AiError, Content, _bulk, _limit, _timeout
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +83,9 @@ def _ask_gemini(content: Content, system: str, schema: type[BaseModel]) -> BaseM
         # W czacie liczy się czas: lżejszy model odpowiada szybciej, a do polecania przepisów wystarcza
         if _limit.get() is not None:
             attempts = [lite, settings.gemini_model]
+        # Dużo zapytań w tle: lżejszy model ma wyższe limity (główny tylko na koniec)
+        elif _bulk.get():
+            attempts = [lite] * (len(GEMINI_RETRY_DELAYS) + 1) + [settings.gemini_model]
     for number, model in enumerate(attempts):
         try:
             return _gemini_once(client, model, parts, system, schema)

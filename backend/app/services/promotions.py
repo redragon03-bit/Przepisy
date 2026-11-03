@@ -15,6 +15,7 @@ się nowe gazetki - pobranie listy to kilka zapytań, AI pracuje tylko przy nowy
 Pobieramy tylko na prywatny użytek, rzadko i bez obciążania stron.
 """
 
+import itertools
 import logging
 import re
 import threading
@@ -47,6 +48,10 @@ LIDL_LIST = "https://www.lidl.pl/c/nasze-gazetki/s10008614"
 LIDL_FLYER = "https://endpoints.leaflets.schwarz/v4/flyer?flyer_identifier={slug}&region_id=0&region_code=0"
 BLIX_STORE = "https://blix.pl/sklep/{store}/"
 
+# Wersja odczytu gazetek: gazetki odczytane starszą wersją czytamy jeszcze raz
+# (2 = z Blixa tylko oferty z ceną)
+PARSER_VERSION = 2
+
 # Najwięcej tyle znaków tekstu z jednej gazetki trafia do AI
 MAX_LEAFLET_TEXT = 40_000
 # Najwięcej tyle nowych gazetek jednej sieci czytamy przy jednym sprawdzeniu
@@ -73,6 +78,8 @@ class RefreshStatus:
     last_check: datetime | None = None
     # Błędy sieci przy ostatnim sprawdzeniu, np. "Biedronka: strona odpowiedziała błędem 403"
     errors: list[str] = field(default_factory=list)
+    # Co teraz czytamy, np. "Biedronka: Od poniedziałku (3/9)"
+    progress: str = ""
 
 
 status = RefreshStatus()
@@ -209,9 +216,33 @@ def blix_text(html: str) -> tuple[str, str]:
             tag.decompose()
         root = soup.find("main") or soup.body or soup
     lines = [line.strip() for line in root.get_text("\n").splitlines()]
-    # Usuwamy puste linie i powtórzenia (ta sama oferta bywa kilka razy)
-    text = "\n".join(dict.fromkeys(line for line in lines if line and line.lower() != "zobacz"))
+    # Usuwamy powtórzenia (ta sama oferta bywa kilka razy)
+    text = "\n".join(dict.fromkeys(priced_offers(lines)))
     return title, text[:MAX_LEAFLET_TEXT]
+
+
+_PRICE = re.compile(r"\d+[,.]\d{2}\s*zł", re.IGNORECASE)
+_ONLY_PRICE = re.compile(r"[-–\s]*\d+[,.]\d{2}\s*zł\S*(\s.*)?", re.IGNORECASE)
+
+
+def priced_offers(lines: list[str]) -> list[str]:
+    """Tylko oferty z ceną: "Masło ekstra 2,49 zł". Cena w osobnej linii dołącza do nazwy przed nią.
+
+    Na Blixie większość ofert ma tylko "Zobacz" bez ceny - takich nie bierzemy
+    (bez ceny promocja nic nie mówi, a AI miałoby 2-3 razy więcej tekstu do przeczytania).
+    """
+    offers, previous = [], ""
+    for line in (line for line in lines if line):
+        if _ONLY_PRICE.fullmatch(line):
+            if previous:
+                offers.append(f"{previous} {line}")
+            previous = ""
+        elif _PRICE.search(line):
+            offers.append(line)
+            previous = ""
+        else:
+            previous = line
+    return offers
 
 
 # --- Sprawdzanie i zapis ---
@@ -246,6 +277,7 @@ def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: 
         db.add(row)
     row.title, row.valid_from, row.valid_to = leaflet.title[:300], leaflet.valid_from, leaflet.valid_to
     row.status, row.error, row.fetched_at = ("failed" if error else "done"), error, datetime.now()
+    row.parser = PARSER_VERSION
     row.promotions = [
         Promotion(name=p.name[:300], ingredient=p.ingredient[:200], price=p.price[:100], note=p.note[:300])
         for p in products
@@ -265,9 +297,11 @@ def refresh() -> None:
             for old in db.query(PromoLeaflet).filter(PromoLeaflet.valid_to < today - timedelta(days=1)):
                 db.delete(old)
             db.commit()
-            done = {row.url for row in db.query(PromoLeaflet).filter_by(status="done")}
+            done = {row.url for row in db.query(PromoLeaflet).filter_by(status="done", parser=PARSER_VERSION)}
+            queues = []
             for store in configured_stores():
                 name = STORE_NAMES.get(store, store.capitalize())
+                status.progress = f"{name}: lista gazetek"
                 try:
                     leaflets = _store_leaflets(store)
                 except FetchError as exc:
@@ -276,22 +310,26 @@ def refresh() -> None:
                     continue
                 new = [lf for lf in leaflets if lf.url not in done and not _expired(lf, today)
                        and not _skip(lf.title, lf.url)]
-                for leaflet in new[:MAX_NEW_LEAFLETS]:
-                    try:
-                        products = _read(leaflet)
-                    except (FetchError, ai.AiError) as exc:
-                        log.warning("Gazetka %s %s: %s", name, leaflet.title, exc)
-                        _save(db, leaflet, [], str(exc))
-                        if isinstance(exc, ai.AiError):
-                            errors.append(f"{name}: {exc}")
-                            return  # AI nie działa (np. limit) - spróbujemy przy następnym sprawdzeniu
-                        continue
-                    _save(db, leaflet, products)
+                queues.append(new[:MAX_NEW_LEAFLETS])
+            # Na zmianę ze wszystkich sieci, żeby jedna z wieloma gazetkami nie blokowała reszty
+            order = [lf for group in itertools.zip_longest(*queues) for lf in group if lf is not None]
+            for number, leaflet in enumerate(order, 1):
+                status.progress = f"{leaflet.store}: {leaflet.title} ({number}/{len(order)})"
+                try:
+                    products = _read(leaflet)
+                except (FetchError, ai.AiError) as exc:
+                    log.warning("Gazetka %s %s: %s", leaflet.store, leaflet.title, exc)
+                    _save(db, leaflet, [], str(exc))
+                    if isinstance(exc, ai.AiError):
+                        errors.append(f"{leaflet.store}: {exc}")
+                        return  # AI nie działa (np. limit) - spróbujemy przy następnym sprawdzeniu
+                    continue
+                _save(db, leaflet, products)
     except Exception as exc:  # błąd w naszym kodzie nie może zatrzymać wątku sprawdzania
         log.exception("Sprawdzanie gazetek")
         errors.append(f"Nieoczekiwany błąd: {exc}")
     finally:
-        status.running, status.last_check, status.errors = False, datetime.now(), errors
+        status.running, status.last_check, status.errors, status.progress = False, datetime.now(), errors, ""
         _lock.release()
 
 

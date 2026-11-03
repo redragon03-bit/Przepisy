@@ -12,7 +12,7 @@ import { useToast } from "../lib/toast";
 // Przepisy z produktami w promocji są na ekranie "Co ugotuję?".
 
 function checkedLabel(status: PromoStatus): string {
-  if (status.running) return "sprawdzam gazetki…";
+  if (status.running) return status.progress ? `czytam: ${status.progress}` : "sprawdzam gazetki…";
   if (!status.last_check) return "";
   const at = new Date(status.last_check);
   const time = at.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });

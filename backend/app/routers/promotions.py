@@ -48,7 +48,7 @@ def get_status(db: Session = Depends(get_db)):
     status = promotions.status
     return PromoStatus(
         stores=[promotions.STORE_NAMES.get(s, s.capitalize()) for s in promotions.configured_stores()],
-        running=status.running, last_check=status.last_check, errors=status.errors,
+        running=status.running, progress=status.progress, last_check=status.last_check, errors=status.errors,
         leaflets=[PromoLeafletOut(store=lf.store, title=lf.title, url=lf.url, valid_from=lf.valid_from,
                                   valid_to=lf.valid_to, status=lf.status, error=lf.error,
                                   count=len(lf.promotions)) for lf in leaflets],

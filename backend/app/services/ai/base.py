@@ -37,6 +37,20 @@ def _timeout() -> float | None:
 
 
 
+# Dużo zapytań w tle (np. czytanie gazetek): najpierw lżejszy model - ma wyższe darmowe
+# limity na minutę i na dzień, a do wypisania produktów z tekstu wystarcza
+_bulk: contextvars.ContextVar[bool] = contextvars.ContextVar("ai_bulk", default=False)
+
+
+@contextmanager
+def bulk():
+    token = _bulk.set(True)
+    try:
+        yield
+    finally:
+        _bulk.reset(token)
+
+
 @contextmanager
 def time_limit(seconds: float = CHAT_SECONDS):
     """Wszystko w środku bloku `with` musi zdążyć w `seconds` sekund (użytkownik czeka)."""
