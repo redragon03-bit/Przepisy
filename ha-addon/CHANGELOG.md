@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.9.4
+
+- Czat zna promocje: gdy pytasz o promocje albo sklep (np. „obiad z mięsa z promocji
+  z Kauflandu”), AI dostaje aktualne jedzenie w promocji z cenami i proponuje z niego dania.
+
 ## 0.9.3
 
 - „Co ugotuję?” → „Z promocji”: przyciski sklepów – schowany sklep znika z plakietek,

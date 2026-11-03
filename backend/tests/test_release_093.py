@@ -1,9 +1,10 @@
-"""0.9.3: wybór sklepu w sekcji "Z promocji" - promocja na składnik w każdym sklepie osobno."""
+"""0.9.3-0.9.4: wybór sklepu w "Z promocji" (promocja na składnik w każdym sklepie) i promocje w czacie."""
 
 from datetime import date, timedelta
 
 from app.database import SessionLocal
 from app.models import PromoLeaflet, Promotion
+from app.services import ai
 
 TODAY = date.today()
 
@@ -26,3 +27,27 @@ def test_promo_recipes_list_each_store(client):
     assert [m["recipe"]["title"] for m in found] == ["Zupa cebulowa"]
     assert {(p["store"], p["label"]) for p in found[0]["promos"]} == {
         ("Biedronka", "Biedronka 1,99 zł"), ("Lidl", "Lidl 1,79 zł")}
+
+
+def ask_chat(client, monkeypatch, text):
+    seen = {}
+
+    def fake_chat(context, conversation):
+        seen["context"] = context
+        return ai.ChatAnswer(text="Schab!", recipe_ids=[], new_recipe=None)
+
+    monkeypatch.setattr(ai, "chat", fake_chat)
+    client.post("/api/chat", json={"messages": [{"role": "user", "text": text}]})
+    return seen["context"]
+
+
+def test_chat_sees_promotions_of_named_store(client, monkeypatch):
+    add_promo("Kaufland", "Schab bez kości", "schab", "13,99 zł/kg")
+    add_promo("Lidl", "Udo z kurczaka", "udo z kurczaka", "9,99 zł/kg")
+    context = ask_chat(client, monkeypatch, "Zaproponuj obiad z mięsa z promocji z Kauflandu")
+    assert "schab: Schab bez kości - Kaufland 13,99 zł/kg" in context
+    assert "Udo z kurczaka" not in context
+    # O promocje bez sklepu - wszystkie sklepy
+    assert "Udo z kurczaka" in ask_chat(client, monkeypatch, "Co dobrego jest w promocji?")
+    # Zwykłe pytanie - bez listy promocji (darmowe limity AI)
+    assert "w promocji" not in ask_chat(client, monkeypatch, "Mam ochotę na coś słodkiego")

@@ -1,11 +1,12 @@
 """Czat z asystentem kulinarnym: "mam ochotę na...", "zaproponuj coś bez ryżu".
 
-AI widzi listę zapisanych przepisów i spiżarnię. Poleca przepisy z bazy,
+AI widzi listę zapisanych przepisów i spiżarnię, a gdy pytasz o promocje - produkty z gazetek. Poleca przepisy z bazy,
 a gdy nic nie pasuje - wymyśla nowy, który można zapisać jednym przyciskiem.
 Rozmowy nie zapisujemy w bazie - frontend odsyła całą historię przy każdej wiadomości.
 """
 
 import json
+import re
 from datetime import date
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,9 +16,10 @@ from ..auth import require_auth
 from ..database import SessionLocal, fold, get_db
 from ..models import Ingredient, Recipe
 from ..schemas import ChatIn, ChatMessage, ChatOut, ChatSaveIn, RecipeOut
-from ..services import ai, importer
+from ..services import ai, importer, promotions
 from ..services.categories import category_names
 from ..services.shopping import pantry_text
+from .promotions import promo_lines
 from .recipes import to_out, to_summary
 
 router = APIRouter(prefix="/api/chat", tags=["czat"], dependencies=[Depends(require_auth)])
@@ -72,6 +74,24 @@ def _relevant(recipes: list[Recipe], messages: list[ChatMessage]) -> list[Recipe
     return sorted(chosen, key=lambda r: r.title)
 
 
+# Słowa, po których czat dostaje listę promocji (bez nich jej nie wysyłamy - darmowe limity AI)
+PROMO_WORDS = re.compile(r"promoc|promk|gazetk|okazj|przecen|\btani|\btaniej")
+
+
+def _promotions(db: Session, messages: list[ChatMessage]) -> list[str]:
+    """Produkty spożywcze w promocji, gdy rozmowa jest o promocjach albo o konkretnym sklepie."""
+    asked = fold(" ".join(m.text for m in messages if m.role == "user"))
+    promos = [p for p in promotions.current(db) if p.ingredient]
+    stores = {p.leaflet.store for p in promos}
+    # Początek nazwy, bo odmiana: "w Biedronce", "z Kauflandu"
+    named = {s for s in stores if fold(s)[:6] in asked}
+    if not promos or not (named or PROMO_WORDS.search(asked)):
+        return []
+    if named:
+        promos = [p for p in promos if p.leaflet.store in named]
+    return ["", "Produkty w promocji w tym tygodniu (z gazetek, z cenami):", promo_lines(promos)]
+
+
 def _context(db: Session, messages: list[ChatMessage]) -> str:
     every = db.query(Recipe).order_by(Recipe.title).all()
     recipes = _relevant(every, messages)
@@ -86,6 +106,7 @@ def _context(db: Session, messages: list[ChatMessage]) -> str:
         "Zaznaczone w spiżarni (lista niepełna): " + pantry_text(db),
         "Podstawowe produkty, które zwykle są w domu: " + (", ".join(_staple_names(db)) or "nie podano"),
         "Kategorie: " + ", ".join(category_names(db)),
+        *_promotions(db, messages),
     ])
 
 

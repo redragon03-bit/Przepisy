@@ -47,6 +47,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     title: "Czat",
     items: [
       "Zapytaj, np. „mam ochotę na coś ostrego bez ryżu” – czat poleci Twoje przepisy albo wymyśli nowy, który zapiszesz jednym stuknięciem.",
+      "Czat zna promocje z gazetek: napisz np. „obiad z mięsa z promocji z Kauflandu”.",
     ],
   },
   {
