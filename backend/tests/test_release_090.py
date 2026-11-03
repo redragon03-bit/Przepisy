@@ -73,9 +73,11 @@ def fake_ai(monkeypatch, texts):
     def read(store, title, text):
         texts.append((store, text))
         if store == "Lidl":
-            return [AiPromotion(name="Uda z kurczaka XXL Rzeźnik", ingredient="udo z kurczaka", price="12,49 zł",
+            return [AiPromotion(name="Uda z kurczaka XXL Rzeźnik", category="jedzenie", ingredient="udo z kurczaka",
+                                price="12,49 zł",
                                 note="")]
-        return [AiPromotion(name="Masło ekstra Polmlek", ingredient="masło", price="2,49 zł", note="z kartą")]
+        return [AiPromotion(name="Masło ekstra Polmlek", category="jedzenie", ingredient="masło", price="2,49 zł",
+                            note="z kartą")]
 
     monkeypatch.setattr(promotions.ai, "promotions_from_text", read)
 

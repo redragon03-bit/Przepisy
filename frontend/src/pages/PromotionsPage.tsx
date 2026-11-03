@@ -6,10 +6,18 @@ import { validLabel } from "../lib/promo";
 import { fold } from "../lib/stepIngredients";
 import { useToast } from "../lib/toast";
 
-// "Promocje": produkty spożywcze w promocji z gazetek, pogrupowane na sklepy.
+// "Promocje": jedzenie, pieluchy i środki czystości w promocji z gazetek, pogrupowane na sklepy.
 // Serwer sam co 12 godzin sprawdza nowe gazetki (Lidl ze strony Lidla, reszta z Blixa)
-// i AI wybiera z nich jedzenie. Stuknięcie produktu: dodanie do listy zakupów.
+// i AI wybiera z nich produkty; nocą czyta też obrazki stron głównych gazetek (ceny).
+// Stuknięcie produktu: dodanie do listy zakupów.
 // Przepisy z produktami w promocji są na ekranie "Co ugotuję?".
+
+// Grupy produktów (kategoria z serwera) i ich przyciski nad listą
+const CATEGORIES: [string, string][] = [
+  ["jedzenie", "🍎 Jedzenie"],
+  ["dziecko", "👶 Dziecko"],
+  ["czystosc", "🧽 Czystość"],
+];
 
 function checkedLabel(status: PromoStatus): string {
   if (status.running) return status.progress ? `czytam: ${status.progress}` : "sprawdzam gazetki…";
@@ -26,6 +34,8 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [q, setQ] = useState("");
   // Sklepy ukryte na liście (stuknięcie w sklep go chowa/pokazuje)
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // Grupy ukryte na liście (np. bez środków czystości)
+  const [hiddenCats, setHiddenCats] = useState<Set<string>>(new Set());
   const [chosen, setChosen] = useState<Promotion | null>(null);
   const { toast, run } = useToast();
 
@@ -60,15 +70,16 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   if (promos === null || status === null) return <p className="muted center">Ładowanie…</p>;
 
   const stores = [...new Set(promos.map((p) => p.store))];
+  const categories = CATEGORIES.filter(([key]) => promos.some((p) => p.category === key));
   const term = fold(q.trim());
   const visible = promos.filter(
-    (p) => !hidden.has(p.store) && (!term || fold(`${p.name} ${p.ingredient}`).includes(term)),
+    (p) => !hidden.has(p.store) && !hiddenCats.has(p.category) && (!term || fold(`${p.name} ${p.ingredient}`).includes(term)),
   );
-  const toggleStore = (store: string) => {
-    const next = new Set(hidden);
-    if (next.has(store)) next.delete(store);
-    else next.add(store);
-    setHidden(next);
+  const toggle = (set: Set<string>, key: string) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
   };
   const failed = status.leaflets.filter((l) => l.status === "failed");
 
@@ -106,13 +117,20 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
           <div className="search-field">
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj, np. masło, kurczak…" />
           </div>
-          {stores.length > 1 && (
+          {(stores.length > 1 || categories.length > 1) && (
             <div className="chips">
-              {stores.map((store) => (
-                <button key={store} type="button" className={`chip ${hidden.has(store) ? "" : "selected"}`} onClick={() => toggleStore(store)}>
-                  {store}
-                </button>
-              ))}
+              {stores.length > 1 &&
+                stores.map((store) => (
+                  <button key={store} type="button" className={`chip ${hidden.has(store) ? "" : "selected"}`} onClick={() => setHidden(toggle(hidden, store))}>
+                    {store}
+                  </button>
+                ))}
+              {categories.length > 1 &&
+                categories.map(([key, name]) => (
+                  <button key={key} type="button" className={`chip ${hiddenCats.has(key) ? "" : "selected"}`} onClick={() => setHiddenCats(toggle(hiddenCats, key))}>
+                    {name}
+                  </button>
+                ))}
             </div>
           )}
           <p className="small">

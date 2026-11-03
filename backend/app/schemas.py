@@ -391,6 +391,8 @@ class PromotionOut(BaseModel):
     id: int
     store: str
     name: str
+    # "jedzenie", "dziecko" (pieluchy) albo "czystosc" (środki czystości)
+    category: str
     ingredient: str
     price: str
     note: str

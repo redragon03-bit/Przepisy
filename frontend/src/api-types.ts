@@ -296,6 +296,7 @@ export interface PromotionOut {
   id: number;
   store: string;
   name: string;
+  category: string;
   ingredient: string;
   price: string;
   note: string;

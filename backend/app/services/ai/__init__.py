@@ -21,6 +21,7 @@ import json
 import logging
 import time
 from dataclasses import asdict
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -423,30 +424,60 @@ def find_duplicate_ingredients(names: list[str]) -> list[list[str]]:
 
 class AiPromotion(BaseModel):
     name: str = Field(description="Nazwa produktu jak w gazetce, z marką i gramaturą, np. 'Masło ekstra Polmlek 200 g'")
+    category: Literal["jedzenie", "dziecko", "czystosc"] = Field(
+        description="'jedzenie' (też napoje bez alkoholu), 'dziecko' (pieluchy, chusteczki dla dzieci) "
+        "albo 'czystosc' (środki czystości, proszki, płyny do naczyń, papier toaletowy, ręczniki papierowe)")
     ingredient: str = Field(
-        description="Nazwa kanoniczna składnika do przepisów: po polsku, małymi literami, mianownik liczby "
-        "pojedynczej, bez marki i gramatury, np. 'masło', 'udo z kurczaka', 'ser żółty', 'jabłko'")
+        description="Tylko dla jedzenia: nazwa kanoniczna składnika do przepisów, po polsku, małymi literami, "
+        "mianownik liczby pojedynczej, bez marki i gramatury, np. 'masło', 'udo z kurczaka', 'ser żółty', "
+        "'jabłko'. Dla pozostałych ''")
     price: str = Field(
         description="Cena promocyjna z jednostką, np. '2,49 zł', '6,49 zł/kg', albo opis, np. '2+1 gratis'")
     note: str = Field(description="Krótki warunek promocji, np. 'z aplikacją', 'przy zakupie 2 szt.', '-30%', albo ''")
 
 
 class AiPromotions(BaseModel):
-    products: list[AiPromotion] = Field(description="Produkty spożywcze w promocji; pusta lista, gdy nie ma żadnego")
+    products: list[AiPromotion] = Field(description="Produkty w promocji; pusta lista, gdy nie ma żadnego")
 
 
-PROMOTIONS_PROMPT = """Dostajesz tekst z gazetki promocyjnej sklepu spożywczego (opisy stron \
-albo listę ofert). Wypisz produkty spożywcze w promocji, które przydają się do gotowania: \
-mięso, ryby, nabiał, warzywa, owoce, pieczywo, makarony, kasze, przyprawy, oleje, mrożonki, \
-słodycze do wypieków itp.
+_PROMOTION_RULES = """Wypisz produkty w promocji z trzech grup:
+- jedzenie: mięso, ryby, nabiał, warzywa, owoce, pieczywo, makarony, kasze, przyprawy, oleje, mrożonki,
+  słodycze, napoje bez alkoholu itp.,
+- dziecko: pieluchy i chusteczki dla dzieci,
+- czystosc: środki czystości, proszki i płyny do prania, płyny do naczyń, tabletki do zmywarki,
+  papier toaletowy, ręczniki papierowe.
 
 Zasady:
-- Pomijaj wszystko, co nie jest jedzeniem (chemia, kosmetyki, ubrania, sprzęt, zabawki), \
-alkohol, papierosy i karmę dla zwierząt.
-- Każdy produkt tylko raz, nawet jeśli powtarza się w tekście.
-- Ceny bywają zapisane w groszach bez przecinka (np. '239' = '2,39 zł'). Gwiazdka przy cenie \
-zwykle oznacza warunek (np. z aplikacją) - wpisz go w note. Gdy ceny nie da się ustalić, wpisz ''.
-- Nie wymyślaj produktów ani cen, których nie ma w tekście."""
+- Pomijaj wszystko inne: kosmetyki, ubrania, sprzęt, zabawki, dekoracje, alkohol, papierosy i karmę dla zwierząt.
+- Każdy produkt tylko raz, nawet jeśli powtarza się w materiale.
+- Tylko produkty z ceną promocyjną. Gwiazdka przy cenie zwykle oznacza warunek
+  (np. z aplikacją albo kartą) - wpisz go w note.
+- Nie wymyślaj produktów ani cen, których nie ma w materiale."""
+
+PROMOTIONS_PROMPT = (
+    "Dostajesz tekst z gazetki promocyjnej sklepu spożywczego (opisy stron albo listę ofert). "
+    + _PROMOTION_RULES
+    + "\n- Ceny bywają zapisane w groszach bez przecinka (np. '239' = '2,39 zł')."
+)
+
+PROMOTIONS_IMAGE_PROMPT = (
+    "Dostajesz zdjęcie jednej strony gazetki promocyjnej sklepu spożywczego. Odczytaj z niego produkty i ceny. "
+    + _PROMOTION_RULES
+    + """
+- Cenę przepisz dokładnie z obrazka (np. '4,99 zł', '9,99 zł/kg'). Gdy przy produkcie są dwie ceny,
+  weź niższą promocyjną, a warunek (np. 'przy zakupie 2 szt.', 'z kartą') wpisz w note.
+- Strona bez takich produktów (okładka, zabawki, sprzęt) - zwróć pustą listę."""
+)
+
+
+def _clean_promotions(found: list[AiPromotion], products: dict[str, AiPromotion]) -> None:
+    for product in found:
+        product.name, product.ingredient = product.name.strip(), product.ingredient.strip().lower()
+        if product.category != "jedzenie":
+            product.ingredient = ""
+        if product.name and product.price.strip():
+            products.setdefault(product.name.lower(), product)
+
 
 # Tyle znaków tekstu gazetki wysyłamy do AI naraz (darmowe limity: Groq ok. 8 tys. tokenów na minutę)
 PROMOTIONS_CHUNK = 6000
@@ -466,16 +497,22 @@ def _chunks(text: str, size: int) -> list[str]:
 
 
 def promotions_from_text(store: str, title: str, text: str) -> list[AiPromotion]:
-    """Produkty spożywcze w promocji z tekstu gazetki. Działa w tle - bez limitu czasu."""
+    """Produkty w promocji z tekstu gazetki. Działa w tle - bez limitu czasu."""
     products: dict[str, AiPromotion] = {}
     for chunk in _chunks(text, PROMOTIONS_CHUNK):
         material = f"Sklep: {store}\nGazetka: {title}\n\nTekst gazetki:\n{chunk}"
         with bulk():
             result = _ask_provider([material], PROMOTIONS_PROMPT, AiPromotions)
-        for product in result.products:
-            product.name, product.ingredient = product.name.strip(), product.ingredient.strip().lower()
-            if product.name and product.ingredient:
-                products.setdefault(product.name.lower(), product)
+        _clean_promotions(result.products, products)
+    return list(products.values())
+
+
+def promotions_from_image(store: str, title: str, jpeg: bytes) -> list[AiPromotion]:
+    """Produkty w promocji ze zdjęcia jednej strony gazetki. Działa w tle - bez limitu czasu."""
+    products: dict[str, AiPromotion] = {}
+    with bulk():
+        result = _ask_provider([f"Sklep: {store}\nGazetka: {title}", jpeg], PROMOTIONS_IMAGE_PROMPT, AiPromotions)
+    _clean_promotions(result.products, products)
     return list(products.values())
 
 

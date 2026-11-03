@@ -84,6 +84,7 @@ ADDED_COLUMNS = [
     ("meal_plan", "servings", "INTEGER"),
     ("meal_plan", "in_shopping", "BOOLEAN NOT NULL DEFAULT 0"),
     ("promo_leaflets", "parser", "INTEGER NOT NULL DEFAULT 1"),
+    ("promotions", "category", "VARCHAR(20) NOT NULL DEFAULT 'jedzenie'"),
 ]
 
 

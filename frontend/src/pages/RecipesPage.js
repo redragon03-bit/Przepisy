@@ -1,0 +1,165 @@
+import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { api } from "../api";
+import IngredientPicker from "../components/IngredientPicker";
+import RecipeCard from "../components/RecipeCard";
+import { isHidden } from "../lib/hidden";
+import { currentRandom, pickRandom } from "../lib/random";
+import { recentRecipeIds } from "../lib/recent";
+import { listRecipes } from "../lib/recipeCache";
+import { usePullToRefresh } from "../lib/usePullToRefresh";
+// Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
+// w przepis i cofnięciu lista wyglądała tak samo jak przed chwilą.
+const STORAGE_KEY = "recipes-list";
+const SORTS = [
+    { value: "new", label: "Najnowsze" },
+    { value: "rating", label: "Ocena" },
+    { value: "time", label: "Czas" },
+    { value: "az", label: "A–Z" },
+];
+// Serwer zwraca od najnowszych, resztę sortujemy na telefonie
+function sorted(recipes, sort) {
+    const list = [...recipes];
+    if (sort === "rating")
+        list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    if (sort === "time")
+        list.sort((a, b) => (a.total_minutes ?? Infinity) - (b.total_minutes ?? Infinity));
+    if (sort === "az")
+        list.sort((a, b) => a.title.localeCompare(b.title, "pl"));
+    return list;
+}
+function loadSaved() {
+    const empty = { q: "", ingredients: [], category: "", favorites: false, showFilters: false, sort: "new", scrollY: 0 };
+    try {
+        return { ...empty, ...JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "{}") };
+    }
+    catch {
+        return empty;
+    }
+}
+function save(list) {
+    try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+    catch {
+        // brak miejsca albo tryb prywatny - trudno, po prostu nie zapamiętamy
+    }
+}
+const MONTH_MS = 30 * 24 * 3600 * 1000;
+// Ulubione albo wysoko ocenione przepisy, których nie gotowano od ponad miesiąca (najdawniej pierwsze)
+function longNotCooked(recipes) {
+    const now = Date.now();
+    const cookedAt = (r) => (r.last_cooked_at ? new Date(r.last_cooked_at).getTime() : 0);
+    return recipes
+        .filter((r) => (r.favorite || (r.rating ?? 0) >= 4) && now - cookedAt(r) > MONTH_MS)
+        .sort((a, b) => cookedAt(a) - cookedAt(b))
+        .slice(0, 10);
+}
+// Jeden rząd miniaturek przewijany w bok
+function RecipeStrip({ title, recipes }) {
+    if (!recipes.length)
+        return null;
+    return (_jsxs(_Fragment, { children: [_jsx("p", { className: "muted small recent-title", children: title }), _jsx("div", { className: "recent", children: recipes.map((r) => (_jsxs(Link, { to: `/przepis/${r.id}`, className: "recent-item", children: [r.thumb_url ? _jsx("img", { src: r.thumb_url, alt: "", loading: "lazy" }) : _jsx("div", { className: "card-placeholder", children: "\uD83C\uDF7D\uFE0F" }), _jsx("span", { children: r.title })] }, r.id))) })] }));
+}
+// Ostatnio pokazana lista, żeby po powrocie od razu ją narysować (bez "Ładowanie…")
+// i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
+let cache = null;
+// Strona główna: lista przepisów z wyszukiwaniem (nazwa, składniki, opis, kroki, notatki), kategorią i składnikami.
+export default function RecipesPage({ aiEnabled }) {
+    const [saved] = useState(loadSaved);
+    const [q, setQ] = useState(saved.q);
+    const searchInput = useRef(null);
+    const [ingredients, setIngredients] = useState(saved.ingredients);
+    const [category, setCategory] = useState(saved.category);
+    const [favorites, setFavorites] = useState(saved.favorites);
+    const [categories, setCategories] = useState(cache?.categories ?? []);
+    const [uncategorized, setUncategorized] = useState(cache?.uncategorized ?? 0);
+    const [total, setTotal] = useState(cache?.total ?? 0);
+    const [showFilters, setShowFilters] = useState(saved.showFilters);
+    const [sort, setSort] = useState(saved.sort);
+    const navigate = useNavigate();
+    const [recipes, setRecipes] = useState(cache?.recipes ?? null);
+    const [images, setImages] = useState(null);
+    useEffect(() => {
+        api.imageSearchStatus().then(setImages);
+    }, []);
+    useEffect(() => {
+        save({ ...loadSaved(), q, ingredients, category, favorites, showFilters, sort });
+    }, [q, ingredients, category, favorites, showFilters, sort]);
+    useEffect(() => {
+        if (recipes)
+            cache = { recipes, categories, uncategorized, total };
+    }, [recipes, categories, uncategorized, total]);
+    // Po powrocie przewijamy tam, gdzie użytkownik był. Pozycję zapisujemy na bieżąco;
+    // nasłuch zdejmujemy w useLayoutEffect, zanim krótsza strona przepisu "zjedzie" w górę.
+    // Gdy listy nie ma jeszcze w pamięci (np. iPhone zamknął apkę w tle), przewijamy po pierwszym wczytaniu.
+    const restored = useRef(false);
+    useLayoutEffect(() => {
+        if (restored.current || !recipes)
+            return;
+        restored.current = true;
+        window.scrollTo(0, saved.scrollY);
+    }, [recipes]);
+    useLayoutEffect(() => {
+        const onScroll = () => save({ ...loadSaved(), scrollY: window.scrollY });
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+    // W trakcie szukania zdjęć co 3 sekundy sprawdzamy postęp; listę pobieramy od nowa
+    // tylko wtedy, gdy przybyło zdjęć (a nie za każdym razem)
+    const found = useRef(images?.found ?? 0);
+    useEffect(() => {
+        if (!images?.running)
+            return;
+        const timer = setInterval(async () => {
+            const status = await api.imageSearchStatus().catch(() => null);
+            if (!status)
+                return;
+            setImages(status);
+            if (status.found !== found.current || !status.running) {
+                found.current = status.found;
+                listRecipes(q, ingredients, category, favorites).then(setRecipes);
+            }
+        }, 3000);
+        return () => clearInterval(timer);
+    }, [images?.running, q, ingredients, category, favorites]);
+    const loadCategories = () => Promise.all([
+        api.listCategories().then(setCategories),
+        api.recipeStats().then((stats) => {
+            setUncategorized(stats.uncategorized);
+            setTotal(stats.total);
+        }),
+    ]);
+    useEffect(() => {
+        loadCategories();
+    }, []);
+    const { pull, refreshing, ready } = usePullToRefresh(() => Promise.all([listRecipes(q, ingredients, category, favorites).then(setRecipes), loadCategories(), api.imageSearchStatus().then(setImages)]));
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            listRecipes(q, ingredients, category, favorites).then(setRecipes);
+        }, 250);
+        return () => clearTimeout(timer);
+    }, [q, ingredients, category, favorites]);
+    // Pokazujemy tylko kategorie, które mają przepisy (plus aktualnie wybraną)
+    const visible = categories.filter((c) => c.recipe_count > 0 || c.name === category);
+    // Przepis usunięty przed chwilą (można go jeszcze przywrócić "Cofnij") nie pojawia się na liście
+    const visibleRecipes = recipes && recipes.filter((r) => !isHidden(r.id));
+    const shown = visibleRecipes && sorted(visibleRecipes, sort);
+    const filtering = Boolean(q || ingredients.length || category || favorites);
+    const recent = !filtering && visibleRecipes ? recentRecipeIds().flatMap((id) => visibleRecipes.filter((r) => r.id === id)) : [];
+    const forgotten = !filtering && visibleRecipes ? longNotCooked(visibleRecipes) : [];
+    const activeFilters = ingredients.length + (sort !== "new" ? 1 : 0);
+    const randomRecipe = () => {
+        if (!shown?.length)
+            return;
+        const random = pickRandom({ pool: shown.map((r) => r.id), seen: [] });
+        navigate(`/przepis/${currentRandom(random)}`, { state: { random } });
+    };
+    return (_jsxs(_Fragment, { children: [(pull > 0 || refreshing) && (_jsx("div", { className: "pull-indicator", style: { height: refreshing ? 40 : pull }, children: refreshing ? "Odświeżam…" : ready ? "↻ Puść, aby odświeżyć" : "↓" })), _jsxs("header", { className: "topbar", children: [_jsx("h1", { children: "Przepisy" }), shown && shown.length > 1 && (_jsx("button", { type: "button", className: "link random-link", onClick: randomRecipe, "aria-label": "Losuj przepis", children: "\uD83C\uDFB2" }))] }), _jsxs("div", { className: "search sticky", children: [_jsxs("div", { className: "search-field", children: [_jsx("input", { ref: searchInput, type: "search", enterKeyHint: "search", value: q, onChange: (e) => setQ(e.target.value), onKeyDown: (e) => e.key === "Enter" && e.currentTarget.blur(), placeholder: "Szukaj w przepisach\u2026" }), q && (_jsx("button", { type: "button", className: "search-clear", "aria-label": "Wyczy\u015B\u0107 wyszukiwanie", 
+                                // Bez tego pole straciłoby fokus i klawiatura na iPhonie by się schowała
+                                onMouseDown: (e) => e.preventDefault(), onClick: () => {
+                                    setQ("");
+                                    searchInput.current?.focus();
+                                }, children: "\u00D7" }))] }), _jsxs("button", { type: "button", className: showFilters || activeFilters ? "active" : "", onClick: () => setShowFilters(!showFilters), children: ["Filtry", activeFilters ? ` ${activeFilters}` : ""] })] }), recipes !== null && (recipes.length > 0 || category || favorites) && (_jsxs("div", { className: "category-bar", children: [_jsxs("button", { type: "button", className: `chip ${category === "" && !favorites ? "selected" : ""}`, onClick: () => { setCategory(""); setFavorites(false); }, children: ["Wszystkie ", _jsx("span", { className: "muted", children: total })] }), _jsx("button", { type: "button", className: `chip ${favorites ? "selected" : ""}`, onClick: () => setFavorites(!favorites), children: "\u2764\uFE0F Ulubione" }), visible.map((c) => (_jsxs("button", { type: "button", className: `chip ${category === c.name ? "selected" : ""}`, onClick: () => setCategory(category === c.name ? "" : c.name), children: [c.name, " ", _jsx("span", { className: "muted", children: c.recipe_count })] }, c.name))), uncategorized > 0 && (_jsxs("button", { type: "button", className: `chip ${category === "-" ? "selected" : ""}`, onClick: () => setCategory(category === "-" ? "" : "-"), children: ["Bez kategorii ", _jsx("span", { className: "muted", children: uncategorized })] }))] })), aiEnabled && images?.running && (_jsxs("p", { className: "muted small", children: ["\uD83D\uDD0D Szukam zdj\u0119\u0107\u2026 ", images.done, "/", images.total, " (znalezione: ", images.found, ")"] })), (showFilters || ingredients.length > 0) && (_jsxs("section", { className: "box", children: [showFilters && (_jsxs(_Fragment, { children: [_jsx("p", { className: "muted small", children: "Sortuj:" }), _jsx("div", { className: "chips", children: SORTS.map((s) => (_jsx("button", { type: "button", className: `chip ${sort === s.value ? "selected" : ""}`, onClick: () => setSort(s.value), children: s.label }, s.value))) })] })), _jsx("p", { className: "muted small", children: "Przepisy, kt\u00F3re maj\u0105 wszystkie te sk\u0142adniki:" }), _jsx(IngredientPicker, { value: ingredients, onChange: setIngredients })] })), _jsx(RecipeStrip, { title: "Ostatnio ogl\u0105dane", recipes: recent }), _jsx(RecipeStrip, { title: "Dawno nie gotowane", recipes: forgotten }), shown === null ? (_jsx("p", { className: "muted center", children: "\u0141adowanie\u2026" })) : shown.length === 0 ? (_jsx("p", { className: "muted center", children: filtering ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”." })) : (_jsx("div", { className: "grid", children: shown.map((r) => (_jsx(RecipeCard, { recipe: r }, r.id))) }))] }));
+}

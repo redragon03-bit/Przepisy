@@ -28,9 +28,10 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..database import SessionLocal, fold
-from ..models import PromoLeaflet, Promotion
+from ..models import PromoLeaflet, PromoPage, Promotion
 from . import ai
-from .fetcher import FetchError, fetch_html, fetch_json
+from .fetcher import FetchError, fetch_html, fetch_image, fetch_json
+from .images import image_for_ai
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ STORE_NAMES = {
     "intermarche": "Intermarché", "lewiatan": "Lewiatan", "polomarket": "POLOmarket", "zabka": "Żabka",
 }
 
-# Gazetki bez jedzenia - nie warto ich czytać (sprawdzamy w tytule i adresie, bez ogonków)
+# Gazetki bez jedzenia i chemii - nie warto ich czytać (sprawdzamy w tytule i adresie, bez ogonków)
 SKIP_WORDS = ("zabaw", "alkohol", "home", "dom-i-ogrod", "ubrani", "odziez", "moda", "toast", "elektronik")
 
 LIDL_LIST = "https://www.lidl.pl/c/nasze-gazetki/s10008614"
@@ -270,6 +271,11 @@ def _expired(leaflet: Leaflet | PromoLeaflet, today: date) -> bool:
     return leaflet.valid_to is not None and leaflet.valid_to < today
 
 
+def _promotion(product: ai.AiPromotion) -> Promotion:
+    return Promotion(name=product.name[:300], category=product.category, ingredient=product.ingredient[:200],
+                     price=product.price[:100], note=product.note[:300])
+
+
 def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: str = "") -> None:
     row = db.query(PromoLeaflet).filter_by(url=leaflet.url).one_or_none()
     if row is None:
@@ -279,8 +285,7 @@ def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: 
     row.status, row.error, row.fetched_at = ("failed" if error else "done"), error, datetime.now()
     row.parser = PARSER_VERSION
     row.promotions = [
-        Promotion(name=p.name[:300], ingredient=p.ingredient[:200], price=p.price[:100], note=p.note[:300])
-        for p in products
+        _promotion(p) for p in products
     ]
     db.commit()
 
@@ -333,6 +338,123 @@ def refresh() -> None:
         _lock.release()
 
 
+# --- Nocne czytanie obrazków stron (ceny, których Blix nie podaje w tekście) ---
+
+# Tyle stron najwyżej czyta AI w ciągu jednej nocy (darmowy limit Gemini jest też dla czatu i importu)
+PAGES_PER_NIGHT = 50
+# Godziny, w których czytamy strony (czas serwera)
+NIGHT_HOURS = range(1, 6)
+# Główne gazetki tygodnia - tylko je czytamy stronami (bez ogonków, jak zwraca fold)
+MAIN_WORDS = ("od poniedzialku", "od czwartku", "oferta tygodnia", "gazetka tygodnia", "aktualna gazetka")
+
+
+def blix_page_images(html: str, leaflet_id: str) -> list[str]:
+    """Adresy obrazków kolejnych stron gazetki z HTML-a Blixa (imgproxy.blix.pl/image/leaflet/<id>/...)."""
+    soup = BeautifulSoup(html, "html.parser")
+    needle = f"/image/leaflet/{leaflet_id}/"
+    found: dict[str, str] = {}
+    for tag in soup.find_all(["img", "source"]):
+        candidates = [tag.get("data-src"), tag.get("src")]
+        srcset = tag.get("srcset") or tag.get("data-srcset") or ""
+        candidates += [part.strip().split(" ")[0] for part in srcset.split(",")]
+        for url in candidates:
+            if url and needle in url:
+                found.setdefault(url.split("?")[0], url)  # ta sama strona w kilku rozmiarach - raz
+                break
+    return list(found.values())
+
+
+def _leaflet_id(url: str) -> str:
+    match = re.search(r"/gazetka/(\d+)", url)
+    return match.group(1) if match else ""
+
+
+def _page_images(leaflet: PromoLeaflet, want: int) -> list[str]:
+    """Obrazki stron gazetki; Blix pokazuje je partiami (?pageNumber=N), więc dociągamy, aż starczy."""
+    leaflet_id = _leaflet_id(leaflet.url)
+    html, _ = fetch_html(leaflet.url)
+    images = blix_page_images(html, leaflet_id)
+    number = 2
+    while len(images) < want and number <= want + 5:
+        try:
+            html, _ = fetch_html(f"{leaflet.url}?pageNumber={number}")
+        except FetchError:
+            break
+        new = [url for url in blix_page_images(html, leaflet_id) if url not in images]
+        if not new:
+            break
+        images += new
+        number += 1
+    return images
+
+
+def _main_leaflets(db: Session, today: date) -> list[list[PromoLeaflet]]:
+    """Główne gazetki tygodnia z Blixa, pogrupowane na sieci (Lidl ma ceny w tekście)."""
+    rows = [lf for lf in db.query(PromoLeaflet).filter_by(status="done")
+            if "blix.pl" in lf.url and not _expired(lf, today) and any(w in fold(lf.title) for w in MAIN_WORDS)]
+    stores: dict[str, list[PromoLeaflet]] = {}
+    for row in sorted(rows, key=lambda lf: lf.valid_from or today):
+        stores.setdefault(row.store, []).append(row)
+    return list(stores.values())
+
+
+def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
+    """Czyta obrazki stron głównych gazetek i dopisuje produkty z cenami. Zwraca liczbę przeczytanych stron."""
+    if not _lock.acquire(blocking=False):
+        return 0
+    status.running, read = True, 0
+    try:
+        today = date.today()
+        with SessionLocal() as db:
+            queues = []
+            for group in _main_leaflets(db, today):
+                for leaflet in group:
+                    done = {page.number for page in leaflet.pages}
+                    try:
+                        images = _page_images(leaflet, len(done) + limit)
+                    except FetchError as exc:
+                        log.warning("Strony gazetki %s %s: %s", leaflet.store, leaflet.title, exc)
+                        continue
+                    queues.append([(leaflet, n, url) for n, url in enumerate(images, 1) if n not in done])
+            # Na zmianę ze wszystkich gazetek, żeby każda sieć dostała część nocnego limitu
+            order = [item for group in itertools.zip_longest(*queues) for item in group if item is not None][:limit]
+            for leaflet, number, url in order:
+                status.progress = f"{leaflet.store}: strona {number} ({read + 1}/{len(order)})"
+                try:
+                    jpeg = image_for_ai(fetch_image(url))
+                except (FetchError, OSError) as exc:
+                    log.warning("Strona %s gazetki %s: %s", number, leaflet.title, exc)
+                    leaflet.pages.append(PromoPage(number=number, status="failed"))
+                    db.commit()
+                    continue
+                try:
+                    products = ai.promotions_from_image(leaflet.store, leaflet.title, jpeg)
+                except ai.AiError as exc:
+                    log.warning("Strona %s gazetki %s: %s - kończę na tę noc", number, leaflet.title, exc)
+                    break  # zwykle wyczerpany limit - dokończymy następnej nocy
+                known = {p.name.lower() for p in leaflet.promotions}
+                leaflet.promotions += [_promotion(p) for p in products if p.name.lower() not in known]
+                leaflet.pages.append(PromoPage(number=number))
+                db.commit()
+                read += 1
+    except Exception:
+        log.exception("Czytanie stron gazetek")
+    finally:
+        status.running, status.progress = False, ""
+        _lock.release()
+    return read
+
+
+def _night_loop() -> None:
+    last_night = None
+    while True:
+        time.sleep(20 * 60)
+        now = datetime.now()
+        if now.hour in NIGHT_HOURS and last_night != now.date() and not status.running:
+            read_pages()
+            last_night = now.date()
+
+
 def refresh_in_background() -> None:
     threading.Thread(target=refresh, name="promotions-refresh", daemon=True).start()
 
@@ -348,6 +470,8 @@ def start_scheduler() -> None:
     settings = get_settings()
     if configured_stores() and settings.ai_enabled and settings.promo_auto_refresh:
         threading.Thread(target=_loop, name="promotions", daemon=True).start()
+        if settings.promo_read_pages:
+            threading.Thread(target=_night_loop, name="promotions-pages", daemon=True).start()
 
 
 # --- Dopasowanie do przepisów ---

@@ -7,6 +7,10 @@
 - Promocje: gazetki czytane na zmianę ze wszystkich sklepów, żeby Kaufland nie czekał
   na wszystkie gazetki Biedronki; na ekranie widać, którą gazetkę AI teraz czyta.
 - Czytanie gazetek najpierw lżejszym modelem Gemini (wyższe darmowe limity).
+- Promocje: nocą (1:00–6:00) AI czyta obrazki stron głównych gazetek tygodnia z Blixa,
+  do 50 stron na noc, i dopisuje produkty z cenami; strony już przeczytane pomija.
+- Promocje: tylko jedzenie, pieluchy i chusteczki dla dzieci oraz środki czystości, zawsze z ceną;
+  przyciski 🍎 Jedzenie / 👶 Dziecko / 🧽 Czystość chowają grupę na liście.
 
 ## 0.9.1
 
