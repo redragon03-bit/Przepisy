@@ -391,6 +391,8 @@ class PromotionOut(BaseModel):
     id: int
     store: str
     name: str
+    # "jedzenie", "dziecko" (pieluchy) albo "czystosc" (środki czystości)
+    category: str
     ingredient: str
     price: str
     note: str
@@ -414,6 +416,8 @@ class PromoStatus(BaseModel):
     # Sieci z ustawień (puste = promocje wyłączone)
     stores: list[str]
     running: bool
+    # Co teraz czytamy, np. "Biedronka: Od poniedziałku (3/9)"
+    progress: str
     last_check: datetime | None
     errors: list[str]
     leaflets: list[PromoLeafletOut]

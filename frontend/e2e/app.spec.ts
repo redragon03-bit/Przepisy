@@ -265,13 +265,17 @@ test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
 
 test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", async ({ page }) => {
   // Gazetki są w internecie i czyta je AI - tutaj podstawiamy gotowe odpowiedzi serwera
-  const promo = (id: number, store: string, name: string, ingredient: string, price: string) => ({
-    id, store, name, ingredient, price, note: "", leaflet: "Gazetka", valid_from: null, valid_to: null,
+  const promo = (id: number, store: string, name: string, ingredient: string, price: string, category = "jedzenie") => ({
+    id, store, name, category, ingredient, price, note: "", leaflet: "Gazetka", valid_from: null, valid_to: null,
   });
-  const promos = [promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"), promo(2, "Lidl", "Mąka pszenna typ 450", "mąka pszenna", "1,79 zł")];
+  const promos = [
+    promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"),
+    promo(2, "Lidl", "Mąka pszenna typ 450", "mąka pszenna", "1,79 zł"),
+    promo(3, "Lidl", "Płyn do naczyń Ludwik", "", "4,99 zł", "czystosc"),
+  ];
   await page.route("**/api/promotions", (route) => route.fulfill({ json: promos }));
   await page.route("**/api/promotions/status", (route) =>
-    route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, last_check: null, errors: [], leaflets: [] } }),
+    route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
   );
   let added = false;
   await page.route("**/api/promotions/1/shopping", (route) => {
@@ -289,6 +293,9 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("maka");
   await expect(page.locator(".promo-row")).toHaveCount(1);
   await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("");
+  // Chowanie środków czystości, potem całego Lidla
+  await page.locator(".chips").getByRole("button", { name: "🧽 Czystość" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(2);
   await page.locator(".chips").getByRole("button", { name: "Lidl" }).click();
   await expect(page.locator(".promo-row")).toHaveCount(1);
 

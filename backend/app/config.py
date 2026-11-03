@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     promo_stores: str = "lidl,biedronka,kaufland"
     # Co 12 godzin sprawdzaj, czy są nowe gazetki
     promo_auto_refresh: bool = True
+    # W nocy AI czyta obrazki stron głównych gazetek z Blixa (ceny, których nie ma w tekście)
+    promo_read_pages: bool = True
     # Raz w tygodniu pobieraj najnowszy yt-dlp (import filmów z TikToka itp.)
     ytdlp_auto_update: bool = True
     # HTTPS (patrz serve.py): certyfikat i klucz, np. z Tailscale. Puste = tylko http.

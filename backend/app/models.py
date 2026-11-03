@@ -8,7 +8,7 @@ to ten sam składnik przy wyszukiwaniu.
 
 from datetime import date, datetime
 
-from sqlalchemy import Column, ForeignKey, String, Table, Text, func
+from sqlalchemy import Column, ForeignKey, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -219,11 +219,28 @@ class PromoLeaflet(Base):
     # "done" albo "failed" (wtedy spróbujemy jeszcze raz przy następnym sprawdzeniu)
     status: Mapped[str] = mapped_column(String(20), default="done")
     error: Mapped[str] = mapped_column(Text, default="")
+    # Wersja odczytu (services/promotions.py: PARSER_VERSION) - starsze czytamy jeszcze raz
+    parser: Mapped[int] = mapped_column(default=1, server_default="1")
     fetched_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     promotions: Mapped[list["Promotion"]] = relationship(
         back_populates="leaflet", cascade="all, delete-orphan", order_by="Promotion.id"
     )
+    pages: Mapped[list["PromoPage"]] = relationship(cascade="all, delete-orphan")
+
+
+class PromoPage(Base):
+    """Strona gazetki, której obrazek AI już przeczytało (nocne uzupełnianie cen)."""
+
+    __tablename__ = "promo_pages"
+    __table_args__ = (UniqueConstraint("leaflet_id", "number"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    leaflet_id: Mapped[int] = mapped_column(ForeignKey("promo_leaflets.id", ondelete="CASCADE"))
+    # Numer strony od 1
+    number: Mapped[int]
+    # "done" albo "failed" (obrazka nie dało się pobrać - nie próbujemy znowu)
+    status: Mapped[str] = mapped_column(String(20), default="done")
 
 
 class Promotion(Base):
@@ -235,6 +252,8 @@ class Promotion(Base):
     leaflet_id: Mapped[int] = mapped_column(ForeignKey("promo_leaflets.id", ondelete="CASCADE"))
     # Nazwa jak w gazetce, np. "Masło ekstra Polmlek 200 g"
     name: Mapped[str] = mapped_column(String(300))
+    # "jedzenie", "dziecko" (pieluchy) albo "czystosc" (środki czystości)
+    category: Mapped[str] = mapped_column(String(20), default="jedzenie", server_default="jedzenie")
     # Nazwa kanoniczna składnika (jak Ingredient.name), np. "masło"
     ingredient: Mapped[str] = mapped_column(String(200), default="")
     # Cena do wyświetlenia, np. "2,49 zł" albo "2+1 gratis"

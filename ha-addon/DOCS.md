@@ -25,6 +25,7 @@
 - **promo_stores** - sieci, z których gazetek aplikacja czyta promocje (ekran „Promocje”), po przecinku,
   np. `lidl,biedronka,kaufland`. Nazwy jak w adresie `blix.pl/sklep/<nazwa>` (np. `auchan`, `dino`,
   `netto`, `carrefour`). Lidl jest czytany z jego strony, pozostałe z Blixa. Puste = bez promocji.
+  Nocą (1:00–6:00) AI czyta też obrazki stron głównych gazetek z Blixa (do 50 stron na noc), żeby dopisać ceny.
   Aplikacja sprawdza nowe gazetki co 12 godzin; AI czyta tylko tekst nowych gazetek (bez obrazków).
 - **certfile**, **keyfile** - pliki certyfikatu HTTPS w folderze `/ssl` (domyślnie `tailscale.crt`
   i `tailscale.key` z dodatku Tailscale). Gdy ich nie ma, aplikacja działa tylko przez http.

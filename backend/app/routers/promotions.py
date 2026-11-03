@@ -30,8 +30,8 @@ log = logging.getLogger(__name__)
 
 def to_out(promo: Promotion) -> PromotionOut:
     leaflet = promo.leaflet
-    return PromotionOut(id=promo.id, store=leaflet.store, name=promo.name, ingredient=promo.ingredient,
-                        price=promo.price, note=promo.note, leaflet=leaflet.title,
+    return PromotionOut(id=promo.id, store=leaflet.store, name=promo.name, category=promo.category,
+                        ingredient=promo.ingredient, price=promo.price, note=promo.note, leaflet=leaflet.title,
                         valid_from=leaflet.valid_from, valid_to=leaflet.valid_to)
 
 
@@ -48,7 +48,7 @@ def get_status(db: Session = Depends(get_db)):
     status = promotions.status
     return PromoStatus(
         stores=[promotions.STORE_NAMES.get(s, s.capitalize()) for s in promotions.configured_stores()],
-        running=status.running, last_check=status.last_check, errors=status.errors,
+        running=status.running, progress=status.progress, last_check=status.last_check, errors=status.errors,
         leaflets=[PromoLeafletOut(store=lf.store, title=lf.title, url=lf.url, valid_from=lf.valid_from,
                                   valid_to=lf.valid_to, status=lf.status, error=lf.error,
                                   count=len(lf.promotions)) for lf in leaflets],
@@ -102,7 +102,9 @@ def add_to_shopping(promo_id: int, db: Session = Depends(get_db)):
     promo = db.get(Promotion, promo_id)
     if promo is None:
         raise HTTPException(404, "Ta promocja już się skończyła")
-    item = ShoppingItem(name=promo.ingredient, text=f"{promo.name} ({promotions.label(promo)})"[:500])
+    # Pieluchy czy płyn do naczyń nie mają składnika - wtedy na liście jest nazwa produktu
+    name = promo.ingredient or promo.name.lower()[:200]
+    item = ShoppingItem(name=name, text=f"{promo.name} ({promotions.label(promo)})"[:500])
     db.add(item)
     db.commit()
     return shopping_out(item, [promo])

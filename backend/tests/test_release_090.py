@@ -45,7 +45,7 @@ BLIX_LEAFLET = f"""<html><body><h1>Gazetka - Od poniedziałku - {dm(-1)}-{dm(4)}
 <section><h2>Wybrane oferty z tej gazetki</h2>
 <div><span>Masło ekstra Polmlek</span> <span>2,49 zł</span></div>
 <div><span>Masło ekstra Polmlek</span> <span>2,49 zł</span></div>
-<a>Zobacz</a>
+<div><span>Olej rzepakowy Wyborny</span> <a>Zobacz</a></div>
 <div><span>Ręcznik papierowy</span> <span>8,99 zł</span></div>
 </section></body></html>"""
 
@@ -73,9 +73,11 @@ def fake_ai(monkeypatch, texts):
     def read(store, title, text):
         texts.append((store, text))
         if store == "Lidl":
-            return [AiPromotion(name="Uda z kurczaka XXL Rzeźnik", ingredient="udo z kurczaka", price="12,49 zł",
+            return [AiPromotion(name="Uda z kurczaka XXL Rzeźnik", category="jedzenie", ingredient="udo z kurczaka",
+                                price="12,49 zł",
                                 note="")]
-        return [AiPromotion(name="Masło ekstra Polmlek", ingredient="masło", price="2,49 zł", note="z kartą")]
+        return [AiPromotion(name="Masło ekstra Polmlek", category="jedzenie", ingredient="masło", price="2,49 zł",
+                            note="z kartą")]
 
     monkeypatch.setattr(promotions.ai, "promotions_from_text", read)
 
@@ -91,8 +93,13 @@ def test_parse_dates():
 def test_blix_text_takes_offer_section_without_repeats():
     title, text = promotions.blix_text(BLIX_LEAFLET)
     assert title.startswith("Gazetka - Od poniedziałku")
-    assert "Menu" not in text and "Zobacz" not in text
-    assert text.count("Masło ekstra Polmlek") == 1 and "8,99 zł" in text
+    # Tylko oferty z ceną, każda raz, z ceną w tej samej linii
+    assert text.splitlines() == ["Masło ekstra Polmlek 2,49 zł", "Ręcznik papierowy 8,99 zł"]
+
+
+def test_priced_offers_joins_price_lines():
+    lines = ["Nagłówek", "Jabłka polskie", "2,99 zł/kg", "Olej Wyborny", "Zobacz", "Mleko UHT 1,99 zł", "-30%"]
+    assert promotions.priced_offers(lines) == ["Jabłka polskie 2,99 zł/kg", "Mleko UHT 1,99 zł"]
 
 
 def test_lidl_leaflet_uses_page_texts():
@@ -112,6 +119,7 @@ def test_refresh_reads_each_leaflet_once(client, monkeypatch):
     promotions.refresh()
     # Lidl bez katalogów; Biedronka bez starej gazetki, zabawek i gazetek innego sklepu
     assert [store for store, _ in texts] == ["Lidl", "Biedronka"]
+    assert "Olej" not in texts[1][1]
     assert not any("katalog" in url or "/gazetka/101/" in url or "/102/" in url for url in calls)
     items = client.get("/api/promotions").json()
     assert {(i["store"], i["ingredient"], i["price"]) for i in items} == {
@@ -215,3 +223,44 @@ def test_chunks_split_on_lines():
     chunks = ai._chunks(text, 500)
     assert all(len(c) <= 520 for c in chunks)
     assert "".join(chunks).count("linia") == 1000
+
+
+def test_leaflets_read_by_older_parser_are_read_again(client, monkeypatch):
+    from app.database import SessionLocal
+    from app.models import PromoLeaflet
+
+    with_promos(client, monkeypatch)
+    with SessionLocal() as db:
+        db.query(PromoLeaflet).filter(PromoLeaflet.store == "Biedronka").update({"parser": 1})
+        db.commit()
+    texts = []
+    fake_ai(monkeypatch, texts)
+    promotions.refresh()
+    assert [store for store, _ in texts] == ["Biedronka"]
+
+
+def test_stores_take_turns(client, monkeypatch):
+    monkeypatch.setattr(promotions.get_settings(), "promo_stores", "biedronka,kaufland")
+    monkeypatch.setattr(promotions, "_store_leaflets", lambda store: [
+        promotions.Leaflet(store=store, title=f"{store} {n}", url=f"https://x/{store}/{n}", text="Mleko 1,99 zł")
+        for n in range(3)])
+    texts = []
+    monkeypatch.setattr(promotions.ai, "promotions_from_text", lambda store, title, text: texts.append(title) or [])
+    promotions.refresh()
+    assert texts == ["biedronka 0", "kaufland 0", "biedronka 1", "kaufland 1", "biedronka 2", "kaufland 2"]
+    assert promotions.status.progress == ""
+
+
+def test_bulk_reading_uses_lighter_gemini_first(monkeypatch):
+    from app.services.ai import gemini
+
+    settings = promotions.get_settings()
+    monkeypatch.setattr(settings, "gemini_api_key", "klucz")
+    monkeypatch.setattr(settings, "gemini_model", "glowny")
+    monkeypatch.setattr(settings, "gemini_fallback_model", "lekki")
+    used = []
+    monkeypatch.setattr(gemini, "_gemini_once", lambda client, model, *args: used.append(model) or "ok")
+    gemini._ask_gemini(["tekst"], "polecenie", AiPromotion)
+    with ai.bulk():
+        gemini._ask_gemini(["tekst"], "polecenie", AiPromotion)
+    assert used == ["glowny", "lekki"]

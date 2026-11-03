@@ -286,6 +286,7 @@ export interface PromoRecipe {
 export interface PromoStatus {
   stores: string[];
   running: boolean;
+  progress: string;
   last_check: string | null;
   errors: string[];
   leaflets: PromoLeafletOut[];
@@ -295,6 +296,7 @@ export interface PromotionOut {
   id: number;
   store: string;
   name: string;
+  category: string;
   ingredient: string;
   price: string;
   note: string;
