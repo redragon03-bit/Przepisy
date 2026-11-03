@@ -425,6 +425,7 @@ class PromoStatus(BaseModel):
 
 class PromoHit(BaseModel):
     ingredient: str
+    store: str
     label: str = Field(description="Np. 'Lidl 2,49 zł'")
 
 

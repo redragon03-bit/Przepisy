@@ -175,8 +175,8 @@ def test_recipes_with_promoted_ingredients(client, monkeypatch):
     make_recipe(client, "Sałatka", ["pomidor"])
     found = client.get("/api/promotions/recipes").json()
     assert [m["recipe"]["title"] for m in found] == ["Udka pieczone", "Ciasto"]
-    assert found[0]["promos"] == [{"ingredient": "udo z kurczaka", "label": "Lidl 12,49 zł"},
-                                  {"ingredient": "masło", "label": "Biedronka 2,49 zł"}]
+    assert found[0]["promos"] == [{"ingredient": "udo z kurczaka", "store": "Lidl", "label": "Lidl 12,49 zł"},
+                                  {"ingredient": "masło", "store": "Biedronka", "label": "Biedronka 2,49 zł"}]
 
 
 def test_promo_to_shopping_list_and_badge(client, monkeypatch):

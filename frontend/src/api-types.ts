@@ -250,6 +250,7 @@ export interface PlanSuggestionOut {
 
 export interface PromoHit {
   ingredient: string;
+  store: string;
   // Np. 'Lidl 2,49 zł'
   label: string;
 }

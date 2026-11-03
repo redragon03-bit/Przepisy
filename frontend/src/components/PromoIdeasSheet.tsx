@@ -6,8 +6,9 @@ import Sheet from "./Sheet";
 
 // Nowe obiady od AI z produktów w promocji (np. "z Lidla", "szybko, bez ryb").
 // AI pracuje w tle - co 2 sekundy pytamy o wynik. Spodobany przepis zapisujesz jednym przyciskiem.
-export default function PromoIdeasSheet({ stores, onClose }: { stores: string[]; onClose: () => void }) {
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
+// `initial`: sklepy wybrane już w sekcji "Z promocji" (pusto = wszystkie)
+export default function PromoIdeasSheet({ stores, initial = [], onClose }: { stores: string[]; initial?: string[]; onClose: () => void }) {
+  const [chosen, setChosen] = useState<Set<string>>(new Set(initial));
   const [wishes, setWishes] = useState("");
   const [ideas, setIdeas] = useState<PromoIdeas | null>(null);
   const { run } = useToast();
