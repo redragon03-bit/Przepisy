@@ -267,6 +267,10 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   // Gazetki są w internecie i czyta je AI - tutaj podstawiamy gotowe odpowiedzi serwera
   const promo = (id: number, store: string, name: string, ingredient: string, price: string, category = "jedzenie") => ({
     id, store, name, category, ingredient, price, note: "", leaflet: "Gazetka", valid_from: null, valid_to: null,
+    discount: id === 1 ? 30 : 0,
+    aisle: category === "czystosc" ? "Chemia i dom" : id === 1 ? "Nabiał i jajka" : "Sypkie i makarony",
+    aisle_order: category === "czystosc" ? 11 : id === 1 ? 4 : 7,
+    image_url: "",
   });
   const promos = [
     promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"),
@@ -288,6 +292,9 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   await page.getByRole("link", { name: "Promocje" }).click();
   await expect(page.getByRole("heading", { name: "Biedronka" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Lidl" })).toBeVisible();
+  // Działy sklepu i rabat w %
+  await expect(page.getByRole("heading", { name: "Nabiał i jajka" })).toBeVisible();
+  await expect(page.locator(".promo-discount")).toHaveText("-30%");
 
   // Szukanie i chowanie sklepu
   await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("maka");

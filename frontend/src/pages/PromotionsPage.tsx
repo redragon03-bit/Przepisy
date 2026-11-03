@@ -19,6 +19,37 @@ const CATEGORIES: [string, string][] = [
   ["czystosc", "🧽 Czystość"],
 ];
 
+// Ikonka działu, gdy nie ma wycinka produktu z gazetki
+const AISLE_ICONS: Record<string, string> = {
+  Napoje: "🧃",
+  "Przyprawy i sosy": "🧂",
+  "Warzywa i owoce": "🍎",
+  Pieczywo: "🥖",
+  "Nabiał i jajka": "🧀",
+  "Mięso i ryby": "🥩",
+  Mrożonki: "🧊",
+  "Sypkie i makarony": "🍝",
+  "Puszki i słoiki": "🥫",
+  "Słodycze i bakalie": "🍫",
+  Tłuszcze: "🫒",
+  "Chemia i dom": "🧽",
+  "Dla dziecka": "👶",
+};
+
+// Działy w kolejności jak w sklepie; w dziale największe rabaty na górze
+function byAisle(items: Promotion[]): [string, Promotion[]][] {
+  const sorted = [...items].sort(
+    (a, b) => a.aisle_order - b.aisle_order || b.discount - a.discount || a.name.localeCompare(b.name, "pl"),
+  );
+  const groups: [string, Promotion[]][] = [];
+  for (const p of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && last[0] === p.aisle) last[1].push(p);
+    else groups.push([p.aisle, [p]]);
+  }
+  return groups;
+}
+
 function checkedLabel(status: PromoStatus): string {
   if (status.running) return status.progress ? `czytam: ${status.progress}` : "sprawdzam gazetki…";
   if (!status.last_check) return "";
@@ -144,23 +175,38 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
               return (
                 <section key={store} className="promo-store">
                   <h2>{store}</h2>
-                  <ul className="promo-list">
-                    {items.map((p) => (
-                      <li key={p.id}>
-                        <button type="button" className="promo-row" onClick={() => setChosen(p)}>
-                          <span className="grow">
+                  {byAisle(items).map(([aisle, group]) => (
+                    <div key={aisle}>
+                      <h3 className="promo-aisle muted small">{aisle}</h3>
+                      <ul className="promo-list">
+                        {group.map((p) => (
+                          <li key={p.id}>
+                            <button type="button" className="promo-row" onClick={() => setChosen(p)}>
+                              {p.image_url ? (
+                                <img className="promo-thumb" src={p.image_url} alt="" loading="lazy" />
+                              ) : (
+                                <span className="promo-thumb promo-icon" aria-hidden="true">
+                                  {AISLE_ICONS[p.aisle] ?? "🛒"}
+                                </span>
+                              )}
+                              <span className="grow">
                             {p.name}
                             {(p.note || p.valid_to || p.valid_from) && (
                               <span className="muted small promo-meta">
                                 {[p.note, validLabel(p.valid_from, p.valid_to)].filter(Boolean).join(" · ")}
                               </span>
                             )}
-                          </span>
-                          <strong className="promo-price">{p.price}</strong>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                              </span>
+                              <span className="promo-price">
+                                <strong>{p.price}</strong>
+                                {p.discount > 0 && <span className="promo-discount">-{p.discount}%</span>}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
                 </section>
               );
             })}
@@ -183,8 +229,10 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
 
       {chosen && (
         <Sheet title={chosen.name} onClose={() => setChosen(null)} list>
+          {chosen.image_url && <img className="promo-photo" src={chosen.image_url} alt="" />}
           <p className="small">
-            <strong>{chosen.price}</strong> · {chosen.store}
+            <strong>{chosen.price}</strong>
+            {chosen.discount > 0 && ` (-${chosen.discount}%)`} · {chosen.store}
             {chosen.note && ` · ${chosen.note}`}
             {validLabel(chosen.valid_from, chosen.valid_to) && ` · ${validLabel(chosen.valid_from, chosen.valid_to)}`}
           </p>

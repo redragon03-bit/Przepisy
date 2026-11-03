@@ -128,6 +128,11 @@ class Settings(BaseSettings):
         return self.data_dir / "thumbs"
 
     @property
+    def promo_dir(self) -> Path:
+        """Wycinki produktów z gazetek (znikają razem z gazetką, nie ma ich w kopii zapasowej)."""
+        return self.data_dir / "promo"
+
+    @property
     def uploads_dir(self) -> Path:
         return self.data_dir / "uploads"
 

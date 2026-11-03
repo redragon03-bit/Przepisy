@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.9.5
+
+- Promocje pogrupowane w działy jak w sklepie (warzywa, pieczywo, mięso…), w dziale największe
+  rabaty na górze; rabat w % widać przy cenie.
+- Miniaturka przy produkcie: wycinek z gazetki (AI zaznacza produkt na stronie czytanej nocą),
+  a gdy go nie ma – ikonka działu.
+- Bez ceny doklejonej do nazwy i bez powtórzeń tego samego produktu z dwóch gazetek.
+
 ## 0.9.4
 
 - Czat zna promocje: gdy pytasz o promocje albo sklep (np. „obiad z mięsa z promocji

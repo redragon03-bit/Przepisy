@@ -437,7 +437,11 @@ class AiPromotion(BaseModel):
         "'jabłko'. Dla pozostałych ''")
     price: str = Field(
         description="Cena promocyjna z jednostką, np. '2,49 zł', '6,49 zł/kg', albo opis, np. '2+1 gratis'")
-    note: str = Field(description="Krótki warunek promocji, np. 'z aplikacją', 'przy zakupie 2 szt.', '-30%', albo ''")
+    note: str = Field(description="Krótki warunek promocji, np. 'z aplikacją', 'przy zakupie 2 szt.', albo ''")
+    discount: int = Field(default=0, description="Rabat w procentach, np. 30 dla '-30%'. Gdy jest cena przed "
+                          "obniżką, policz go z obu cen. 0, gdy nie wiadomo")
+    box: list[int] = Field(default=[], description="Tylko dla zdjęcia strony: prostokąt z produktem "
+                           "[ymin, xmin, ymax, xmax] w skali 0-1000; [] dla tekstu")
 
 
 class AiPromotions(BaseModel):
@@ -456,6 +460,7 @@ Zasady:
 - Każdy produkt tylko raz, nawet jeśli powtarza się w materiale.
 - Tylko produkty z ceną promocyjną. Gwiazdka przy cenie zwykle oznacza warunek
   (np. z aplikacją albo kartą) - wpisz go w note.
+- Nazwa bez ceny (cena tylko w price). Rabat w % (np. '-30%') wpisz w discount, nie w note.
 - Nie wymyślaj produktów ani cen, których nie ma w materiale."""
 
 PROMOTIONS_PROMPT = (
@@ -470,6 +475,7 @@ PROMOTIONS_IMAGE_PROMPT = (
     + """
 - Cenę przepisz dokładnie z obrazka (np. '4,99 zł', '9,99 zł/kg'). Gdy przy produkcie są dwie ceny,
   weź niższą promocyjną, a warunek (np. 'przy zakupie 2 szt.', 'z kartą') wpisz w note.
+- W box zaznacz zdjęcie produktu na stronie (bez ceny i opisu, jeśli się da).
 - Strona bez takich produktów (okładka, zabawki, sprzęt) - zwróć pustą listę."""
 )
 

@@ -4,9 +4,11 @@ import itertools
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 
 from ..auth import require_auth
+from ..config import get_settings
 from ..database import SessionLocal, get_db
 from ..models import PromoLeaflet, Promotion, Recipe, RecipeIngredient, ShoppingItem
 from ..schemas import (
@@ -20,6 +22,7 @@ from ..schemas import (
     ShoppingItemOut,
 )
 from ..services import ai, promotions
+from ..services.aisles import OTHER, aisle, aisle_order
 from ..services.categories import category_names
 from .recipes import to_summary
 from .shopping import to_out as shopping_out
@@ -28,17 +31,52 @@ router = APIRouter(prefix="/api/promotions", tags=["promocje"], dependencies=[De
 log = logging.getLogger(__name__)
 
 
+# Działy jak na liście zakupów; pieluchy osobno, zaraz po chemii
+CHILD = "Dla dziecka"
+AISLES = [name for name in aisle_order() if name != OTHER] + [CHILD, OTHER]
+AISLE_ORDER = {name: index for index, name in enumerate(AISLES)}
+
+
+def promo_aisle(promo: Promotion) -> str:
+    if promo.category == "dziecko":
+        return CHILD
+    if promo.category == "czystosc":
+        return "Chemia i dom"
+    found = aisle(promo.ingredient) if promo.ingredient else OTHER
+    return found if found != OTHER else aisle(promo.name)
+
+
 def to_out(promo: Promotion) -> PromotionOut:
     leaflet = promo.leaflet
-    return PromotionOut(id=promo.id, store=leaflet.store, name=promo.name, category=promo.category,
-                        ingredient=promo.ingredient, price=promo.price, note=promo.note, leaflet=leaflet.title,
+    name = promo_aisle(promo)
+    return PromotionOut(id=promo.id, store=leaflet.store, name=promotions.clean_name(promo.name),
+                        category=promo.category, ingredient=promo.ingredient, price=promo.price, note=promo.note,
+                        discount=promotions.discount_of(promo), aisle=name, aisle_order=AISLE_ORDER[name],
+                        image_url=f"/api/promotions/{promo.id}/image" if promo.image else "", leaflet=leaflet.title,
                         valid_from=leaflet.valid_from, valid_to=leaflet.valid_to)
 
 
 @router.get("", response_model=list[PromotionOut])
 def list_promotions(db: Session = Depends(get_db)):
-    """Produkty w promocji z gazetek, które jeszcze obowiązują."""
-    return [to_out(p) for p in promotions.current(db)]
+    """Produkty w promocji z gazetek, które jeszcze obowiązują (ten sam produkt w sklepie raz)."""
+    seen, found = set(), []
+    for promo in promotions.current(db):
+        out = to_out(promo)
+        key = (out.store, out.name.lower(), out.price)
+        if key not in seen:
+            seen.add(key)
+            found.append(out)
+    return found
+
+
+@router.get("/{promo_id}/image")
+def promo_image(promo_id: int, db: Session = Depends(get_db)):
+    """Wycinek produktu ze strony gazetki."""
+    promo = db.get(Promotion, promo_id)
+    path = get_settings().promo_dir / promo.image if promo and promo.image else None
+    if path is None or not path.exists():
+        raise HTTPException(404, "Brak zdjęcia")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "max-age=604800"})
 
 
 @router.get("/status", response_model=PromoStatus)

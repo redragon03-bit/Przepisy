@@ -15,7 +15,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "🏷️",
     title: "Promocje",
     items: [
-      "Więcej → Promocje: jedzenie, pieluchy i środki czystości w promocji z gazetek Lidla, Biedronki i Kauflandu, pogrupowane na sklepy. Przyciski sklepów i grup (🍎 / 👶 / 🧽) chowają je na liście. Stuknij produkt, żeby dodać go do listy zakupów.",
+      "Więcej → Promocje: jedzenie, pieluchy i środki czystości w promocji z gazetek Lidla, Biedronki i Kauflandu, pogrupowane na sklepy. Przyciski sklepów i grup (🍎 / 👶 / 🧽) chowają je na liście. Produkty są w działach jak w sklepie, największe rabaty na górze; zdjęcie to wycinek z gazetki (gdy AI przeczytało stronę), inaczej ikonka działu. Stuknij produkt, żeby dodać go do listy zakupów.",
       "Aplikacja sama sprawdza nowe gazetki co 12 godzin, a AI czyta tylko te, których jeszcze nie było. Nocą (1:00–6:00) czyta też obrazki stron głównych gazetek, do 50 stron na noc, żeby uzupełnić ceny. Sklepy zmienisz w opcjach dodatku (promo_stores).",
       "W „Co ugotuję?” sekcja „Z promocji” pokazuje Twoje przepisy ze składnikami w promocji, a „✨ Nowe pomysły z promocji” prosi AI o 3 nowe obiady.",
       "Przy składnikach przepisu i na liście zakupów plakietka 🏷️ pokazuje, gdzie produkt jest teraz taniej.",
