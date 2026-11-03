@@ -308,11 +308,16 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   const naleśniki = await addRecipe("Naleśniki", [], []);
   await page.route("**/api/promotions/recipes", async (route) => {
     const recipe = await (await server.get(`/api/recipes/${naleśniki.id}`)).json();
-    return route.fulfill({ json: [{ recipe, promos: [{ ingredient: "mleko", label: "Biedronka 1,99 zł" }] }] });
+    return route.fulfill({ json: [{ recipe, promos: [{ ingredient: "mleko", store: "Biedronka", label: "Biedronka 1,99 zł" }] }] });
   });
   await page.getByRole("link", { name: "Co ugotuję?" }).click();
   await expect(page.getByRole("heading", { name: "🏷️ Z promocji" })).toBeVisible();
   await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toBeVisible();
+  // Wybór sklepu w sekcji: bez Biedronki przepis znika
+  const promoBox = page.locator("section.box", { has: page.getByRole("heading", { name: "🏷️ Z promocji" }) });
+  await promoBox.getByRole("button", { name: "Biedronka" }).click();
+  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toHaveCount(0);
+  await promoBox.getByRole("button", { name: "Biedronka" }).click();
 
   // Plakietka przy składniku w przepisie
   await page.getByText("🏷️ mleko (Biedronka 1,99 zł)").click();

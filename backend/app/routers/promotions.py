@@ -80,19 +80,26 @@ def promo_recipes(db: Session = Depends(get_db)):
     recipes = db.query(Recipe).filter(Recipe.variant_of.is_(None)).options(
         selectinload(Recipe.ingredients).selectinload(RecipeIngredient.ingredient)
     ).all()
+    stores: dict[str, list[Promotion]] = {}
+    for promo in promos:
+        stores.setdefault(promo.leaflet.store, []).append(promo)
     found = []
     for recipe in recipes:
-        hits = {}
+        # Jedna promocja na składnik w każdym sklepie - ekran może pokazać tylko wybrane sklepy
+        hits, names = [], set()
         for ri in recipe.ingredients:
             name = ri.ingredient.name
-            if ri.ingredient.is_staple or name in hits:
+            if ri.ingredient.is_staple or name in names:
                 continue
-            promo = promotions.find_for(name, promos)
-            if promo is not None:
-                hits[name] = PromoHit(ingredient=name, label=promotions.label(promo))
+            for store, store_promos in stores.items():
+                promo = promotions.find_for(name, store_promos)
+                if promo is not None:
+                    names.add(name)
+                    hits.append(PromoHit(ingredient=name, store=store, label=promotions.label(promo)))
         if hits:
-            found.append(PromoRecipe(recipe=to_summary(recipe), promos=list(hits.values())))
-    found.sort(key=lambda m: (-len(m.promos), not m.recipe.favorite, -(m.recipe.rating or 0), m.recipe.title.lower()))
+            found.append(PromoRecipe(recipe=to_summary(recipe), promos=hits))
+    found.sort(key=lambda m: (-len({p.ingredient for p in m.promos}), not m.recipe.favorite,
+                              -(m.recipe.rating or 0), m.recipe.title.lower()))
     return found[:MAX_PROMO_RECIPES]
 
 

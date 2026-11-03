@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.9.3
+
+- „Co ugotuję?” → „Z promocji”: przyciski sklepów – schowany sklep znika z plakietek,
+  a przepis tylko z jego promocjami znika z sekcji; „Nowe pomysły” zaczynają od wybranych sklepów.
+
 ## 0.9.2
 
 - Promocje: z Blixa tylko oferty z ceną (krótsza lista, 2–3 razy mniej pracy dla AI);

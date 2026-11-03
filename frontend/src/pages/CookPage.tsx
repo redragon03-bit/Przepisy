@@ -52,6 +52,8 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
   const [recipes, setRecipes] = useState<PromoRecipe[] | null>(null);
   const [all, setAll] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
+  // Sklepy schowane w tej sekcji (stuknięcie w sklep go chowa/pokazuje)
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api.promoRecipes().then(setRecipes, () => setRecipes([]));
@@ -59,15 +61,34 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
 
   if (!promos.length || recipes === null) return null;
   const stores = [...new Set(promos.map((p) => p.store))];
-  const shown = all ? recipes : recipes.slice(0, PROMO_PREVIEW);
+  const toggleStore = (store: string) => {
+    const next = new Set(hidden);
+    if (next.has(store)) next.delete(store);
+    else next.add(store);
+    setHidden(next);
+  };
+  // Tylko promocje z widocznych sklepów; przepis bez nich znika z sekcji
+  const visible = recipes
+    .map((m) => ({ ...m, promos: m.promos.filter((p) => !hidden.has(p.store)) }))
+    .filter((m) => m.promos.length > 0);
+  const shown = all ? visible : visible.slice(0, PROMO_PREVIEW);
   return (
     <section className="box">
       <h2>🏷️ Z promocji</h2>
       <p className="muted small">
-        Twoje przepisy ze składnikami, które są teraz w promocji ({stores.join(", ")}). Wszystkie produkty: <Link to="/promocje">Promocje</Link>.
+        Twoje przepisy ze składnikami, które są teraz w promocji. Wszystkie produkty: <Link to="/promocje">Promocje</Link>.
       </p>
-      {recipes.length === 0 ? (
-        <p className="muted small">Żaden z Twoich przepisów nie ma teraz składników w promocji.</p>
+      {stores.length > 1 && (
+        <div className="chips">
+          {stores.map((store) => (
+            <button key={store} type="button" className={`chip ${hidden.has(store) ? "" : "selected"}`} onClick={() => toggleStore(store)}>
+              {store}
+            </button>
+          ))}
+        </div>
+      )}
+      {visible.length === 0 ? (
+        <p className="muted small">Żaden z Twoich przepisów nie ma teraz składników w promocji{hidden.size ? " w wybranych sklepach" : ""}.</p>
       ) : (
         <div className="grid">
           {shown.map((m) => (
@@ -77,9 +98,9 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
           ))}
         </div>
       )}
-      {recipes.length > PROMO_PREVIEW && (
+      {visible.length > PROMO_PREVIEW && (
         <button type="button" className="link small" onClick={() => setAll(!all)}>
-          {all ? "Pokaż mniej" : `Pokaż wszystkie (${recipes.length})`}
+          {all ? "Pokaż mniej" : `Pokaż wszystkie (${visible.length})`}
         </button>
       )}
       {aiEnabled && (
@@ -87,7 +108,7 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
           ✨ Nowe pomysły z promocji
         </button>
       )}
-      {ideasOpen && <PromoIdeasSheet stores={stores} onClose={() => setIdeasOpen(false)} />}
+      {ideasOpen && <PromoIdeasSheet stores={stores} initial={hidden.size ? stores.filter((s) => !hidden.has(s)) : []} onClose={() => setIdeasOpen(false)} />}
     </section>
   );
 }
