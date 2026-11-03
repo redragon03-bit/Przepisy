@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
 name: Przepisy
-version: "0.8.3"
+version: "0.9.0"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -45,6 +45,7 @@ options:
   claude_model: claude-sonnet-5-5
   ha_todo_entity: todo.shopping_list
   ha_notify: ""
+  promo_stores: lidl,biedronka,kaufland
   certfile: tailscale.crt
   keyfile: tailscale.key
 schema:
@@ -61,5 +62,6 @@ schema:
   claude_model: str
   ha_todo_entity: str?
   ha_notify: str?
+  promo_stores: str?
   certfile: str?
   keyfile: str?

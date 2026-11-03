@@ -22,6 +22,10 @@
 - **ha_notify** - powiadomienie na telefon, gdy minutnik się skończy (nawet przy zgaszonym ekranie).
   Wpisz usługę z aplikacji Home Assistant na iPhonie, np. `mobile_app_iphone`
   (Narzędzia deweloperskie → Akcje → wpisz „notify.”). Kilka - po przecinku. Puste = wyłączone.
+- **promo_stores** - sieci, z których gazetek aplikacja czyta promocje (ekran „Promocje”), po przecinku,
+  np. `lidl,biedronka,kaufland`. Nazwy jak w adresie `blix.pl/sklep/<nazwa>` (np. `auchan`, `dino`,
+  `netto`, `carrefour`). Lidl jest czytany z jego strony, pozostałe z Blixa. Puste = bez promocji.
+  Aplikacja sprawdza nowe gazetki co 12 godzin; AI czyta tylko tekst nowych gazetek (bez obrazków).
 - **certfile**, **keyfile** - pliki certyfikatu HTTPS w folderze `/ssl` (domyślnie `tailscale.crt`
   i `tailscale.key` z dodatku Tailscale). Gdy ich nie ma, aplikacja działa tylko przez http.
   Jak włączyć HTTPS: README, rozdział „HTTPS”.

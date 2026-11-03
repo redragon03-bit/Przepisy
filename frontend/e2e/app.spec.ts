@@ -262,3 +262,52 @@ test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
   const items = (await (await server.get("/api/shopping")).json()) as { text: string }[];
   expect(items.map((i) => i.text)).toContain("1000 g wołowiny");
 });
+
+test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", async ({ page }) => {
+  // Gazetki są w internecie i czyta je AI - tutaj podstawiamy gotowe odpowiedzi serwera
+  const promo = (id: number, store: string, name: string, ingredient: string, price: string) => ({
+    id, store, name, ingredient, price, note: "", leaflet: "Gazetka", valid_from: null, valid_to: null,
+  });
+  const promos = [promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"), promo(2, "Lidl", "Mąka pszenna typ 450", "mąka pszenna", "1,79 zł")];
+  await page.route("**/api/promotions", (route) => route.fulfill({ json: promos }));
+  await page.route("**/api/promotions/status", (route) =>
+    route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, last_check: null, errors: [], leaflets: [] } }),
+  );
+  let added = false;
+  await page.route("**/api/promotions/1/shopping", (route) => {
+    added = true;
+    return route.fulfill({ status: 201, json: { id: 999, text: "Mleko UHT 3,2% (Biedronka 1,99 zł)", recipes: "", checked: false, aisle: "Inne", aisle_order: 99, in_ha: false, promo: "Biedronka 1,99 zł" } });
+  });
+
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Promocje" }).click();
+  await expect(page.getByRole("heading", { name: "Biedronka" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lidl" })).toBeVisible();
+
+  // Szukanie i chowanie sklepu
+  await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("maka");
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+  await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("");
+  await page.locator(".chips").getByRole("button", { name: "Lidl" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+
+  await page.locator(".promo-row").first().click();
+  await page.getByRole("button", { name: "🛒 Dodaj do listy zakupów" }).click();
+  await expect(page.getByText("Dodano do zakupów: Mleko UHT 3,2%")).toBeVisible();
+  expect(added).toBeTruthy();
+
+  // Przepisy z promocji (prawdziwe dopasowanie na serwerze nie widzi podstawionych promocji - też podstawiamy)
+  const naleśniki = await addRecipe("Naleśniki", [], []);
+  await page.route("**/api/promotions/recipes", async (route) => {
+    const recipe = await (await server.get(`/api/recipes/${naleśniki.id}`)).json();
+    return route.fulfill({ json: [{ recipe, promos: [{ ingredient: "mleko", label: "Biedronka 1,99 zł" }] }] });
+  });
+  await page.getByRole("link", { name: "Co ugotuję?" }).click();
+  await expect(page.getByRole("heading", { name: "🏷️ Z promocji" })).toBeVisible();
+  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toBeVisible();
+
+  // Plakietka przy składniku w przepisie
+  await page.getByText("🏷️ mleko (Biedronka 1,99 zł)").click();
+  await expect(page.getByRole("heading", { name: "Naleśniki" })).toBeVisible();
+});

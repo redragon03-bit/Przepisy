@@ -65,3 +65,11 @@ def fetch_image(url: str) -> bytes:
     if not response.headers.get("content-type", "").startswith("image/"):
         raise FetchError("To nie jest obrazek")
     return response.content
+
+
+def fetch_json(url: str) -> object:
+    response = _get(url, MAX_PAGE_BYTES)
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise FetchError("Strona nie zwróciła danych JSON") from exc

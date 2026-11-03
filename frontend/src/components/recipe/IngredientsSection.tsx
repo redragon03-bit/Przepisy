@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Recipe } from "../../api";
 import { useCheckedSet } from "../../lib/progress";
+import { promoLabel } from "../../lib/promo";
+import { usePromotions } from "../../lib/usePromotions";
 import { formatAmount, scaleText } from "../../lib/scale";
 import { useLongPress } from "../../lib/useLongPress";
 import SubstituteSheet from "./SubstituteSheet";
@@ -21,6 +23,8 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   const [checked, toggle] = useCheckedSet(`checked-ingredients-${recipe.id}`);
   const [showOriginal, setShowOriginal] = useState(false);
   const [substitute, setSubstitute] = useState<string | null>(null);
+  // Plakietka "🏷️ Lidl 2,49 zł" przy składnikach, które są teraz w promocji
+  const promos = usePromotions();
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
 
   return (
@@ -53,6 +57,7 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
             key={i}
             text={scaleText(ing.text, ing.amount, scale)}
             original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
+            promo={promoLabel(ing.name, promos)}
             done={checked.has(i)}
             onToggle={() => toggle(i)}
             onLongPress={aiEnabled ? () => setSubstitute(ing.text) : undefined}
@@ -70,9 +75,10 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   );
 }
 
-function IngredientRow({ text, original, done, onToggle, onLongPress }: {
+function IngredientRow({ text, original, promo, done, onToggle, onLongPress }: {
   text: string;
   original: string;
+  promo: string;
   done: boolean;
   onToggle: () => void;
   onLongPress?: () => void;
@@ -84,6 +90,7 @@ function IngredientRow({ text, original, done, onToggle, onLongPress }: {
       <span>
         {text}
         {original && <span className="muted small"> ({original})</span>}
+        {promo && <span className="small promo-badge"> 🏷️ {promo}</span>}
       </span>
     </li>
   );

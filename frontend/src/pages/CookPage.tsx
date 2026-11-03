@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { api, CookMatch, isoDay, PantryItem } from "../api";
+import { Link } from "react-router-dom";
+import { api, CookMatch, isoDay, PantryItem, PromoRecipe } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
+import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
 import Sheet from "../components/Sheet";
 import { dayLabel } from "../lib/days";
+import { usePromotions } from "../lib/usePromotions";
 import { useToast } from "../lib/toast";
 
 // Termin "do zużycia najpierw" (tak samo jak USE_FIRST_DAYS na serwerze)
@@ -40,7 +43,56 @@ function takeOldSelection(): string[] {
   }
 }
 
-export default function CookPage() {
+// Tyle przepisów z promocjami pokazujemy od razu (reszta po "Pokaż wszystkie")
+const PROMO_PREVIEW = 4;
+
+// "Z promocji": Twoje przepisy ze składnikami w promocji i nowe pomysły od AI
+function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
+  const promos = usePromotions();
+  const [recipes, setRecipes] = useState<PromoRecipe[] | null>(null);
+  const [all, setAll] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+
+  useEffect(() => {
+    api.promoRecipes().then(setRecipes, () => setRecipes([]));
+  }, []);
+
+  if (!promos.length || recipes === null) return null;
+  const stores = [...new Set(promos.map((p) => p.store))];
+  const shown = all ? recipes : recipes.slice(0, PROMO_PREVIEW);
+  return (
+    <section className="box">
+      <h2>🏷️ Z promocji</h2>
+      <p className="muted small">
+        Twoje przepisy ze składnikami, które są teraz w promocji ({stores.join(", ")}). Wszystkie produkty: <Link to="/promocje">Promocje</Link>.
+      </p>
+      {recipes.length === 0 ? (
+        <p className="muted small">Żaden z Twoich przepisów nie ma teraz składników w promocji.</p>
+      ) : (
+        <div className="grid">
+          {shown.map((m) => (
+            <RecipeCard key={m.recipe.id} recipe={m.recipe}>
+              <span className="small promo-badge">🏷️ {m.promos.map((p) => `${p.ingredient} (${p.label})`).join(", ")}</span>
+            </RecipeCard>
+          ))}
+        </div>
+      )}
+      {recipes.length > PROMO_PREVIEW && (
+        <button type="button" className="link small" onClick={() => setAll(!all)}>
+          {all ? "Pokaż mniej" : `Pokaż wszystkie (${recipes.length})`}
+        </button>
+      )}
+      {aiEnabled && (
+        <button type="button" className="wide" onClick={() => setIdeasOpen(true)}>
+          ✨ Nowe pomysły z promocji
+        </button>
+      )}
+      {ideasOpen && <PromoIdeasSheet stores={stores} onClose={() => setIdeasOpen(false)} />}
+    </section>
+  );
+}
+
+export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [have, setHave] = useState<string[] | null>(null);
   const [maxMissing, setMaxMissing] = useState(1);
   const [matches, setMatches] = useState<CookMatch[] | null>(null);
@@ -128,6 +180,8 @@ export default function CookPage() {
           </select>
         </label>
       </section>
+
+      <PromoSection aiEnabled={aiEnabled} />
 
       {matches === null ? null : matches.length === 0 ? (
         <p className="muted center">Brak pasujących przepisów. Spróbuj dodać składniki albo zwiększyć liczbę braków.</p>

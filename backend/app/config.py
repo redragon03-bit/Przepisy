@@ -28,6 +28,7 @@ HA_OPTION_TO_ENV = {
     "mistral_model": "MISTRAL_MODEL",
     "ha_todo_entity": "HA_TODO_ENTITY",
     "ha_notify": "HA_NOTIFY",
+    "promo_stores": "PROMO_STORES",
 }
 # Pliki certyfikatu z folderu /ssl w HA (patrz serve.py)
 # (opcja, zmienna, nazwa domyślna - także dla starszych instalacji, które tej opcji jeszcze nie mają)
@@ -98,6 +99,11 @@ class Settings(BaseSettings):
     # Powiadomienie na telefon, gdy minutnik się skończy: usługa notify w HA, np.
     # "mobile_app_iphone" (aplikacja Home Assistant na iPhonie). Kilka - po przecinku. Puste = wyłączone.
     ha_notify: str = ""
+    # Sieci, z których gazetek czytamy promocje (po przecinku, nazwy jak na blix.pl/sklep/...).
+    # Puste = bez promocji. Lidl z jego strony, pozostałe z Blixa (patrz services/promotions.py).
+    promo_stores: str = "lidl,biedronka,kaufland"
+    # Co 12 godzin sprawdzaj, czy są nowe gazetki
+    promo_auto_refresh: bool = True
     # Raz w tygodniu pobieraj najnowszy yt-dlp (import filmów z TikToka itp.)
     ytdlp_auto_update: bool = True
     # HTTPS (patrz serve.py): certyfikat i klucz, np. z Tailscale. Puste = tylko http.

@@ -1,0 +1,344 @@
+"""Promocje z gazetek sklepów spożywczych.
+
+Skąd bierzemy gazetki:
+- Lidl: oficjalna przeglądarka gazetek Lidla (leaflets.schwarz) podaje dla każdej strony
+  opis produktów i ceny jako tekst.
+- Pozostałe sieci (Biedronka, Kaufland...): serwis Blix pokazuje przy każdej gazetce
+  listę ofert (nazwa i cena) jako tekst.
+
+Obrazków stron nie czytamy - AI dostaje tylko tekst, więc wystarczają darmowe limity.
+AI wybiera z tekstu produkty spożywcze i nadaje im nazwę składnika (np. "masło"),
+po której dopasowujemy je do przepisów.
+
+Każdą gazetkę czytamy tylko raz (PromoLeaflet). Co kilka godzin sprawdzamy, czy pojawiły
+się nowe gazetki - pobranie listy to kilka zapytań, AI pracuje tylko przy nowych.
+Pobieramy tylko na prywatny użytek, rzadko i bez obciążania stron.
+"""
+
+import logging
+import re
+import threading
+import time
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+
+from bs4 import BeautifulSoup
+from sqlalchemy.orm import Session
+
+from ..config import get_settings
+from ..database import SessionLocal, fold
+from ..models import PromoLeaflet, Promotion
+from . import ai
+from .fetcher import FetchError, fetch_html, fetch_json
+
+log = logging.getLogger(__name__)
+
+# Nazwy sieci do wyświetlenia (klucz = nazwa w ustawieniach i w adresie na Blixie)
+STORE_NAMES = {
+    "lidl": "Lidl", "biedronka": "Biedronka", "kaufland": "Kaufland", "auchan": "Auchan",
+    "carrefour": "Carrefour", "dino": "Dino", "netto": "Netto", "aldi": "Aldi", "stokrotka": "Stokrotka",
+    "intermarche": "Intermarché", "lewiatan": "Lewiatan", "polomarket": "POLOmarket", "zabka": "Żabka",
+}
+
+# Gazetki bez jedzenia - nie warto ich czytać (sprawdzamy w tytule i adresie, bez ogonków)
+SKIP_WORDS = ("zabaw", "alkohol", "home", "dom-i-ogrod", "ubrani", "odziez", "moda", "toast", "elektronik")
+
+LIDL_LIST = "https://www.lidl.pl/c/nasze-gazetki/s10008614"
+LIDL_FLYER = "https://endpoints.leaflets.schwarz/v4/flyer?flyer_identifier={slug}&region_id=0&region_code=0"
+BLIX_STORE = "https://blix.pl/sklep/{store}/"
+
+# Najwięcej tyle znaków tekstu z jednej gazetki trafia do AI
+MAX_LEAFLET_TEXT = 40_000
+# Najwięcej tyle nowych gazetek jednej sieci czytamy przy jednym sprawdzeniu
+MAX_NEW_LEAFLETS = 8
+
+CHECK_EVERY_SECONDS = 12 * 3600
+FIRST_CHECK_SECONDS = 5 * 60
+
+
+@dataclass
+class Leaflet:
+    store: str
+    title: str
+    url: str
+    valid_from: date | None = None
+    valid_to: date | None = None
+    # Tekst gazetki dla AI (Blix: wypełniany dopiero przy czytaniu gazetki)
+    text: str = ""
+
+
+@dataclass
+class RefreshStatus:
+    running: bool = False
+    last_check: datetime | None = None
+    # Błędy sieci przy ostatnim sprawdzeniu, np. "Biedronka: strona odpowiedziała błędem 403"
+    errors: list[str] = field(default_factory=list)
+
+
+status = RefreshStatus()
+_lock = threading.Lock()
+
+
+def _skip(title: str, url: str) -> bool:
+    text = fold(f"{title} {url}")
+    return any(word in text for word in SKIP_WORDS)
+
+
+def _parse_date(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value[:10]) if value else None
+    except ValueError:
+        return None
+
+
+# "02.11-07.11", "02.11.2026 - 07.11.2026", "od 02.11"
+_RANGE = re.compile(r"(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?\s*[-–]\s*(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?")
+_FROM = re.compile(r"\bod\s+(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?")
+
+
+def _day(day: str, month: str, year: str | None, today: date) -> date | None:
+    try:
+        if year:
+            return date(int(year), int(month), int(day))
+        value = date(today.year, int(month), int(day))
+    except ValueError:
+        return None
+    # Gazetka z przełomu roku: "29.12-04.01" w styczniu to jeszcze grudzień zeszłego roku
+    if (value - today).days > 180:
+        value = value.replace(year=today.year - 1)
+    elif (today - value).days > 180:
+        value = value.replace(year=today.year + 1)
+    return value
+
+
+def parse_dates(text: str, today: date | None = None) -> tuple[date | None, date | None]:
+    """Daty obowiązywania z tytułu gazetki, np. 'Od poniedziałku - 02.11-07.11'."""
+    today = today or date.today()
+    if match := _RANGE.search(text):
+        d1, m1, y1, d2, m2, y2 = match.groups()
+        start, end = _day(d1, m1, y1, today), _day(d2, m2, y2, today)
+        if start and end and end < start:
+            end = end.replace(year=end.year + 1)
+        return start, end
+    if match := _FROM.search(text):
+        return _day(*match.groups(), today), None
+    return None, None
+
+
+# --- Lidl ---
+
+def lidl_leaflets() -> list[Leaflet]:
+    """Aktualne gazetki Lidla z tekstem stron (opisy produktów i ceny)."""
+    html, _ = fetch_html(LIDL_LIST)
+    slugs = list(dict.fromkeys(re.findall(r"/l/pl/gazetki/([a-z0-9-]+)/ar/\d+", html)))
+    leaflets = []
+    for slug in slugs:
+        # "Katalog" to u Lidla oferta bez jedzenia (sprzęt, ubrania)
+        if _skip(slug, "") or "katalog" in slug:
+            continue
+        try:
+            data = fetch_json(LIDL_FLYER.format(slug=slug))
+        except FetchError as exc:
+            log.warning("Gazetka Lidla %s: %s", slug, exc)
+            continue
+        flyer = data.get("flyer") if isinstance(data, dict) else None
+        if not isinstance(flyer, dict):
+            continue
+        leaflets.append(lidl_leaflet(slug, flyer))
+    return leaflets
+
+
+def lidl_leaflet(slug: str, flyer: dict) -> Leaflet:
+    lines = []
+    for page in flyer.get("pages") or []:
+        parts = [str(page.get(key) or "").strip() for key in ("altText", "keyWords")]
+        if any(parts):
+            lines.append(f"Strona {page.get('number', '?')}: " + " | ".join(p for p in parts if p))
+    title = " ".join(str(flyer.get(key) or "") for key in ("name", "title")).strip() or slug
+    return Leaflet(
+        store="Lidl",
+        title=title,
+        url=f"https://www.lidl.pl/l/pl/gazetki/{slug}/ar/0",
+        valid_from=_parse_date(flyer.get("offerStartDate") or flyer.get("startDate")),
+        valid_to=_parse_date(flyer.get("offerEndDate") or flyer.get("endDate")),
+        text="\n".join(lines),
+    )
+
+
+# --- Blix (pozostałe sieci) ---
+
+def blix_leaflets(store: str) -> list[Leaflet]:
+    """Gazetki sieci z Blixa (bez tekstu - ten pobiera blix_text przy czytaniu gazetki)."""
+    html, url = fetch_html(BLIX_STORE.format(store=store))
+    return blix_leaflet_list(html, url, store)
+
+
+def blix_leaflet_list(html: str, base_url: str, store: str) -> list[Leaflet]:
+    soup = BeautifulSoup(html, "html.parser")
+    pattern = re.compile(rf"/sklep/{re.escape(store)}/gazetka/(\d+)")
+    found: dict[str, Leaflet] = {}
+    for link in soup.find_all("a", href=pattern):
+        leaflet_id = pattern.search(link["href"]).group(1)
+        title = (link.get("title") or link.get_text(" ", strip=True)).strip()
+        if leaflet_id in found:
+            # Ten sam link bywa dwa razy (okładka i tytuł) - zostawiamy dłuższy opis
+            if len(title) > len(found[leaflet_id].title):
+                found[leaflet_id].title = title
+            continue
+        found[leaflet_id] = Leaflet(
+            store=STORE_NAMES.get(store, store.capitalize()),
+            title=title,
+            url=f"https://blix.pl/sklep/{store}/gazetka/{leaflet_id}/",
+        )
+    for leaflet in found.values():
+        leaflet.valid_from, leaflet.valid_to = parse_dates(leaflet.title)
+    return list(found.values())
+
+
+def blix_text(html: str) -> tuple[str, str]:
+    """(tytuł z datami, lista ofert jako tekst) ze strony gazetki na Blixie."""
+    soup = BeautifulSoup(html, "html.parser")
+    heading = soup.find("h1")
+    title = heading.get_text(" ", strip=True) if heading else (soup.title.get_text(strip=True) if soup.title else "")
+    offers = soup.find(lambda tag: tag.name in ("h2", "h3", "h4") and "oferty z tej gazetki" in tag.get_text().lower())
+    if offers is not None:
+        section = offers.find_parent("section") or offers.parent
+        root = section
+    else:
+        for tag in soup(["script", "style", "nav", "header", "footer", "noscript"]):
+            tag.decompose()
+        root = soup.find("main") or soup.body or soup
+    lines = [line.strip() for line in root.get_text("\n").splitlines()]
+    # Usuwamy puste linie i powtórzenia (ta sama oferta bywa kilka razy)
+    text = "\n".join(dict.fromkeys(line for line in lines if line and line.lower() != "zobacz"))
+    return title, text[:MAX_LEAFLET_TEXT]
+
+
+# --- Sprawdzanie i zapis ---
+
+def configured_stores() -> list[str]:
+    return [s.strip().lower() for s in get_settings().promo_stores.split(",") if s.strip()]
+
+
+def _store_leaflets(store: str) -> list[Leaflet]:
+    return lidl_leaflets() if store == "lidl" else blix_leaflets(store)
+
+
+def _read(leaflet: Leaflet) -> list[ai.AiPromotion]:
+    if not leaflet.text:  # Blix: tekst ofert jest na stronie gazetki
+        html, _ = fetch_html(leaflet.url)
+        title, leaflet.text = blix_text(html)
+        start, end = parse_dates(title)
+        leaflet.valid_from, leaflet.valid_to = start or leaflet.valid_from, end or leaflet.valid_to
+    if not leaflet.text.strip() or _expired(leaflet, date.today()):
+        return []
+    return ai.promotions_from_text(leaflet.store, leaflet.title, leaflet.text)
+
+
+def _expired(leaflet: Leaflet | PromoLeaflet, today: date) -> bool:
+    return leaflet.valid_to is not None and leaflet.valid_to < today
+
+
+def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: str = "") -> None:
+    row = db.query(PromoLeaflet).filter_by(url=leaflet.url).one_or_none()
+    if row is None:
+        row = PromoLeaflet(url=leaflet.url, store=leaflet.store)
+        db.add(row)
+    row.title, row.valid_from, row.valid_to = leaflet.title[:300], leaflet.valid_from, leaflet.valid_to
+    row.status, row.error, row.fetched_at = ("failed" if error else "done"), error, datetime.now()
+    row.promotions = [
+        Promotion(name=p.name[:300], ingredient=p.ingredient[:200], price=p.price[:100], note=p.note[:300])
+        for p in products
+    ]
+    db.commit()
+
+
+def refresh() -> None:
+    """Sprawdza gazetki wszystkich sieci z ustawień i czyta nowe. Wywoływać w tle."""
+    if not _lock.acquire(blocking=False):
+        return  # już trwa
+    status.running, errors = True, []
+    try:
+        today = date.today()
+        with SessionLocal() as db:
+            # Stare gazetki i ich promocje nie są już potrzebne
+            for old in db.query(PromoLeaflet).filter(PromoLeaflet.valid_to < today - timedelta(days=1)):
+                db.delete(old)
+            db.commit()
+            done = {row.url for row in db.query(PromoLeaflet).filter_by(status="done")}
+            for store in configured_stores():
+                name = STORE_NAMES.get(store, store.capitalize())
+                try:
+                    leaflets = _store_leaflets(store)
+                except FetchError as exc:
+                    log.warning("Gazetki %s: %s", name, exc)
+                    errors.append(f"{name}: {exc}")
+                    continue
+                new = [lf for lf in leaflets if lf.url not in done and not _expired(lf, today)
+                       and not _skip(lf.title, lf.url)]
+                for leaflet in new[:MAX_NEW_LEAFLETS]:
+                    try:
+                        products = _read(leaflet)
+                    except (FetchError, ai.AiError) as exc:
+                        log.warning("Gazetka %s %s: %s", name, leaflet.title, exc)
+                        _save(db, leaflet, [], str(exc))
+                        if isinstance(exc, ai.AiError):
+                            errors.append(f"{name}: {exc}")
+                            return  # AI nie działa (np. limit) - spróbujemy przy następnym sprawdzeniu
+                        continue
+                    _save(db, leaflet, products)
+    except Exception as exc:  # błąd w naszym kodzie nie może zatrzymać wątku sprawdzania
+        log.exception("Sprawdzanie gazetek")
+        errors.append(f"Nieoczekiwany błąd: {exc}")
+    finally:
+        status.running, status.last_check, status.errors = False, datetime.now(), errors
+        _lock.release()
+
+
+def refresh_in_background() -> None:
+    threading.Thread(target=refresh, name="promotions-refresh", daemon=True).start()
+
+
+def _loop() -> None:
+    time.sleep(FIRST_CHECK_SECONDS)
+    while True:
+        refresh()
+        time.sleep(CHECK_EVERY_SECONDS)
+
+
+def start_scheduler() -> None:
+    settings = get_settings()
+    if configured_stores() and settings.ai_enabled and settings.promo_auto_refresh:
+        threading.Thread(target=_loop, name="promotions", daemon=True).start()
+
+
+# --- Dopasowanie do przepisów ---
+
+def matches(promo: str, needed: str) -> bool:
+    """Czy produkt z promocji pasuje do składnika przepisu: 'ser żółty' ~ 'ser', 'mąka' ~ 'mąka pszenna'."""
+    if not promo or not needed:
+        return False
+    return promo == needed or needed.startswith(promo + " ") or promo.startswith(needed + " ")
+
+
+def current(db: Session) -> list[Promotion]:
+    """Promocje z gazetek, które jeszcze obowiązują (także te od przyszłego tygodnia)."""
+    today = date.today()
+    rows = (
+        db.query(Promotion).join(PromoLeaflet)
+        .filter((PromoLeaflet.valid_to.is_(None)) | (PromoLeaflet.valid_to >= today))
+        .all()
+    )
+    return sorted(rows, key=lambda p: (p.leaflet.store, p.ingredient, p.price))
+
+
+def label(promo: Promotion) -> str:
+    """Krótki opis na plakietkę, np. 'Lidl 2,49 zł'."""
+    return f"{promo.leaflet.store} {promo.price}".strip()
+
+
+def find_for(name: str, promos: list[Promotion]) -> Promotion | None:
+    """Promocja na ten składnik (najpierw dokładnie ta sama nazwa)."""
+    hits = [p for p in promos if matches(p.ingredient, name)]
+    hits.sort(key=lambda p: p.ingredient != name)
+    return hits[0] if hits else None

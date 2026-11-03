@@ -26,6 +26,10 @@ export type CookLogEntry = Api.CookLogOut;
 export type PantryItem = Api.PantryItem;
 export type PlanSuggestion = Api.PlanSuggestionOut;
 export type DuplicateGroup = Api.DuplicateGroup;
+export type Promotion = Api.PromotionOut;
+export type PromoStatus = Api.PromoStatus;
+export type PromoRecipe = Api.PromoRecipe;
+export type PromoIdeas = Api.PromoIdeasOut;
 
 export interface ChatMessage extends Api.ChatMessage {
   // Tylko w odpowiedziach asystenta, na ekranie: polecane przepisy z bazy (serwerowi ich nie odsyłamy)
@@ -205,6 +209,16 @@ export const api = {
   // Plan od AI układa się w tle - wynik odbieramy przez getPlanSuggestion
   suggestPlan: (days: string[], wishes: string) => request<PlanSuggestion>("POST", "/api/plan/suggest", { days, wishes }),
   getPlanSuggestion: (id: number) => request<PlanSuggestion>("GET", `/api/plan/suggest/${id}`),
+
+  // Promocje z gazetek (Lidl, Biedronka, Kaufland...) - serwer sam sprawdza nowe gazetki co 12 godzin
+  listPromotions: () => request<Promotion[]>("GET", "/api/promotions"),
+  promoStatus: () => request<PromoStatus>("GET", "/api/promotions/status"),
+  refreshPromotions: () => request<PromoStatus>("POST", "/api/promotions/refresh"),
+  promoRecipes: () => request<PromoRecipe[]>("GET", "/api/promotions/recipes"),
+  promoToShopping: (id: number) => request<ShoppingItem>("POST", `/api/promotions/${id}/shopping`),
+  // Pomysły od AI układają się w tle - wynik odbieramy przez getPromoIdeas
+  promoIdeas: (wishes: string, stores: string[]) => request<PromoIdeas>("POST", "/api/promotions/ideas", { wishes, stores }),
+  getPromoIdeas: (id: number) => request<PromoIdeas>("GET", `/api/promotions/ideas/${id}`),
 
   // Powiadomienie z Home Assistant o końcu minutnika (gdy ustawiono ha_notify)
   startTimer: (id: number, label: string, seconds: number) => request<void>("POST", "/api/timers", { id, label, seconds }),

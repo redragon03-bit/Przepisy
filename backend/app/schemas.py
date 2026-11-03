@@ -153,6 +153,8 @@ class ShoppingItemOut(BaseModel):
     aisle_order: int
     # Czy pozycja jest też na liście w Home Assistant
     in_ha: bool
+    # Promocja na ten produkt, np. "Lidl 2,49 zł"; pusta = brak
+    promo: str = ""
 
 
 class ShoppingItemIn(BaseModel):
@@ -383,3 +385,60 @@ class DuplicateGroup(BaseModel):
 class MergeIn(BaseModel):
     keep: str
     others: list[str] = Field(min_length=1)
+
+
+class PromotionOut(BaseModel):
+    id: int
+    store: str
+    name: str
+    ingredient: str
+    price: str
+    note: str
+    leaflet: str
+    valid_from: date | None
+    valid_to: date | None
+
+
+class PromoLeafletOut(BaseModel):
+    store: str
+    title: str
+    url: str
+    valid_from: date | None
+    valid_to: date | None
+    status: Literal["done", "failed"]
+    error: str
+    count: int
+
+
+class PromoStatus(BaseModel):
+    # Sieci z ustawień (puste = promocje wyłączone)
+    stores: list[str]
+    running: bool
+    last_check: datetime | None
+    errors: list[str]
+    leaflets: list[PromoLeafletOut]
+
+
+class PromoHit(BaseModel):
+    ingredient: str
+    label: str = Field(description="Np. 'Lidl 2,49 zł'")
+
+
+class PromoRecipe(BaseModel):
+    recipe: RecipeSummary
+    # Składniki tego przepisu, które są w promocji
+    promos: list[PromoHit]
+
+
+class PromoIdeasIn(BaseModel):
+    wishes: str = ""
+    # Tylko produkty z tych sieci; pusta = ze wszystkich
+    stores: list[str] = []
+
+
+class PromoIdeasOut(BaseModel):
+    id: int
+    status: Literal["running", "done", "failed"]
+    error: str
+    text: str
+    recipes: list[AiRecipe]

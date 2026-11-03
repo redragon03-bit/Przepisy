@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import require_auth
 from ..database import get_db
-from ..models import MealPlanEntry, Recipe, ShoppingItem
+from ..models import MealPlanEntry, Promotion, Recipe, ShoppingItem
 from ..schemas import (
     ShoppingFromPlan,
     ShoppingFromRecipe,
@@ -14,22 +14,29 @@ from ..schemas import (
     ShoppingItemPatch,
     ShoppingResult,
 )
-from ..services import shopping
+from ..services import promotions, shopping
 from ..services.aisles import aisle, aisle_order
+from ..services.ingredients import guess_ingredient_name
 
 AISLE_ORDER = {name: index for index, name in enumerate(aisle_order())}
 
 router = APIRouter(prefix="/api/shopping", tags=["zakupy"], dependencies=[Depends(require_auth)])
 
 
-def to_out(item: ShoppingItem) -> ShoppingItemOut:
+def to_out(item: ShoppingItem, promos: list[Promotion] | None = None) -> ShoppingItemOut:
+    """`promos` - aktualne promocje (patrz services/promotions.py); None = nie sprawdzamy."""
     name = aisle(item.name or item.text)
+    promo = None
+    if promos and not item.checked:
+        promo = promotions.find_for(item.name or guess_ingredient_name(item.text), promos)
     return ShoppingItemOut(id=item.id, text=item.text, recipes=item.recipes, checked=item.checked,
-                           aisle=name, aisle_order=AISLE_ORDER[name], in_ha=bool(item.ha_text))
+                           aisle=name, aisle_order=AISLE_ORDER[name], in_ha=bool(item.ha_text),
+                           promo=promotions.label(promo) if promo else "")
 
 
 def _all(db: Session) -> list[ShoppingItemOut]:
-    return [to_out(i) for i in db.query(ShoppingItem).order_by(ShoppingItem.checked, ShoppingItem.id)]
+    promos = [p for p in promotions.current(db) if p.ingredient]
+    return [to_out(i, promos) for i in db.query(ShoppingItem).order_by(ShoppingItem.checked, ShoppingItem.id)]
 
 
 def _get(db: Session, item_id: int) -> ShoppingItem:
