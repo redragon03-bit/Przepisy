@@ -107,6 +107,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       <span className="grow">
         {item.text}
         {item.recipes && <span className="muted small"> · {item.recipes}</span>}
+        {item.promo && !item.text.includes(item.promo) && <span className="small promo-badge"> 🏷️ {item.promo}</span>}
       </span>
     </SwipeRow>
   );

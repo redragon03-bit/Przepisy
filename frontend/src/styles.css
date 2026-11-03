@@ -1341,3 +1341,54 @@ a.chip {
   margin: 6px 0;
   line-height: 1.4;
 }
+
+/* Promocje z gazetek */
+.promo-badge {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.promo-store h2 {
+  margin: 18px 0 6px;
+}
+
+.promo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.promo-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: normal;
+}
+
+.promo-meta {
+  display: block;
+}
+
+.promo-row > .grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo-price {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--accent);
+}
+
+.search-field + .chips {
+  margin-top: 8px;
+}

@@ -248,6 +248,61 @@ export interface PlanSuggestionOut {
   days: PlanSuggestionDay[];
 }
 
+export interface PromoHit {
+  ingredient: string;
+  // Np. 'Lidl 2,49 zł'
+  label: string;
+}
+
+export interface PromoIdeasIn {
+  wishes?: string;
+  stores?: string[];
+}
+
+export interface PromoIdeasOut {
+  id: number;
+  status: "running" | "done" | "failed";
+  error: string;
+  text: string;
+  recipes: AiRecipe[];
+}
+
+export interface PromoLeafletOut {
+  store: string;
+  title: string;
+  url: string;
+  valid_from: string | null;
+  valid_to: string | null;
+  status: "done" | "failed";
+  error: string;
+  count: number;
+}
+
+export interface PromoRecipe {
+  recipe: RecipeSummary;
+  promos: PromoHit[];
+}
+
+export interface PromoStatus {
+  stores: string[];
+  running: boolean;
+  last_check: string | null;
+  errors: string[];
+  leaflets: PromoLeafletOut[];
+}
+
+export interface PromotionOut {
+  id: number;
+  store: string;
+  name: string;
+  ingredient: string;
+  price: string;
+  note: string;
+  leaflet: string;
+  valid_from: string | null;
+  valid_to: string | null;
+}
+
 export interface RecipeIn {
   title: string;
   description?: string;
@@ -354,6 +409,7 @@ export interface ShoppingItemOut {
   aisle: string;
   aisle_order: number;
   in_ha: boolean;
+  promo: string;
 }
 
 export interface ShoppingItemPatch {

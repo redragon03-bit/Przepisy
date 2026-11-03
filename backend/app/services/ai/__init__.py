@@ -418,3 +418,90 @@ def find_duplicate_ingredients(names: list[str]) -> list[list[str]]:
         answer = _ask_provider(["Składniki:\n" + "\n".join(names)], DUPLICATES_PROMPT, AiDuplicates)
     groups = [[n for n in dict.fromkeys(g.names) if n in known] for g in answer.groups]
     return [g for g in groups if len(g) > 1]
+
+
+class AiPromotion(BaseModel):
+    name: str = Field(description="Nazwa produktu jak w gazetce, z marką i gramaturą, np. 'Masło ekstra Polmlek 200 g'")
+    ingredient: str = Field(
+        description="Nazwa kanoniczna składnika do przepisów: po polsku, małymi literami, mianownik liczby "
+        "pojedynczej, bez marki i gramatury, np. 'masło', 'udo z kurczaka', 'ser żółty', 'jabłko'")
+    price: str = Field(
+        description="Cena promocyjna z jednostką, np. '2,49 zł', '6,49 zł/kg', albo opis, np. '2+1 gratis'")
+    note: str = Field(description="Krótki warunek promocji, np. 'z aplikacją', 'przy zakupie 2 szt.', '-30%', albo ''")
+
+
+class AiPromotions(BaseModel):
+    products: list[AiPromotion] = Field(description="Produkty spożywcze w promocji; pusta lista, gdy nie ma żadnego")
+
+
+PROMOTIONS_PROMPT = """Dostajesz tekst z gazetki promocyjnej sklepu spożywczego (opisy stron \
+albo listę ofert). Wypisz produkty spożywcze w promocji, które przydają się do gotowania: \
+mięso, ryby, nabiał, warzywa, owoce, pieczywo, makarony, kasze, przyprawy, oleje, mrożonki, \
+słodycze do wypieków itp.
+
+Zasady:
+- Pomijaj wszystko, co nie jest jedzeniem (chemia, kosmetyki, ubrania, sprzęt, zabawki), \
+alkohol, papierosy i karmę dla zwierząt.
+- Każdy produkt tylko raz, nawet jeśli powtarza się w tekście.
+- Ceny bywają zapisane w groszach bez przecinka (np. '239' = '2,39 zł'). Gwiazdka przy cenie \
+zwykle oznacza warunek (np. z aplikacją) - wpisz go w note. Gdy ceny nie da się ustalić, wpisz ''.
+- Nie wymyślaj produktów ani cen, których nie ma w tekście."""
+
+# Tyle znaków tekstu gazetki wysyłamy do AI naraz (darmowe limity: Groq ok. 8 tys. tokenów na minutę)
+PROMOTIONS_CHUNK = 6000
+
+
+def _chunks(text: str, size: int) -> list[str]:
+    """Dzieli tekst na kawałki po pełnych liniach."""
+    chunks, current = [], ""
+    for line in text.splitlines():
+        if current and len(current) + len(line) > size:
+            chunks.append(current)
+            current = ""
+        current += line[:size] + "\n"
+    if current.strip():
+        chunks.append(current)
+    return chunks
+
+
+def promotions_from_text(store: str, title: str, text: str) -> list[AiPromotion]:
+    """Produkty spożywcze w promocji z tekstu gazetki. Działa w tle - bez limitu czasu."""
+    products: dict[str, AiPromotion] = {}
+    for chunk in _chunks(text, PROMOTIONS_CHUNK):
+        material = f"Sklep: {store}\nGazetka: {title}\n\nTekst gazetki:\n{chunk}"
+        result = _ask_provider([material], PROMOTIONS_PROMPT, AiPromotions)
+        for product in result.products:
+            product.name, product.ingredient = product.name.strip(), product.ingredient.strip().lower()
+            if product.name and product.ingredient:
+                products.setdefault(product.name.lower(), product)
+    return list(products.values())
+
+
+class AiPromoIdeas(BaseModel):
+    text: str = Field(description="1-2 zdania po polsku: co warto kupić w tym tygodniu i dlaczego")
+    recipes: list[AiRecipe] = Field(description="3 nowe przepisy na obiad z produktów w promocji")
+
+
+PROMO_IDEAS_PROMPT = """Jesteś asystentem kulinarnym. Użytkownik robi zakupy raz w tygodniu \
+i chce gotować taniej. Dostajesz listę produktów w promocji w jego sklepach i tytuły przepisów, \
+które już ma zapisane. Wymyśl 3 nowe obiady, w których produkty z promocji są głównymi \
+składnikami (najlepiej kilka produktów z promocji w jednym daniu, z jednego sklepu).
+
+Zasady:
+- Nie powtarzaj przepisów, które użytkownik już ma.
+- Zwykłe domowe dania z produktów łatwo dostępnych w Polsce; dodatki spoza promocji są \
+w porządku (podstawowe produkty, przyprawy).
+- Po polsku, miary metryczne, temperatury w °C, kroki jako krótkie polecenia, \
+original_text jak text, original_language "pl", obrazki null.
+- W description napisz, które składniki są w promocji i w jakim sklepie.
+- Przestrzegaj życzeń użytkownika."""
+
+
+def promo_ideas(promotions: str, own_titles: list[str], wishes: str, categories: list[str]) -> AiPromoIdeas:
+    """Nowe przepisy z produktów w promocji. Działa w tle - bez limitu czasu."""
+    text = (f"Produkty w promocji:\n{promotions}\n\n"
+            f"Przepisy, które użytkownik już ma: {', '.join(own_titles) or 'brak'}\n"
+            f"Życzenia użytkownika: {wishes.strip() or 'brak'}\n\n{_categories_hint(categories)}")
+    ideas = _ask_provider([text], PROMO_IDEAS_PROMPT, AiPromoIdeas)
+    ideas.text = clean_text(ideas.text)
+    return ideas

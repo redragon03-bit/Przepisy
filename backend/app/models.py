@@ -198,3 +198,48 @@ class CookLogEntry(Base):
     image: Mapped[str | None] = mapped_column(String(200))
 
     recipe: Mapped[Recipe] = relationship(back_populates="cook_log")
+
+
+class PromoLeaflet(Base):
+    """Gazetka sklepu, z której odczytaliśmy promocje (patrz services/promotions.py).
+
+    Każdą gazetkę AI czyta tylko raz - przy kolejnym sprawdzeniu pomijamy te, które już są.
+    """
+
+    __tablename__ = "promo_leaflets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Sieć, np. "Lidl", "Biedronka"
+    store: Mapped[str] = mapped_column(String(50))
+    title: Mapped[str] = mapped_column(String(300))
+    # Adres gazetki - po nim poznajemy, że już ją czytaliśmy
+    url: Mapped[str] = mapped_column(String(2000), unique=True)
+    valid_from: Mapped[date | None]
+    valid_to: Mapped[date | None]
+    # "done" albo "failed" (wtedy spróbujemy jeszcze raz przy następnym sprawdzeniu)
+    status: Mapped[str] = mapped_column(String(20), default="done")
+    error: Mapped[str] = mapped_column(Text, default="")
+    fetched_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    promotions: Mapped[list["Promotion"]] = relationship(
+        back_populates="leaflet", cascade="all, delete-orphan", order_by="Promotion.id"
+    )
+
+
+class Promotion(Base):
+    """Produkt spożywczy w promocji z gazetki."""
+
+    __tablename__ = "promotions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    leaflet_id: Mapped[int] = mapped_column(ForeignKey("promo_leaflets.id", ondelete="CASCADE"))
+    # Nazwa jak w gazetce, np. "Masło ekstra Polmlek 200 g"
+    name: Mapped[str] = mapped_column(String(300))
+    # Nazwa kanoniczna składnika (jak Ingredient.name), np. "masło"
+    ingredient: Mapped[str] = mapped_column(String(200), default="")
+    # Cena do wyświetlenia, np. "2,49 zł" albo "2+1 gratis"
+    price: Mapped[str] = mapped_column(String(100), default="")
+    # Dopisek, np. "z aplikacją", "-30%", "przy zakupie 2 szt."
+    note: Mapped[str] = mapped_column(String(300), default="")
+
+    leaflet: Mapped[PromoLeaflet] = relationship(back_populates="promotions", lazy="joined")

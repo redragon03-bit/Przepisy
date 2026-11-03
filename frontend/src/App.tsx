@@ -15,6 +15,7 @@ import HelpPage from "./pages/HelpPage";
 import ImportPage from "./pages/ImportPage";
 import LoginPage from "./pages/LoginPage";
 import PlanPage from "./pages/PlanPage";
+import PromotionsPage from "./pages/PromotionsPage";
 import RecipePage from "./pages/RecipePage";
 import RecipesPage from "./pages/RecipesPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -31,6 +32,7 @@ const TABS = [
 const MORE = [
   { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
   { to: "/plan", icon: "📅", label: "Plan" },
+  { to: "/promocje", icon: "🏷️", label: "Promocje" },
   { to: "/ustawienia", icon: "⚙️", label: "Ustawienia" },
   { to: "/pomoc", icon: "💡", label: "Jak używać" },
 ];
@@ -93,7 +95,8 @@ export default function App() {
           <Route path="/czat" element={<ChatPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/nowy" element={<EditRecipePage />} />
           <Route path="/dodaj" element={<ImportPage aiEnabled={auth.ai_enabled} />} />
-          <Route path="/co-ugotowac" element={<CookPage />} />
+          <Route path="/co-ugotowac" element={<CookPage aiEnabled={auth.ai_enabled} />} />
+          <Route path="/promocje" element={<PromotionsPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />

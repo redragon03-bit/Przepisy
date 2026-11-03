@@ -24,12 +24,14 @@ from .routers import (
     ingredients,
     pantry,
     plan,
+    promotions,
     recipes,
     shopping,
     timers,
 )
 from .services import backup as backup_service
 from .services import images, plan_sensor, ytdlp_update
+from .services import promotions as promotions_service
 from .services.importer import remove_stale_uploads
 
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +44,7 @@ async def lifespan(_app: FastAPI):
     backup_service.start_scheduler()
     plan_sensor.start_scheduler()
     ytdlp_update.start_scheduler()
+    promotions_service.start_scheduler()
     yield
 
 
@@ -58,6 +61,7 @@ app.include_router(imports.router)
 app.include_router(backup.router)
 app.include_router(timers.router)
 app.include_router(calendar.router)
+app.include_router(promotions.router)
 
 
 @app.get("/api/health")
