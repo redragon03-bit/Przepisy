@@ -15,15 +15,18 @@ się nowe gazetki - pobranie listy to kilka zapytań, AI pracuje tylko przy nowy
 Pobieramy tylko na prywatny użytek, rzadko i bez obciążania stron.
 """
 
+import io
 import itertools
 import logging
 import re
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from bs4 import BeautifulSoup
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -224,6 +227,11 @@ def blix_text(html: str) -> tuple[str, str]:
 
 _PRICE = re.compile(r"\d+[,.]\d{2}\s*zł", re.IGNORECASE)
 _ONLY_PRICE = re.compile(r"[-–\s]*\d+[,.]\d{2}\s*zł\S*(\s.*)?", re.IGNORECASE)
+# Rabat, np. "-30%", "- 25 %"; w osobnej linii dołącza do oferty przed nim
+_PERCENT = re.compile(r"[-–]\s*(\d{1,2})\s*%")
+_ONLY_PERCENT = re.compile(r"\s*[-–]\s*\d{1,2}\s*%\s*")
+# Cena doklejona do nazwy: "Półbagietka graham 1,49 zł"
+_NAME_PRICE = re.compile(r"\s+\d+[,.]\d{2}\s*zł.*$", re.IGNORECASE)
 
 
 def priced_offers(lines: list[str]) -> list[str]:
@@ -234,6 +242,10 @@ def priced_offers(lines: list[str]) -> list[str]:
     """
     offers, previous = [], ""
     for line in (line for line in lines if line):
+        if _ONLY_PERCENT.fullmatch(line):
+            if offers and not previous:
+                offers[-1] += f" {line.strip()}"
+            continue
         if _ONLY_PRICE.fullmatch(line):
             if previous:
                 offers.append(f"{previous} {line}")
@@ -271,9 +283,57 @@ def _expired(leaflet: Leaflet | PromoLeaflet, today: date) -> bool:
     return leaflet.valid_to is not None and leaflet.valid_to < today
 
 
-def _promotion(product: ai.AiPromotion) -> Promotion:
-    return Promotion(name=product.name[:300], category=product.category, ingredient=product.ingredient[:200],
-                     price=product.price[:100], note=product.note[:300])
+def clean_name(name: str) -> str:
+    """Nazwa bez doklejonej ceny: "Półbagietka graham 1,49 zł" -> "Półbagietka graham"."""
+    return _NAME_PRICE.sub("", name).strip() or name.strip()
+
+
+def discount_of(promo: Promotion) -> int:
+    """Rabat w %: zapisany przez AI albo odczytany z dopisku/ceny ("-30%")."""
+    if 0 < (promo.discount or 0) < 100:
+        return promo.discount
+    match = _PERCENT.search(f"{promo.note} {promo.price}")
+    return int(match.group(1)) if match else 0
+
+
+def _promotion(product: ai.AiPromotion, image: str = "") -> Promotion:
+    discount = product.discount if 0 < product.discount < 100 else 0
+    return Promotion(name=clean_name(product.name)[:300], category=product.category,
+                     ingredient=product.ingredient[:200], price=product.price[:100], note=product.note[:300],
+                     discount=discount, image=image)
+
+
+# Wycinek produktu ze strony gazetki: tyle pikseli najwyżej (miniatura na liście)
+CROP_SIZE = 240
+
+
+def crop_product(jpeg: bytes, box: list[int]) -> str:
+    """Wycina produkt ze strony gazetki (box w skali 0-1000) i zapisuje. Zwraca nazwę pliku albo ""."""
+    if len(box) != 4:
+        return ""
+    top, left, bottom, right = (min(max(v, 0), 1000) for v in box)
+    if bottom - top < 20 or right - left < 20:  # za mały prostokąt - pewnie pomyłka AI
+        return ""
+    try:
+        page = Image.open(io.BytesIO(jpeg))
+        width, height = page.size
+        crop = page.crop((left * width // 1000, top * height // 1000, right * width // 1000,
+                          bottom * height // 1000)).convert("RGB")
+        crop.thumbnail((CROP_SIZE, CROP_SIZE))
+        folder = get_settings().promo_dir
+        folder.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid.uuid4().hex}.jpg"
+        crop.save(folder / filename, "JPEG", quality=85)
+        return filename
+    except OSError as exc:
+        log.warning("Wycinek z gazetki: %s", exc)
+        return ""
+
+
+def delete_crops(leaflet: PromoLeaflet) -> None:
+    for promo in leaflet.promotions:
+        if promo.image:
+            (get_settings().promo_dir / promo.image).unlink(missing_ok=True)
 
 
 def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: str = "") -> None:
@@ -284,6 +344,7 @@ def _save(db: Session, leaflet: Leaflet, products: list[ai.AiPromotion], error: 
     row.title, row.valid_from, row.valid_to = leaflet.title[:300], leaflet.valid_from, leaflet.valid_to
     row.status, row.error, row.fetched_at = ("failed" if error else "done"), error, datetime.now()
     row.parser = PARSER_VERSION
+    delete_crops(row)
     row.promotions = [
         _promotion(p) for p in products
     ]
@@ -300,6 +361,7 @@ def refresh() -> None:
         with SessionLocal() as db:
             # Stare gazetki i ich promocje nie są już potrzebne
             for old in db.query(PromoLeaflet).filter(PromoLeaflet.valid_to < today - timedelta(days=1)):
+                delete_crops(old)
                 db.delete(old)
             db.commit()
             done = {row.url for row in db.query(PromoLeaflet).filter_by(status="done", parser=PARSER_VERSION)}
@@ -432,8 +494,17 @@ def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
                 except ai.AiError as exc:
                     log.warning("Strona %s gazetki %s: %s - kończę na tę noc", number, leaflet.title, exc)
                     break  # zwykle wyczerpany limit - dokończymy następnej nocy
-                known = {p.name.lower() for p in leaflet.promotions}
-                leaflet.promotions += [_promotion(p) for p in products if p.name.lower() not in known]
+                known = {p.name.lower(): p for p in leaflet.promotions}
+                for product in products:
+                    old = known.get(clean_name(product.name).lower())
+                    if old is not None and old.image:
+                        continue
+                    image = crop_product(jpeg, product.box)
+                    if old is None:
+                        leaflet.promotions.append(_promotion(product, image))
+                    else:  # znany już z tekstu - dokładamy zdjęcie i rabat
+                        old.image = image
+                        old.discount = old.discount or _promotion(product).discount
                 leaflet.pages.append(PromoPage(number=number))
                 db.commit()
                 read += 1

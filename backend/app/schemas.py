@@ -396,6 +396,13 @@ class PromotionOut(BaseModel):
     ingredient: str
     price: str
     note: str
+    # Rabat w procentach, 0 = nie wiadomo
+    discount: int
+    # Dział sklepu jak na liście zakupów, np. "Mięso i ryby", i jego miejsce w kolejności
+    aisle: str
+    aisle_order: int
+    # Wycinek produktu z gazetki albo "" (wtedy ekran pokazuje ikonkę działu)
+    image_url: str
     leaflet: str
     valid_from: date | None
     valid_to: date | None

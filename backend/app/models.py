@@ -260,5 +260,9 @@ class Promotion(Base):
     price: Mapped[str] = mapped_column(String(100), default="")
     # Dopisek, np. "z aplikacją", "-30%", "przy zakupie 2 szt."
     note: Mapped[str] = mapped_column(String(300), default="")
+    # Rabat w procentach (0 = nie wiadomo)
+    discount: Mapped[int] = mapped_column(default=0, server_default="0")
+    # Wycinek produktu ze strony gazetki (plik w data/promo), "" gdy nie ma
+    image: Mapped[str] = mapped_column(String(100), default="", server_default="")
 
     leaflet: Mapped[PromoLeaflet] = relationship(back_populates="promotions", lazy="joined")

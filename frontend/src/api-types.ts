@@ -301,6 +301,10 @@ export interface PromotionOut {
   ingredient: string;
   price: string;
   note: string;
+  discount: number;
+  aisle: string;
+  aisle_order: number;
+  image_url: string;
   leaflet: string;
   valid_from: string | null;
   valid_to: string | null;

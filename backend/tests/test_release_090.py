@@ -99,7 +99,8 @@ def test_blix_text_takes_offer_section_without_repeats():
 
 def test_priced_offers_joins_price_lines():
     lines = ["Nagłówek", "Jabłka polskie", "2,99 zł/kg", "Olej Wyborny", "Zobacz", "Mleko UHT 1,99 zł", "-30%"]
-    assert promotions.priced_offers(lines) == ["Jabłka polskie 2,99 zł/kg", "Mleko UHT 1,99 zł"]
+    # Rabat w osobnej linii dołącza do oferty przed nim
+    assert promotions.priced_offers(lines) == ["Jabłka polskie 2,99 zł/kg", "Mleko UHT 1,99 zł -30%"]
 
 
 def test_lidl_leaflet_uses_page_texts():
