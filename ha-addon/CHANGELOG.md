@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.9.6
+
+- Promocje: wybór działu (np. tylko „Mięso i ryby”), przycisk × w wyszukiwaniu,
+  wybrane sklepy, grupy i dział zapamiętane w telefonie (też w „Z promocji”).
+- Ulubione: w okienku produktu „⭐ Ulubione” – takie produkty (każda marka, np. każda herbata)
+  są na górze w sekcji „⭐ Ulubione w promocji”.
+- Trafniejsze ikonki (herbata ☕, jajka 🥚, kurczak 🍗…), dział po pełnej nazwie
+  („owoce mrożone” to mrożonki); przy czytaniu stron AI musi zaznaczyć produkt (wycinki).
+
 ## 0.9.5
 
 - Promocje pogrupowane w działy jak w sklepie (warzywa, pieczywo, mięso…), w dziale największe

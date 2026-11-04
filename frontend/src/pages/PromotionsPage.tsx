@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, Promotion, PromoStatus } from "../api";
 import Sheet from "../components/Sheet";
 import { validLabel } from "../lib/promo";
+import { useRemembered } from "../lib/remember";
 import { fold } from "../lib/stepIngredients";
 import { useToast } from "../lib/toast";
 
@@ -36,6 +37,45 @@ const AISLE_ICONS: Record<string, string> = {
   "Dla dziecka": "👶",
 };
 
+// Ikonka konkretnej rzeczy, gdy da się ją poznać po nazwie (herbata to nie sok)
+const ITEM_ICONS: [RegExp, string][] = [
+  [/herbat|kaw[ay]\b|kawa|cappuccino/, "☕"],
+  [/wod[ay]\b|woda/, "💧"],
+  [/mlek|mleczn/, "🥛"],
+  [/jaj/, "🥚"],
+  [/ser\b|sery|serek|mozzarell|gouda|edam/, "🧀"],
+  [/maslo|masla/, "🧈"],
+  [/kurcz|indyk|drob|skrzyd|udk|udo/, "🍗"],
+  [/ryb|losos|dorsz|sledz|makrel|tunczyk|krewet/, "🐟"],
+  [/kielbas|parow|szynk|boczek|salami/, "🥓"],
+  [/chleb|bulk|bagiet|rogal|pieczyw/, "🍞"],
+  [/ziemniak/, "🥔"],
+  [/pomidor/, "🍅"],
+  [/marchew/, "🥕"],
+  [/cebul|czosn/, "🧅"],
+  [/ogor/, "🥒"],
+  [/jablk/, "🍏"],
+  [/banan/, "🍌"],
+  [/pomarancz|mandaryn/, "🍊"],
+  [/cytryn/, "🍋"],
+  [/winogron/, "🍇"],
+  [/truskaw/, "🍓"],
+  [/ananas/, "🍍"],
+  [/awokado/, "🥑"],
+  [/makaron|spaghetti|penne/, "🍝"],
+  [/ryz\b|ryz /, "🍚"],
+  [/czekolad|baton|cukierk|praling/, "🍫"],
+  [/ciast|ciastk|babk|piernik/, "🍰"],
+  [/lody/, "🍦"],
+  [/sok/, "🧃"],
+  [/pieluch|chusteczk/, "👶"],
+];
+
+function itemIcon(p: Promotion): string {
+  const text = fold(`${p.name} ${p.ingredient}`);
+  return ITEM_ICONS.find(([re]) => re.test(text))?.[1] ?? AISLE_ICONS[p.aisle] ?? "🛒";
+}
+
 // Działy w kolejności jak w sklepie; w dziale największe rabaty na górze
 function byAisle(items: Promotion[]): [string, Promotion[]][] {
   const sorted = [...items].sort(
@@ -63,18 +103,35 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [promos, setPromos] = useState<Promotion[] | null>(null);
   const [status, setStatus] = useState<PromoStatus | null>(null);
   const [q, setQ] = useState("");
-  // Sklepy ukryte na liście (stuknięcie w sklep go chowa/pokazuje)
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  // Grupy ukryte na liście (np. bez środków czystości)
-  const [hiddenCats, setHiddenCats] = useState<Set<string>>(new Set());
+  const searchInput = useRef<HTMLInputElement>(null);
+  // Sklepy i grupy ukryte na liście (stuknięcie chowa/pokazuje) - zapamiętane w telefonie
+  const [hiddenList, setHiddenList] = useRemembered<string[]>("promo-hidden-stores", []);
+  const [hiddenCatList, setHiddenCatList] = useRemembered<string[]>("promo-hidden-groups", []);
+  // Tylko jeden dział, np. "Mięso i ryby" ("" = wszystkie)
+  const [onlyAisle, setOnlyAisle] = useRemembered<string>("promo-aisle", "");
+  const hidden = new Set(hiddenList);
+  const hiddenCats = new Set(hiddenCatList);
+  const setHidden = (next: Set<string>) => setHiddenList([...next]);
+  const setHiddenCats = (next: Set<string>) => setHiddenCatList([...next]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [chosen, setChosen] = useState<Promotion | null>(null);
   const { toast, run } = useToast();
 
   const load = () => {
     api.listPromotions().then(setPromos, () => setPromos([]));
     api.promoStatus().then(setStatus, () => {});
+    api.promoFavorites().then(setFavorites, () => {});
   };
   useEffect(load, []);
+
+  const toggleFavorite = async (promo: Promotion) => {
+    const on = !favorites.includes(promo.key);
+    const fresh = await run(() => api.setPromoFavorite(promo.key, on));
+    if (!fresh) return;
+    setFavorites(fresh);
+    toast(on ? `⭐ Ulubione: ${promo.key} (każda marka)` : `Usunięto z ulubionych: ${promo.key}`);
+    api.listPromotions().then(setPromos, () => {});
+  };
 
   // Sprawdzanie gazetek trwa w tle (AI czyta nowe gazetki) - co 5 sekund pytamy, czy skończyło
   const running = status?.running ?? false;
@@ -103,8 +160,38 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   const stores = [...new Set(promos.map((p) => p.store))];
   const categories = CATEGORIES.filter(([key]) => promos.some((p) => p.category === key));
   const term = fold(q.trim());
-  const visible = promos.filter(
-    (p) => !hidden.has(p.store) && !hiddenCats.has(p.category) && (!term || fold(`${p.name} ${p.ingredient}`).includes(term)),
+  const shown = promos.filter((p) => !hidden.has(p.store) && !hiddenCats.has(p.category));
+  const aisles = [...new Map(shown.map((p) => [p.aisle, p.aisle_order])).entries()].sort((a, b) => a[1] - b[1]).map(([name]) => name);
+  const aisle = aisles.includes(onlyAisle) ? onlyAisle : "";
+  const visible = shown.filter(
+    (p) => (!aisle || p.aisle === aisle) && (!term || fold(`${p.name} ${p.ingredient} ${p.aisle}`).includes(term)),
+  );
+  const favoritesOn = visible.filter((p) => p.favorite).sort((a, b) => b.discount - a.discount);
+  const row = (p: Promotion, withStore = false) => (
+    <li key={p.id}>
+      <button type="button" className="promo-row" onClick={() => setChosen(p)}>
+        {p.image_url ? (
+          <img className="promo-thumb" src={p.image_url} alt="" loading="lazy" />
+        ) : (
+          <span className="promo-thumb promo-icon" aria-hidden="true">
+            {itemIcon(p)}
+          </span>
+        )}
+        <span className="grow">
+          {p.favorite && "⭐ "}
+          {p.name}
+          {(withStore || p.note || p.valid_to || p.valid_from) && (
+            <span className="muted small promo-meta">
+              {[withStore && p.store, p.note, validLabel(p.valid_from, p.valid_to)].filter(Boolean).join(" · ")}
+            </span>
+          )}
+        </span>
+        <span className="promo-price">
+          <strong>{p.price}</strong>
+          {p.discount > 0 && <span className="promo-discount">-{p.discount}%</span>}
+        </span>
+      </button>
+    </li>
   );
   const toggle = (set: Set<string>, key: string) => {
     const next = new Set(set);
@@ -146,7 +233,30 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
       ) : (
         <>
           <div className="search-field">
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj, np. masło, kurczak…" />
+            <input
+              ref={searchInput}
+              type="search"
+              enterKeyHint="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              placeholder="Szukaj, np. masło, kurczak…"
+            />
+            {q && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="Wyczyść wyszukiwanie"
+                // Bez tego pole straciłoby fokus i klawiatura na iPhonie by się schowała
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setQ("");
+                  searchInput.current?.focus();
+                }}
+              >
+                ×
+              </button>
+            )}
           </div>
           {(stores.length > 1 || categories.length > 1) && (
             <div className="chips">
@@ -164,53 +274,43 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
                 ))}
             </div>
           )}
+          {aisles.length > 1 && (
+            <select className="promo-aisle-select" value={aisle} onChange={(e) => setOnlyAisle(e.target.value)} aria-label="Dział">
+              <option value="">Wszystkie działy</option>
+              {aisles.map((name) => (
+                <option key={name} value={name}>
+                  {AISLE_ICONS[name] ?? "🛒"} {name}
+                </option>
+              ))}
+            </select>
+          )}
           <p className="small">
             🥕 Przepisy z tych produktów znajdziesz w <Link to="/co-ugotowac">Co ugotuję?</Link>
           </p>
+          {favoritesOn.length > 0 && (
+            <section className="promo-store">
+              <h2>⭐ Ulubione w promocji</h2>
+              <ul className="promo-list">{favoritesOn.map((p) => row(p, true))}</ul>
+            </section>
+          )}
           {stores
             .filter((store) => !hidden.has(store))
             .map((store) => {
-              const items = visible.filter((p) => p.store === store);
+              const items = visible.filter((p) => p.store === store && !p.favorite);
               if (!items.length) return null;
               return (
                 <section key={store} className="promo-store">
                   <h2>{store}</h2>
-                  {byAisle(items).map(([aisle, group]) => (
-                    <div key={aisle}>
-                      <h3 className="promo-aisle muted small">{aisle}</h3>
-                      <ul className="promo-list">
-                        {group.map((p) => (
-                          <li key={p.id}>
-                            <button type="button" className="promo-row" onClick={() => setChosen(p)}>
-                              {p.image_url ? (
-                                <img className="promo-thumb" src={p.image_url} alt="" loading="lazy" />
-                              ) : (
-                                <span className="promo-thumb promo-icon" aria-hidden="true">
-                                  {AISLE_ICONS[p.aisle] ?? "🛒"}
-                                </span>
-                              )}
-                              <span className="grow">
-                            {p.name}
-                            {(p.note || p.valid_to || p.valid_from) && (
-                              <span className="muted small promo-meta">
-                                {[p.note, validLabel(p.valid_from, p.valid_to)].filter(Boolean).join(" · ")}
-                              </span>
-                            )}
-                              </span>
-                              <span className="promo-price">
-                                <strong>{p.price}</strong>
-                                {p.discount > 0 && <span className="promo-discount">-{p.discount}%</span>}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                  {byAisle(items).map(([name, group]) => (
+                    <div key={name}>
+                      {!aisle && <h3 className="promo-aisle muted small">{name}</h3>}
+                      <ul className="promo-list">{group.map((p) => row(p))}</ul>
                     </div>
                   ))}
                 </section>
               );
             })}
-          {visible.length === 0 && <p className="muted center">Nic nie pasuje do wyszukiwania.</p>}
+          {visible.length === 0 && <p className="muted center">Nic nie pasuje do filtrów.</p>}
         </>
       )}
 
@@ -239,6 +339,9 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
           <p className="muted small">Gazetka: {chosen.leaflet}</p>
           <button type="button" className="sheet-row" onClick={() => addToShopping(chosen)}>
             🛒 Dodaj do listy zakupów
+          </button>
+          <button type="button" className="sheet-row" onClick={() => toggleFavorite(chosen).then(() => setChosen(null))}>
+            {favorites.includes(chosen.key) ? `☆ Usuń z ulubionych (${chosen.key})` : `⭐ Ulubione: ${chosen.key} – pokazuj na górze, każda marka`}
           </button>
         </Sheet>
       )}

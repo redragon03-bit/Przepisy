@@ -305,6 +305,8 @@ export interface PromotionOut {
   aisle: string;
   aisle_order: number;
   image_url: string;
+  key: string;
+  favorite: boolean;
   leaflet: string;
   valid_from: string | null;
   valid_to: string | null;

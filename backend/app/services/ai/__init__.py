@@ -448,6 +448,16 @@ class AiPromotions(BaseModel):
     products: list[AiPromotion] = Field(description="Produkty w promocji; pusta lista, gdy nie ma żadnego")
 
 
+class AiPagePromotion(AiPromotion):
+    # Na zdjęciu strony prostokąt jest wymagany - z wartością domyślną lżejszy model go pomijał
+    box: list[int] = Field(description="Prostokąt ze zdjęciem produktu na stronie [ymin, xmin, ymax, xmax] "
+                           "w skali 0-1000")
+
+
+class AiPageText(BaseModel):
+    products: list[AiPagePromotion] = Field(description="Produkty w promocji; pusta lista, gdy nie ma żadnego")
+
+
 _PROMOTION_RULES = """Wypisz produkty w promocji z trzech grup:
 - jedzenie: mięso, ryby, nabiał, warzywa, owoce, pieczywo, makarony, kasze, przyprawy, oleje, mrożonki,
   słodycze, napoje bez alkoholu itp.,
@@ -521,7 +531,7 @@ def promotions_from_image(store: str, title: str, jpeg: bytes) -> list[AiPromoti
     """Produkty w promocji ze zdjęcia jednej strony gazetki. Działa w tle - bez limitu czasu."""
     products: dict[str, AiPromotion] = {}
     with bulk():
-        result = _ask_provider([f"Sklep: {store}\nGazetka: {title}", jpeg], PROMOTIONS_IMAGE_PROMPT, AiPromotions)
+        result = _ask_provider([f"Sklep: {store}\nGazetka: {title}", jpeg], PROMOTIONS_IMAGE_PROMPT, AiPageText)
     _clean_promotions(result.products, products)
     return list(products.values())
 

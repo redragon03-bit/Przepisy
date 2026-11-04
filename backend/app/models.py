@@ -229,6 +229,16 @@ class PromoLeaflet(Base):
     pages: Mapped[list["PromoPage"]] = relationship(cascade="all, delete-orphan")
 
 
+class PromoFavorite(Base):
+    """Ulubiony produkt w promocjach, np. "herbata" - wyróżniany, gdy jest w promocji (każda marka)."""
+
+    __tablename__ = "promo_favorites"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Nazwa składnika ("herbata") albo produktu spoza jedzenia ("pieluchy dada"), małymi literami
+    key: Mapped[str] = mapped_column(String(200), unique=True)
+
+
 class PromoPage(Base):
     """Strona gazetki, której obrazek AI już przeczytało (nocne uzupełnianie cen)."""
 
