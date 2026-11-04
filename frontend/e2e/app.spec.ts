@@ -271,6 +271,8 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
     aisle: category === "czystosc" ? "Chemia i dom" : id === 1 ? "Nabiał i jajka" : "Sypkie i makarony",
     aisle_order: category === "czystosc" ? 11 : id === 1 ? 4 : 7,
     image_url: "",
+    key: ingredient || name.toLowerCase(),
+    favorite: false,
   });
   const promos = [
     promo(1, "Biedronka", "Mleko UHT 3,2%", "mleko", "1,99 zł"),
@@ -278,6 +280,7 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
     promo(3, "Lidl", "Płyn do naczyń Ludwik", "", "4,99 zł", "czystosc"),
   ];
   await page.route("**/api/promotions", (route) => route.fulfill({ json: promos }));
+  await page.route("**/api/promotions/favorites", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/promotions/status", (route) =>
     route.fulfill({ json: { stores: ["Lidl", "Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
   );
@@ -299,11 +302,15 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   // Szukanie i chowanie sklepu
   await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("maka");
   await expect(page.locator(".promo-row")).toHaveCount(1);
-  await page.getByPlaceholder("Szukaj, np. masło, kurczak…").fill("");
+  await page.getByRole("button", { name: "Wyczyść wyszukiwanie" }).click();
+  await expect(page.getByPlaceholder("Szukaj, np. masło, kurczak…")).toHaveValue("");
   // Chowanie środków czystości, potem całego Lidla
   await page.locator(".chips").getByRole("button", { name: "🧽 Czystość" }).click();
   await expect(page.locator(".promo-row")).toHaveCount(2);
   await page.locator(".chips").getByRole("button", { name: "Lidl" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+  // Filtry zostają po ponownym wejściu
+  await page.reload();
   await expect(page.locator(".promo-row")).toHaveCount(1);
 
   await page.locator(".promo-row").first().click();

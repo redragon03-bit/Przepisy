@@ -403,6 +403,10 @@ class PromotionOut(BaseModel):
     aisle_order: int
     # Wycinek produktu z gazetki albo "" (wtedy ekran pokazuje ikonkę działu)
     image_url: str
+    # Klucz do ulubionych: składnik ("herbata") albo nazwa produktu spoza jedzenia
+    key: str
+    # Pasuje do ulubionego (ta sama rzecz, każda marka: "herbata" ~ "herbata zielona")
+    favorite: bool
     leaflet: str
     valid_from: date | None
     valid_to: date | None

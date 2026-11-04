@@ -1412,6 +1412,11 @@ a.chip {
   font-weight: 700;
 }
 
+.promo-aisle-select {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .promo-aisle {
   margin: 12px 0 0;
   font-weight: 600;

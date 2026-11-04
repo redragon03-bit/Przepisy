@@ -215,6 +215,9 @@ export const api = {
   promoStatus: () => request<PromoStatus>("GET", "/api/promotions/status"),
   refreshPromotions: () => request<PromoStatus>("POST", "/api/promotions/refresh"),
   promoRecipes: () => request<PromoRecipe[]>("GET", "/api/promotions/recipes"),
+  promoFavorites: () => request<string[]>("GET", "/api/promotions/favorites"),
+  setPromoFavorite: (key: string, on: boolean) =>
+    request<string[]>(on ? "PUT" : "DELETE", `/api/promotions/favorites/${encodeURIComponent(key)}`),
   promoToShopping: (id: number) => request<ShoppingItem>("POST", `/api/promotions/${id}/shopping`),
   // Pomysły od AI układają się w tle - wynik odbieramy przez getPromoIdeas
   promoIdeas: (wishes: string, stores: string[]) => request<PromoIdeas>("POST", "/api/promotions/ideas", { wishes, stores }),

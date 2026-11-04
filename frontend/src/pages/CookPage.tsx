@@ -6,6 +6,7 @@ import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
 import Sheet from "../components/Sheet";
 import { dayLabel } from "../lib/days";
+import { useRemembered } from "../lib/remember";
 import { usePromotions } from "../lib/usePromotions";
 import { useToast } from "../lib/toast";
 
@@ -52,8 +53,10 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
   const [recipes, setRecipes] = useState<PromoRecipe[] | null>(null);
   const [all, setAll] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
-  // Sklepy schowane w tej sekcji (stuknięcie w sklep go chowa/pokazuje)
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // Sklepy schowane w tej sekcji (stuknięcie w sklep go chowa/pokazuje) - zapamiętane w telefonie
+  const [hiddenList, setHiddenList] = useRemembered<string[]>("promo-cook-hidden-stores", []);
+  const hidden = new Set(hiddenList);
+  const setHidden = (next: Set<string>) => setHiddenList([...next]);
 
   useEffect(() => {
     api.promoRecipes().then(setRecipes, () => setRecipes([]));

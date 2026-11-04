@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from ..auth import require_auth
 from ..config import get_settings
 from ..database import SessionLocal, get_db
-from ..models import PromoLeaflet, Promotion, Recipe, RecipeIngredient, ShoppingItem
+from ..models import PromoFavorite, PromoLeaflet, Promotion, Recipe, RecipeIngredient, ShoppingItem
 from ..schemas import (
     PromoHit,
     PromoIdeasIn,
@@ -42,31 +42,65 @@ def promo_aisle(promo: Promotion) -> str:
         return CHILD
     if promo.category == "czystosc":
         return "Chemia i dom"
-    found = aisle(promo.ingredient) if promo.ingredient else OTHER
-    return found if found != OTHER else aisle(promo.name)
+    # Najpierw pełna nazwa ("Owoce mrożone..." to mrożonki), potem składnik
+    found = aisle(promo.name)
+    return found if found != OTHER or not promo.ingredient else aisle(promo.ingredient)
 
 
-def to_out(promo: Promotion) -> PromotionOut:
+def promo_key(promo: Promotion) -> str:
+    return promo.ingredient or promotions.clean_name(promo.name).lower()[:200]
+
+
+def is_favorite(promo: Promotion, favorites: list[str]) -> bool:
+    key = promo_key(promo)
+    return any(fav == key or promotions.matches(fav, key) for fav in favorites)
+
+
+def to_out(promo: Promotion, favorites: list[str] = ()) -> PromotionOut:
     leaflet = promo.leaflet
     name = promo_aisle(promo)
     return PromotionOut(id=promo.id, store=leaflet.store, name=promotions.clean_name(promo.name),
                         category=promo.category, ingredient=promo.ingredient, price=promo.price, note=promo.note,
                         discount=promotions.discount_of(promo), aisle=name, aisle_order=AISLE_ORDER[name],
-                        image_url=f"/api/promotions/{promo.id}/image" if promo.image else "", leaflet=leaflet.title,
+                        image_url=f"/api/promotions/{promo.id}/image" if promo.image else "",
+                        key=promo_key(promo), favorite=is_favorite(promo, list(favorites)), leaflet=leaflet.title,
                         valid_from=leaflet.valid_from, valid_to=leaflet.valid_to)
 
 
 @router.get("", response_model=list[PromotionOut])
 def list_promotions(db: Session = Depends(get_db)):
     """Produkty w promocji z gazetek, które jeszcze obowiązują (ten sam produkt w sklepie raz)."""
+    favorites = [f.key for f in db.query(PromoFavorite)]
     seen, found = set(), []
     for promo in promotions.current(db):
-        out = to_out(promo)
+        out = to_out(promo, favorites)
         key = (out.store, out.name.lower(), out.price)
         if key not in seen:
             seen.add(key)
             found.append(out)
     return found
+
+
+@router.get("/favorites", response_model=list[str])
+def list_favorites(db: Session = Depends(get_db)):
+    """Ulubione produkty, np. ["herbata", "masło"]."""
+    return [f.key for f in db.query(PromoFavorite).order_by(PromoFavorite.key)]
+
+
+@router.put("/favorites/{key}", response_model=list[str])
+def add_favorite(key: str, db: Session = Depends(get_db)):
+    key = key.strip().lower()[:200]
+    if key and db.query(PromoFavorite).filter_by(key=key).one_or_none() is None:
+        db.add(PromoFavorite(key=key))
+        db.commit()
+    return list_favorites(db)
+
+
+@router.delete("/favorites/{key}", response_model=list[str])
+def remove_favorite(key: str, db: Session = Depends(get_db)):
+    db.query(PromoFavorite).filter_by(key=key.strip().lower()).delete()
+    db.commit()
+    return list_favorites(db)
 
 
 @router.get("/{promo_id}/image")
