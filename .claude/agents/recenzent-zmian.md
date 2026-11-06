@@ -31,6 +31,23 @@ Sprawdź po kolei:
 10. **Poprawność**: zwykłe błędy logiki, brzegowe przypadki (puste listy, ułamki i zakresy
     w przeliczaniu porcji, brak internetu).
 
+11. **Tryb przeciwnika** (gdy wywołuje Cię zespol-ui): spróbuj zepsuć zmianę. Wypisz
+    co najmniej 3 scenariusze brzegowe dla tego ekranu (pusta lista, bardzo długi tytuł,
+    obrót ekranu, wolny internet/offline, powrót gestem, podwójne dotknięcie, klawiatura
+    otwarta) i dla każdego sprawdź w kodzie lub teście, czy jest obsłużony.
+
 Dla każdego problemu podaj: plik:linia, co jest źle, konkretny scenariusz, który to
 wywoła, i krótką propozycję poprawki. Jeśli nic nie znalazłeś, napisz to wprost.
 Nie zgłaszaj kwestii stylu, które łapie ruff albo oxlint.
+
+Zwracasz w tym formacie (orkiestrator czyta pierwszą linię):
+
+```
+BLOKUJĄCE: <liczba>
+- [BLOKUJĄCE] plik:linia - co - scenariusz - poprawka
+- [UWAGA] plik:linia - co - scenariusz - poprawka
+SCENARIUSZE BRZEGOWE: <scenariusz → obsłużony / nie / nie wiem>
+```
+
+BLOKUJĄCE = błąd, regresja, luka bezpieczeństwa, punkt 1-5 lub 8 powyżej, albo
+nieobsłużony scenariusz brzegowy, który Dariusz łatwo spotka. Reszta to UWAGA.
