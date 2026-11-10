@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ChatMessage } from "../api";
+import AutoTextarea from "../components/AutoTextarea";
 import NewRecipeCard from "../components/NewRecipeCard";
 import RecipeCard from "../components/RecipeCard";
 
@@ -119,7 +120,7 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
             Napisz, na co masz ochotę albo czego nie chcesz. Najpierw poszukam w Twoich przepisach, a jeśli nic nie pasuje,
             wymyślę nowy. Biorę pod uwagę to, co masz w domu (spiżarnia w „Co ugotuję?”).
           </p>
-          <div className="chips">
+          <div className="chat-suggestions">
             {SUGGESTIONS.map((s) => (
               <button key={s} type="button" className="chip" onClick={() => send(s)}>
                 {s}
@@ -143,7 +144,13 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
             {m.recipe && <NewRecipeCard recipe={m.recipe} />}
           </div>
         ))}
-        {thinking && <div className="bubble assistant muted">Myślę…</div>}
+        {thinking && (
+          <div className="bubble assistant typing" role="status" aria-label="Myślę…">
+            <i />
+            <i />
+            <i />
+          </div>
+        )}
         {error && (
           <p className="error small">
             {error}{" "}
@@ -164,9 +171,18 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
           send(text);
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Na co masz ochotę?" enterKeyHint="send" />
-        <button className="primary" disabled={thinking || !text.trim()}>
-          Wyślij
+        {/* Pole rośnie z treścią; Enter wysyła (nowa linia nie jest w czacie potrzebna) */}
+        <AutoTextarea
+          singleLine
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send(text)}
+          placeholder="Na co masz ochotę?"
+          enterKeyHint="send"
+          aria-label="Wiadomość"
+        />
+        <button className="primary chat-send" disabled={thinking || !text.trim()} aria-label="Wyślij">
+          ↑
         </button>
       </form>
     </>

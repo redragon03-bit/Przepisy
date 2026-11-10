@@ -14,9 +14,12 @@ export default function StepsSection({ recipe, scale }: { recipe: Recipe; scale:
   return (
     <>
       <h2>Przygotowanie</h2>
+      {/* Pływający przycisk (FAB): zawsze pod kciukiem, także po przewinięciu do kroków.
+          Gdy chodzi minutnik, zwija się do samej ikony obok niego (styles.css: .fab). */}
       {recipe.steps.length > 0 && (
-        <Link to={`/przepis/${recipe.id}/gotuj?skala=${scale}`} className="button primary wide">
-          👨‍🍳 Tryb gotowania (krok po kroku)
+        <Link to={`/przepis/${recipe.id}/gotuj?skala=${scale}`} className="fab" aria-label="Tryb gotowania (krok po kroku)">
+          <span aria-hidden="true">👨‍🍳</span>
+          <span className="fab-label">Gotuj</span>
         </Link>
       )}
       <ol className="steps">

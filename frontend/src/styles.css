@@ -1,32 +1,115 @@
 /* Style całej aplikacji. Kolory są w zmiennych, żeby łatwo je zmienić. */
+/* ===== Tokeny projektu =====
+   Kolory, rozmiary i ruch w jednym miejscu. Zasady:
+   - --accent to kolor marki (duże plamy, ikony), --accent-strong to ten sam pomarańcz
+     przyciemniony tak, żeby biały tekst na nim i on sam jako tekst miały kontrast co najmniej 4.5:1 (WCAG AA);
+   - kolory semantyczne (brak, promocja, minutnik) nie są pomarańczowe, żeby nie ginęły wśród akcentów;
+   - --hit to najmniejszy obszar do stuknięcia; w kuchni (mokre/brudne palce) większy --hit-kitchen. */
 :root {
   --bg: #fffaf5;
   --surface: #ffffff;
+  --surface-2: #fff3ea;
   --text: #2b2118;
-  --muted: #8a7b6e;
+  --muted: #6f6256;
   --accent: #e8692c;
+  --accent-strong: #c84f17;
+  --on-accent: #ffffff;
   --accent-soft: #fde7da;
+  --on-accent-soft: #7a2e0e;
   --border: #eadfd5;
   /* Pola do wpisywania: wyraźnie odcięte od tła */
   --field: #ffffff;
   --field-border: #cdbcad;
-  --danger: #c0392b;
-  --ok: #2e8b57;
-  --radius: 14px;
+  --danger: #b42318;
+  --ok: #1f7a4a;
+
+  /* Semantyka */
+  --missing: #b42318;
+  --missing-soft: #fdecea;
+  --promo-bg: #ffd84d; /* żółta "cenówka" jak w gazetkach */
+  --promo-text: #3d2e00;
+  --deal-bg: #d92d20; /* -30% */
+  --deal-text: #ffffff;
+  --timer-bg: #2b2118; /* odwrócony kolor: ciemna pastylka na jasnym ekranie widać kątem oka */
+  --timer-text: #fffaf5;
+  --timer-progress: #ff9a5c;
+  --timer-soon-bg: #ffb547; /* ostatnia minuta */
+  --timer-soon-text: #2b2118;
+  --timer-done-bg: #d92d20;
+  --timer-done-text: #ffffff;
+
+  /* Rozmiary: płynnie rosną z szerokością ekranu (iPhone 13 = 390 px) */
+  --fs-small: clamp(13px, 3.4vw, 14px);
+  --fs-body: clamp(16px, 4.3vw, 17px);
+  --fs-list: clamp(17px, 4.6vw, 19px);
+  --fs-kitchen: clamp(22px, 6.6vw, 30px);
+  --fs-timer: clamp(22px, 6.2vw, 28px);
+  --hit: 48px;
+  --hit-kitchen: 60px;
+
+  /* Kształty i głębia (soft UI) */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgb(43 33 24 / 6%), 0 2px 8px rgb(43 33 24 / 6%);
+  --shadow-2: 0 4px 12px rgb(43 33 24 / 12%), 0 12px 32px rgb(43 33 24 / 10%);
+
+  /* Ruch */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur: 200ms;
+
   --tabbar-height: 64px;
   color-scheme: light dark;
 }
 
+/* Ciemny motyw: ciepłe, "kawowe" szarości zamiast czerni; jaśniejszy pomarańcz z ciemnym tekstem na nim */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #1b1714;
     --surface: #26201c;
+    --surface-2: #2f2722;
     --text: #f3ebe4;
-    --muted: #a8998c;
+    --muted: #b8a99c;
+    --accent: #ff8a4c;
+    --accent-strong: #ff8a4c;
+    --on-accent: #1b1714;
     --accent-soft: #4a2c1c;
+    --on-accent-soft: #ffc9a8;
     --border: #3a312b;
     --field: #342b25;
     --field-border: #6b5a4d;
+    --danger: #ff8a7a;
+    --ok: #6fd39b;
+    --missing: #ffb4a8;
+    --missing-soft: #3a1e1a;
+    --promo-bg: #ffd84d;
+    --promo-text: #2b2118;
+    --deal-bg: #ff6b5b;
+    --deal-text: #1b1714;
+    --timer-bg: #f3ebe4;
+    --timer-text: #1b1714;
+    --timer-progress: #e8692c;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-2: 0 8px 28px rgb(0 0 0 / 55%);
+  }
+
+  /* Zdjęcia potraw nie świecą w oczy po ciemku */
+  img {
+    filter: brightness(0.92);
+  }
+}
+
+/* Ktoś wyłączył animacje w iOS (Dostępność → Ruch) - nie ruszamy niczego */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -39,12 +122,13 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.45;
+  font-size: var(--fs-body);
+  line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 
 h1 {
@@ -150,14 +234,21 @@ label textarea {
 button,
 .button {
   display: inline-block;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 10px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
+  transition: transform 120ms var(--ease), background-color var(--dur), box-shadow var(--dur);
   text-decoration: none;
   text-align: center;
   cursor: pointer;
   white-space: nowrap;
+}
+
+button:active:not(:disabled),
+.button:active {
+  transform: scale(0.97);
 }
 
 button:disabled {
@@ -165,9 +256,9 @@ button:disabled {
 }
 
 .primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -183,6 +274,7 @@ button.small,
 
 button.small,
 .button.small {
+  min-height: 36px;
   padding: 6px 12px;
 }
 
@@ -193,9 +285,10 @@ button.small,
 }
 
 .link {
+  min-height: 44px;
   border: none;
   background: none;
-  color: var(--accent);
+  color: var(--accent-strong);
   padding: 6px 0;
 }
 
@@ -304,17 +397,9 @@ button.small,
   margin-bottom: 8px;
 }
 
-.chip {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  border-color: transparent;
-  font-size: 14px;
-}
-
 .chip.selected {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-accent);
 }
 
 .chip.selected .muted {
@@ -411,23 +496,6 @@ button.small,
   margin: 0;
 }
 
-.checklist li {
-  display: flex;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.box-icon {
-  color: var(--accent);
-}
-
-.steps li {
-  display: flex;
-  gap: 12px;
-  padding: 10px 0;
-}
-
 .steps p {
   margin: 0;
 }
@@ -436,25 +504,6 @@ button.small,
   width: 100%;
   border-radius: 10px;
   margin-top: 8px;
-}
-
-.step-number {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.done {
-  opacity: 0.45;
-  text-decoration: line-through;
 }
 
 .toggle {
@@ -581,15 +630,6 @@ span.drag-handle:not(.step-number) {
   text-decoration: none;
 }
 
-.tabbar a span {
-  font-size: 22px;
-}
-
-.tabbar a.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 /* Ulubione, ocena, porcje */
 .favorite {
   font-size: 24px;
@@ -627,69 +667,11 @@ span.drag-handle:not(.step-number) {
   gap: 8px;
 }
 
-.stepper button {
-  min-width: 40px;
-  padding: 6px 10px;
-}
-
 .stepper button.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-strong);
+  color: var(--on-accent);
 }
 
-/* Minutniki */
-.timer-button {
-  margin-top: 6px;
-  margin-right: 6px;
-  padding: 4px 10px;
-  font-size: 14px;
-}
-
-.timers {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 10;
-}
-
-.timer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
-}
-
-.timer span {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.timer strong {
-  font-variant-numeric: tabular-nums;
-  font-size: 20px;
-}
-
-.timer.finished {
-  background: var(--accent);
-  color: #fff;
-  animation: pulse 1s infinite alternate;
-}
-
-@keyframes pulse {
-  to {
-    opacity: 0.7;
-  }
-}
 
 .toast {
   position: fixed;
@@ -784,28 +766,9 @@ span.drag-handle:not(.step-number) {
   padding-bottom: 64px;
 }
 
-.bubble {
-  max-width: 90%;
-  padding: 10px 14px;
-  border-radius: 16px;
-}
-
 .bubble p {
   margin: 0;
   white-space: pre-wrap;
-}
-
-.bubble.user {
-  align-self: flex-end;
-  background: var(--accent);
-  color: white;
-}
-
-.bubble.assistant {
-  align-self: flex-start;
-  width: 90%;
-  background: var(--surface);
-  border: 1px solid var(--border);
 }
 
 /* Polecane przepisy w dymku - po dwa w rzędzie, żeby nie zajmowały całego ekranu */
@@ -816,30 +779,12 @@ span.drag-handle:not(.step-number) {
 
 .new-recipe summary {
   margin: 6px 0;
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .new-recipe ul,
 .new-recipe ol {
   padding-left: 20px;
-}
-
-/* Pole wpisywania przyklejone nad paskiem zakładek */
-.chat-input {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
-  display: flex;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-}
-
-.chat-input input {
-  flex: 1;
-  min-width: 0;
 }
 
 /* Tryb gotowania: pełny ekran nad paskiem zakładek */
@@ -858,61 +803,10 @@ span.drag-handle:not(.step-number) {
   overflow-y: auto;
 }
 
-.cooking-step {
-  font-size: 26px;
-  line-height: 1.4;
-}
-
-/* Składniki użyte w bieżącym kroku */
-.step-ingredients {
-  font-size: 19px;
-  line-height: 1.5;
-  padding: 10px 12px 10px 30px;
-  margin: 12px 0;
-  border-radius: var(--radius);
-  background: var(--accent-soft);
-}
-
-.cooking-ingredients {
-  font-size: 21px;
-  line-height: 1.6;
-  padding-left: 22px;
-}
-
 .cooking-body img {
   width: 100%;
   border-radius: var(--radius);
   margin-top: 12px;
-}
-
-.timer-button.big {
-  font-size: 18px;
-  padding: 10px 16px;
-}
-
-.cooking-nav {
-  display: flex;
-  gap: 12px;
-  padding-top: 12px;
-}
-
-.cooking-nav button {
-  flex: 1;
-  padding: 16px;
-  font-size: 18px;
-}
-
-/* W trybie gotowania minutniki są nad przyciskami Wstecz/Dalej (i nad pełnoekranowym widokiem) */
-.timers.cooking-timers {
-  bottom: calc(env(safe-area-inset-bottom) + 84px);
-  z-index: 25;
-}
-
-.timer a {
-  flex: 1;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
 }
 
 /* Pływający przycisk "do góry" nad paskiem zakładek */
@@ -927,7 +821,7 @@ span.drag-handle:not(.step-number) {
   border-radius: 50%;
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--accent);
+  color: var(--accent-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -965,17 +859,6 @@ body:has(.chat-input) .back-to-top {
   color: var(--muted);
 }
 
-.tabbar button span {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 26px;
-}
-
-.tabbar button.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .sheet-backdrop {
   position: fixed;
   inset: 0 0 calc(var(--tabbar-height) + env(safe-area-inset-bottom));
@@ -984,17 +867,6 @@ body:has(.chat-input) .back-to-top {
   align-items: flex-end;
   background: rgb(0 0 0 / 30%);
   animation: fade-in 0.15s;
-}
-
-.sheet {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  width: 100%;
-  padding: 16px;
-  background: var(--bg);
-  border-radius: var(--radius) var(--radius) 0 0;
-  animation: slide-up 0.2s;
 }
 
 .sheet-tile {
@@ -1018,7 +890,7 @@ body:has(.chat-input) .back-to-top {
 
 .sheet-tile.active {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-strong);
   font-weight: 600;
 }
 
@@ -1107,7 +979,7 @@ body:has(.chat-input) .back-to-top {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--accent-strong);
   font-weight: 700;
 }
 
@@ -1186,9 +1058,9 @@ button.sheet-tile {
 }
 
 .swipe-back.ready {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
 }
 
 /* Lista zakupów: działy sklepu i przesuwanie w lewo, żeby usunąć */
@@ -1221,18 +1093,6 @@ h2.aisle {
 
 .swipe-delete.ready {
   background: var(--danger);
-}
-
-.swipe-content {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  background: var(--bg);
-  transition: transform 0.2s;
 }
 
 /* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem */
@@ -1319,7 +1179,7 @@ a.chip {
 }
 
 .use-first {
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .card-body .use-first {
@@ -1353,11 +1213,6 @@ a.chip {
 }
 
 /* Promocje z gazetek */
-.promo-badge {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .promo-store h2 {
   margin: 18px 0 6px;
 }
@@ -1391,25 +1246,6 @@ a.chip {
 .promo-row > .grow {
   flex: 1;
   min-width: 0;
-}
-
-.promo-price {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  white-space: nowrap;
-  color: var(--accent);
-}
-
-.promo-discount {
-  margin-top: 2px;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.8em;
-  font-weight: 700;
 }
 
 .promo-aisle-select {
@@ -1452,4 +1288,683 @@ a.chip {
 
 .search-field + .chips {
   margin-top: 8px;
+}
+
+/* =====================================================================
+   Kuchnia: duże pola do stukania, czytelne z odległości, minutnik widoczny kątem oka
+   ===================================================================== */
+
+/* Chipsy (kategorie, warianty, podpowiedzi czatu) */
+.chip {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--on-accent-soft);
+  font-size: var(--fs-small);
+}
+
+/* --- Listy do odhaczania: składniki i zakupy --- */
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--hit);
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-list);
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.checklist li:active {
+  background: var(--surface-2);
+}
+
+/* Okrągłe pole wyboru 28 px (cały wiersz jest do stuknięcia, kółko tylko pokazuje stan) */
+.check {
+  flex: none;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--field-border);
+  border-radius: 50%;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.check::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 3px;
+  width: 7px;
+  height: 13px;
+  border: solid var(--on-accent);
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform var(--dur) var(--ease-spring);
+}
+
+.done .check,
+[aria-checked="true"] > .check,
+[aria-checked="true"] .check {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.done .check::after,
+[aria-checked="true"] .check::after {
+  transform: rotate(45deg) scale(1);
+}
+
+/* Odhaczone: wyszarzone, ale dalej do przeczytania (bez przekreślania całego wiersza) */
+.done {
+  color: var(--muted);
+}
+
+.checklist .done .item-text {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+/* --- Tagi semantyczne --- */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78em;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
+.tag-promo,
+.promo-badge {
+  background: var(--promo-bg);
+  color: var(--promo-text);
+}
+
+.tag-missing {
+  background: var(--missing-soft);
+  color: var(--missing);
+  box-shadow: inset 0 0 0 1.5px currentcolor;
+}
+
+/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu */
+.checklist li.missing {
+  box-shadow: inset 3px 0 0 var(--missing);
+  padding-left: 12px;
+}
+
+.promo-price {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-list);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.promo-discount {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--deal-bg);
+  color: var(--deal-text);
+  font-size: 0.72em;
+  font-weight: 800;
+}
+
+/* --- Kroki przepisu --- */
+.steps li {
+  display: flex;
+  gap: 14px;
+  padding: 14px 4px;
+  border-radius: var(--radius);
+  font-size: var(--fs-list);
+  line-height: 1.5;
+  transition: opacity var(--dur);
+}
+
+.steps li.done {
+  opacity: 0.55;
+}
+
+.step-number {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.done .step-number {
+  background: var(--ok);
+}
+
+/* Przycisk minutnika w kroku: pigułka 44 px z czytelnym czasem */
+.timer-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin: 8px 8px 0 0;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-button.big {
+  min-height: var(--hit-kitchen);
+  padding: 12px 22px;
+  font-size: 20px;
+}
+
+/* --- Minutniki: ciemna pastylka z paskiem postępu --- */
+.timers {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.timer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 60px;
+  padding: 6px 6px 6px 16px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--timer-bg);
+  color: var(--timer-text);
+  box-shadow: var(--shadow-2);
+  pointer-events: auto;
+  animation: timer-in 280ms var(--ease-spring);
+}
+
+/* Pasek postępu: --p od 0 do 1 ustawia TimersBar */
+.timer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: calc(var(--p, 0) * 100%);
+  background: var(--timer-progress);
+  transition: width 1s linear;
+}
+
+.timer-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.timer-label small,
+.timer-label b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timer-label small {
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+.timer-label b {
+  font-size: 16px;
+}
+
+.timer-time {
+  flex: none;
+  padding: 0 6px;
+  font-size: var(--fs-timer);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 48 px przyciski w minutniku: +1 min i zamknij */
+.timer-btn {
+  flex: none;
+  min-width: var(--hit);
+  min-height: var(--hit);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentcolor 14%, transparent);
+  color: inherit;
+  font-weight: 700;
+}
+
+.timer.soon {
+  background: var(--timer-soon-bg);
+  color: var(--timer-soon-text);
+}
+
+.timer.finished {
+  background: var(--timer-done-bg);
+  color: var(--timer-done-text);
+  animation: timer-ring 0.9s var(--ease) infinite alternate;
+}
+
+@keyframes timer-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+@keyframes timer-ring {
+  to {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--timer-done-bg) 35%, transparent), var(--shadow-2);
+  }
+}
+
+/* Minutnik nie zasłania pola czatu ani nawigacji trybu gotowania */
+body:has(.chat-input) .timers {
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 76px);
+}
+
+.timers.cooking-timers {
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+  z-index: 25;
+}
+
+body:has(.timers) .chat {
+  padding-bottom: 140px;
+}
+
+body:has(.timers) .cooking-body {
+  padding-bottom: 80px;
+}
+
+/* --- Pasek zakładek: "pigułka" pod aktywną ikoną (Material 3) --- */
+.tabbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  backdrop-filter: saturate(1.6) blur(16px);
+}
+
+.tabbar a,
+.tabbar button {
+  gap: 2px;
+  font-size: 12px;
+}
+
+.tabbar a span,
+.tabbar button span {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.tabbar a.active,
+.tabbar button.active {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.tabbar a.active span,
+.tabbar button.active span {
+  background: var(--accent-soft);
+}
+
+/* --- Panel od dołu: większe zaokrąglenie i uchwyt --- */
+.sheet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 22px 16px 16px;
+  background: var(--bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-2);
+  animation: slide-up 280ms var(--ease);
+  position: relative;
+}
+
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+/* --- Przeliczanie porcji: 44 px --- */
+.stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.stepper button:not([aria-label]) {
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-small);
+}
+
+/* --- Lista zakupów: wiersz przesuwany --- */
+.swipe-content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 4px;
+  background: var(--bg);
+  transition: transform 0.2s var(--ease);
+}
+
+/* --- Pływający przycisk akcji (FAB) "Gotuj" na przepisie --- */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 12px);
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 60px;
+  height: 60px;
+  padding: 0 22px 0 18px;
+  border-radius: 20px;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-2);
+  animation: timer-in 320ms var(--ease-spring);
+}
+
+.fab span {
+  font-size: 24px;
+}
+
+/* Gdy chodzi minutnik: FAB robi się okrągły, a minutniki zajmują resztę szerokości */
+body:has(.timers) .fab {
+  padding: 0;
+  justify-content: center;
+}
+
+body:has(.timers) .fab .fab-label {
+  display: none;
+}
+
+body:has(.fab) .timers {
+  right: 88px;
+}
+
+body:has(.fab) .back-to-top {
+  display: none;
+}
+
+/* --- Tryb gotowania --- */
+.cooking-progress {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+
+.cooking-progress span {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  transition: background-color var(--dur);
+}
+
+.cooking-progress span.on {
+  background: var(--accent);
+}
+
+.cooking-step {
+  margin: 8px 0 12px;
+  font-size: var(--fs-kitchen);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  animation: step-in 260ms var(--ease);
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--from, 24px));
+  }
+}
+
+.step-ingredients {
+  list-style: none;
+  margin: 12px 0;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.step-ingredients li,
+.cooking-ingredients li {
+  font-size: clamp(19px, 5.2vw, 23px);
+}
+
+.cooking-ingredients {
+  margin: 0;
+}
+
+.cooking-nav {
+  display: flex;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.cooking-nav button {
+  flex: 1;
+  min-height: 64px;
+  font-size: 20px;
+  border-radius: var(--radius-lg);
+}
+
+.cooking-nav button:first-child {
+  flex: 0 0 34%;
+}
+
+.wake-chip {
+  align-self: center;
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+/* --- Czat --- */
+.bubble {
+  max-width: 88%;
+  padding: 12px 16px;
+  border-radius: 20px;
+  font-size: var(--fs-body);
+  animation: bubble-in 260ms var(--ease-spring);
+  transform-origin: bottom left;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+  border-bottom-right-radius: 6px;
+  transform-origin: bottom right;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow-1);
+}
+
+.bubble.assistant:has(.grid, .new-recipe) {
+  width: 92%;
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+/* "Piszę…": trzy kropki zamiast statycznego tekstu */
+.typing {
+  display: inline-flex;
+  gap: 5px;
+  padding: 16px 18px;
+}
+
+.typing i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: typing 1.2s infinite ease-in-out;
+}
+
+.typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: none;
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.chat-input {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+}
+
+.chat-input textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--hit);
+  max-height: 140px;
+  padding: 12px 16px;
+  border-radius: 24px;
+}
+
+.chat-send {
+  flex: none;
+  width: var(--hit);
+  height: var(--hit);
+  padding: 0;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.chat-suggestions {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 4px 16px 8px;
+  scrollbar-width: none;
+}
+
+.chat-suggestions .chip {
+  flex: none;
+}
+
+/* Na kartach "Co ugotuję?": żółta cenówka i czerwony brak, ten sam język co na liście składników */
+.card-tag {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.missing-line {
+  color: var(--missing);
+  font-weight: 600;
+}
+
+/* Tekst tylko dla czytnika ekranu (i wyszukiwania tekstu), niewidoczny */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

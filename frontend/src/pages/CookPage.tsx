@@ -96,7 +96,7 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
         <div className="grid">
           {shown.map((m) => (
             <RecipeCard key={m.recipe.id} recipe={m.recipe}>
-              <span className="small promo-badge">🏷️ {m.promos.map((p) => `${p.ingredient} (${p.label})`).join(", ")}</span>
+              <span className="small promo-badge card-tag">🏷️ {m.promos.map((p) => `${p.ingredient} (${p.label})`).join(", ")}</span>
             </RecipeCard>
           ))}
         </div>
@@ -217,7 +217,7 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
               {m.missing.length === 0 ? (
                 <span className="ok small">Masz wszystko!</span>
               ) : (
-                <span className="small">Brakuje: {m.missing.join(", ")}</span>
+                <span className="small missing-line">Brakuje: {m.missing.join(", ")}</span>
               )}
             </RecipeCard>
           ))}

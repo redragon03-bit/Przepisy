@@ -3,8 +3,10 @@ import { ReactNode, TouchEvent, useRef, useState } from "react";
 const DELETE_AT = 90; // tyle pikseli w lewo usuwa pozycję
 
 // Wiersz listy, który przesunięty palcem w lewo się usuwa (jak w aplikacjach iPhone'a).
-export default function SwipeRow({ className, onClick, onDelete, children }: {
+export default function SwipeRow({ className, checked, onClick, onDelete, children }: {
   className?: string;
+  // Wiersz do odhaczania (lista zakupów) - czytnik ekranu ogłasza go jako pole wyboru
+  checked?: boolean;
   onClick: () => void;
   onDelete: () => void;
   children: ReactNode;
@@ -46,6 +48,9 @@ export default function SwipeRow({ className, onClick, onDelete, children }: {
       </span>
       <div
         className="swipe-content"
+        role={checked === undefined ? undefined : "checkbox"}
+        aria-checked={checked}
+        tabIndex={checked === undefined ? undefined : 0}
         style={{ transform: dx ? `translateX(${dx}px)` : undefined, transition: dx ? "none" : undefined }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}

@@ -100,14 +100,15 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
     <SwipeRow
       key={item.id}
       className={item.checked ? "done" : ""}
+      checked={item.checked}
       onClick={() => change({ op: "check", id: item.id, checked: !item.checked })}
       onDelete={() => removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }])}
     >
-      <span className="box-icon">{item.checked ? "☑" : "☐"}</span>
+      <span className="check" aria-hidden="true" />
       <span className="grow">
-        {item.text}
+        <span className="item-text">{item.text}</span>
         {item.recipes && <span className="muted small"> · {item.recipes}</span>}
-        {item.promo && !item.text.includes(item.promo) && <span className="small promo-badge"> 🏷️ {item.promo}</span>}
+        {item.promo && !item.text.includes(item.promo) && <span className="tag tag-promo">🏷️ {item.promo}</span>}
       </span>
     </SwipeRow>
   );
