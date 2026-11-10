@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.9.8
+
+- Import przy przeciążonym Gemini nie trwa już kilkanaście minut: jedno AI ma najwyżej
+  ok. 3 minuty (razem z ponownymi próbami), potem import od razu pyta następne (Groq, Mistral).
+
 ## 0.9.7
 
 - Import nie wisi już bez końca na „czytam przepis…”: każde zapytanie do AI w tle ma limit

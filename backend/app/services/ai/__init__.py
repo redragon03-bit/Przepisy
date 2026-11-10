@@ -28,12 +28,14 @@ from pydantic import BaseModel, Field
 from ...config import get_settings
 from ..scraper import PageContent
 from .base import (  # noqa: F401
+    BACKGROUND_PROVIDER_SECONDS,
     BACKGROUND_REQUEST_SECONDS,
     CHAT_PENALTY_SECONDS,
     CHAT_PROVIDER_SECONDS,
     CHAT_SECONDS,
     AiError,
     Content,
+    _background_deadline,
     _limit,
     _timeout,
     bulk,
@@ -152,9 +154,12 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
         now = time.monotonic()
         providers = sorted(providers, key=lambda name: _failed_until.get(name, 0) > now)
     for provider in providers:
-        token = None
+        token = background = None
         if chat_deadline is not None:
             token = _limit.set(min(chat_deadline, time.monotonic() + CHAT_PROVIDER_SECONDS))
+        else:
+            # W tle też każde AI ma swój kawałek czasu, żeby przeciążone nie blokowało następnych
+            background = _background_deadline.set(time.monotonic() + BACKGROUND_PROVIDER_SECONDS)
         try:
             return ask[provider](content, system, schema)
         except AiError as exc:
@@ -165,6 +170,8 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
         finally:
             if token is not None:
                 _limit.reset(token)
+            if background is not None:
+                _background_deadline.reset(background)
     if len(errors) == 1:
         raise AiError(errors[0].split(": ", 1)[1])
     raise AiError("Żadne AI nie odpowiedziało. " + " ".join(errors))
