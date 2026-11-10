@@ -23,13 +23,16 @@ CHAT_SECONDS = 50
 CHAT_PROVIDER_SECONDS = 20
 # AI, które zawiodło przy limicie czasu, przez tyle sekund pytamy na końcu, żeby nie czekać na nie za każdym razem
 CHAT_PENALTY_SECONDS = 300
+# W tle (import, gazetki) jedno zapytanie do AI też ma limit - bez niego zawieszone
+# połączenie (Gemini nie ma domyślnego limitu) trzymało import na "czytam przepis…" bez końca
+BACKGROUND_REQUEST_SECONDS = 150
 
 
 def _timeout() -> float | None:
-    """Ile sekund może trwać najbliższe zapytanie do AI; None = domyślnie dla dostawcy."""
+    """Ile sekund może trwać najbliższe zapytanie do AI."""
     deadline = _limit.get()
     if deadline is None:
-        return None
+        return BACKGROUND_REQUEST_SECONDS
     left = deadline - time.monotonic()
     if left < 3:
         raise AiError("AI odpowiada zbyt wolno - spróbuj jeszcze raz za chwilę.")

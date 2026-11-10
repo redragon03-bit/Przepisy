@@ -337,3 +337,19 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   await page.getByText("🏷️ mleko (Biedronka 1,99 zł)").click();
   await expect(page.getByRole("heading", { name: "Naleśniki" })).toBeVisible();
 });
+
+test("import: zawieszony import da się anulować", async ({ page }) => {
+  let jobs = [{ id: 1, kind: "url", source: "https://aniagotuje.pl/przepis/ciapkapusta", status: "running", error: "", recipe_id: null, recipe_count: 0, created_at: "2026-11-10T08:00:00" }];
+  await page.route("**/api/imports", (route) => route.fulfill({ json: jobs }));
+  await page.route("**/api/imports/1", (route) => {
+    expect(route.request().method()).toBe("DELETE");
+    jobs = [];
+    return route.fulfill({ status: 204 });
+  });
+  await login(page);
+  await page.goto("/dodaj");
+  await expect(page.getByText("⏳ czytam przepis…")).toBeVisible();
+  await page.getByRole("button", { name: "anuluj" }).click();
+  await expect(page.getByText("aniagotuje.pl/przepis/ciapkapusta")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Ostatnie importy" })).toHaveCount(0);
+});

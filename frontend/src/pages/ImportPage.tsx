@@ -91,6 +91,17 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
     }
   };
 
+  // Anulowanie (także zawieszonego importu) albo usunięcie wpisu z listy
+  const remove = async (id: number) => {
+    setError("");
+    try {
+      await api.deleteImport(id);
+      setJobs((list) => list.filter((j) => j.id !== id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const paste = async () => {
     try {
       setUrl((await navigator.clipboard.readText()) || url);
@@ -196,10 +207,20 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
                   </div>
                 )}
                 {job.error && job.status !== "duplicate" && <div className="error small">{job.error}</div>}
-                {job.status === "failed" && (
-                  <button className="small-button" onClick={() => retry(job.id)}>
-                    Ponów
+                {(job.status === "pending" || job.status === "running") && (
+                  <button type="button" className="link small" onClick={() => remove(job.id)}>
+                    anuluj
                   </button>
+                )}
+                {job.status === "failed" && (
+                  <div className="row">
+                    <button className="small-button" onClick={() => retry(job.id)}>
+                      Ponów
+                    </button>
+                    <button type="button" className="link small" onClick={() => remove(job.id)}>
+                      usuń z listy
+                    </button>
+                  </div>
                 )}
               </li>
             ))}

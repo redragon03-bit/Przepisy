@@ -220,8 +220,8 @@ def test_chat_skips_slow_ai(monkeypatch):
     monkeypatch.setattr(ai, "_ask_groq", lambda c, s, sc: timeouts.append(ai._timeout()) or answer)
     assert ai.chat("kontekst", "Użytkownik: coś słodkiego").text == "Placki!"
     assert 0 < timeouts[0] <= ai.CHAT_PROVIDER_SECONDS
-    # Poza czatem (np. import) limitu nie ma
-    assert ai._timeout() is None
+    # Poza czatem (np. import) jedno zapytanie ma dłuższy limit, ale nie nieskończony
+    assert ai._timeout() == ai.BACKGROUND_REQUEST_SECONDS
 
 
 def test_overloaded_gemini_leaves_time_for_next_ai(monkeypatch):

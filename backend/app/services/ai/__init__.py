@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from ...config import get_settings
 from ..scraper import PageContent
 from .base import (  # noqa: F401
+    BACKGROUND_REQUEST_SECONDS,
     CHAT_PENALTY_SECONDS,
     CHAT_PROVIDER_SECONDS,
     CHAT_SECONDS,
