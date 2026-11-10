@@ -87,3 +87,34 @@ def test_late_result_of_stuck_run_is_ignored(client, monkeypatch):
     client.post("/api/imports/url", json={"url": "https://example.com/placki"})
     with SessionLocal() as db:
         assert db.query(Recipe).count() == 0
+
+
+def test_overloaded_gemini_in_background_gives_way_to_next_ai(monkeypatch):
+    """0.9.8: w imporcie przeciążony Gemini dostaje najwyżej ~3 minuty, potem pytamy Groq."""
+    from types import SimpleNamespace
+
+    from google.genai import errors as genai_errors
+
+    from app.config import get_settings
+
+    settings = get_settings()
+    for name, value in {"gemini_api_key": "g", "groq_api_key": "q", "mistral_api_key": "",
+                        "anthropic_api_key": "", "ai_provider": "auto"}.items():
+        monkeypatch.setattr(settings, name, value)
+    clock = [1000.0]
+    monkeypatch.setattr(ai.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(ai.gemini.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    timeouts = []
+
+    class SlowModels:
+        def generate_content(self, model, contents, config):
+            timeout = config.http_options.timeout / 1000
+            timeouts.append(timeout)
+            clock[0] += min(100, timeout)  # każda próba trwa 100 s (najwyżej do limitu) i kończy się 503
+            raise genai_errors.ServerError(503, {"error": {"message": "overloaded", "status": "UNAVAILABLE"}})
+
+    monkeypatch.setattr(ai.gemini.genai, "Client", lambda api_key: SimpleNamespace(models=SlowModels()))
+    monkeypatch.setattr(ai, "_ask_groq", lambda c, s, sc: ai.AiResult(recipes=[_recipe("Ciapkapusta")]))
+    assert [r.title for r in ai.recipes_from_text("Ciapkapusta: kapusta, ziemniaki")] == ["Ciapkapusta"]
+    assert clock[0] - 1000 <= ai.BACKGROUND_PROVIDER_SECONDS + 10
+    assert all(t <= ai.BACKGROUND_REQUEST_SECONDS for t in timeouts)
