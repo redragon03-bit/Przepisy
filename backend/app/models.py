@@ -145,6 +145,8 @@ class ImportJob(Base):
     # Ile przepisów powstało z tego importu
     recipe_count: Mapped[int] = mapped_column(default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Kiedy zadanie ostatnio ruszyło (start albo "Ponów", czas UTC) - po nim poznajemy zawieszone
+    started_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class ShoppingItem(Base):

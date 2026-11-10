@@ -7,9 +7,10 @@ z zapytania HTTP jest już wtedy zamknięta.
 
 import logging
 import shutil
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -106,17 +107,68 @@ def add_missing_images(db: Session, recipes: list[Recipe]) -> None:
                 db.rollback()
 
 
+# Import dłuższy niż tyle minut uznajemy za zawieszony (pokazujemy błąd i "Ponów").
+# Każde zapytanie do AI ma własny limit (ai.BACKGROUND_REQUEST_SECONDS), ale przy kilku
+# AI po kolei i ponownych próbach całość może potrwać kilka minut.
+STUCK_MINUTES = 15
+
+
+def utc_now() -> datetime:
+    # SQLite zapisuje czas bez strefy - trzymamy wszędzie UTC, jak func.now() w bazie
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def mark_stuck_jobs(db: Session) -> None:
+    """Zadania, które "czytają przepis" podejrzanie długo, oznaczamy jako nieudane."""
+    oldest = utc_now() - timedelta(minutes=STUCK_MINUTES)
+    stuck = db.query(ImportJob).filter(
+        ImportJob.status.in_(["pending", "running"]),
+        func.coalesce(ImportJob.started_at, ImportJob.created_at) < oldest,
+    ).all()
+    for job in stuck:
+        job.status = "failed"
+        job.error = f"Import trwał ponad {STUCK_MINUTES} minut i został przerwany - spróbuj ponownie."
+    if stuck:
+        db.commit()
+
+
+def _still_wanted(job_id: int, started_at: datetime) -> bool:
+    """Czy zadanie nadal czeka na ten wynik - mogło zostać anulowane, przerwane jako
+    zawieszone albo ponowione (wtedy wynik da nowe uruchomienie, nie to)."""
+    with SessionLocal() as other:
+        job = other.get(ImportJob, job_id)
+        return job is not None and job.status == "running" and job.started_at == started_at
+
+
+def _fail(db: Session, job_id: int, started_at: datetime, error: str) -> None:
+    db.rollback()
+    if not _still_wanted(job_id, started_at):  # anulowanego nie wskrzeszamy
+        return
+    job = db.get(ImportJob, job_id)
+    if job is not None:
+        job.status, job.error = "failed", error
+        db.commit()
+
+
 def _run(job_id: int, work) -> None:
     """Wspólna obsługa statusu zadania: running -> done/failed.
 
-    `work(db, job)` zwraca listę zapisanych przepisów.
+    `work(db, job)` zwraca listę zapisanych przepisów. Gdy w międzyczasie
+    ktoś anulował import, wynik wyrzucamy.
     """
     with SessionLocal() as db:
         job = db.get(ImportJob, job_id)
-        job.status, job.error = "running", ""
+        if job is None or job.status != "pending":
+            return  # anulowany, zanim ruszył
+        started_at = utc_now()
+        job.status, job.error, job.started_at = "running", "", started_at
         db.commit()
         try:
             recipes = work(db, job)
+            if not _still_wanted(job_id, started_at):
+                db.rollback()
+                log.info("Import %s anulowany - wynik pominięty", job_id)
+                return
             db.flush()
             job.recipe_id = recipes[0].id
             job.recipe_count = len(recipes)
@@ -124,14 +176,10 @@ def _run(job_id: int, work) -> None:
             db.commit()
             add_missing_images(db, recipes)
         except (fetcher.FetchError, ai.AiError) as exc:
-            db.rollback()
-            job.status, job.error = "failed", str(exc)
-            db.commit()
+            _fail(db, job_id, started_at, str(exc))
         except Exception as exc:
             log.exception("Import %s failed", job_id)
-            db.rollback()
-            job.status, job.error = "failed", f"Nieoczekiwany błąd: {exc}"
-            db.commit()
+            _fail(db, job_id, started_at, f"Nieoczekiwany błąd: {exc}")
 
 
 def _import_url(db: Session, job: ImportJob) -> list[Recipe]:

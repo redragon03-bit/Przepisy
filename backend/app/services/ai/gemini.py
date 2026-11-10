@@ -29,7 +29,7 @@ def _gemini_once(client: genai.Client, model: str, parts: list, system: str,
     timeout = _timeout()
     # W czacie Gemini nie "myśli" przed odpowiedzią: poleca przepisy z listy, do tego
     # myślenie nie jest potrzebne, a z nim odpowiedź trwała ponad 25 s (błąd 504)
-    quick = timeout is not None and quick_ok
+    quick = _limit.get() is not None and quick_ok
     try:
         response = client.models.generate_content(
             model=model,

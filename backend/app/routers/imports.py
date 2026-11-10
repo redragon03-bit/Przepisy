@@ -4,6 +4,8 @@ Frontend wysyła link/zdjęcia, dostaje od razu numer zadania i co kilka
 sekund pyta o jego status (GET /api/imports/{id}).
 """
 
+import shutil
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,15 @@ from ..config import get_settings
 from ..database import get_db
 from ..models import ImportJob, Recipe
 from ..schemas import ImportJobOut, TextImportIn, UrlImportIn
-from ..services.importer import job_upload_dir, run_image_import, run_text_import, run_url_import, save_import_text
+from ..services.importer import (
+    job_upload_dir,
+    mark_stuck_jobs,
+    run_image_import,
+    run_text_import,
+    run_url_import,
+    save_import_text,
+    utc_now,
+)
 from ..services.urls import url_key
 
 router = APIRouter(prefix="/api/imports", tags=["import"], dependencies=[Depends(require_auth)])
@@ -89,6 +99,7 @@ def import_text(data: TextImportIn, background: BackgroundTasks, db: Session = D
 
 @router.get("", response_model=list[ImportJobOut])
 def list_imports(db: Session = Depends(get_db)):
+    mark_stuck_jobs(db)
     return db.query(ImportJob).order_by(ImportJob.id.desc()).limit(20).all()
 
 
@@ -101,7 +112,18 @@ def _get_job(db: Session, job_id: int) -> ImportJob:
 
 @router.get("/{job_id}", response_model=ImportJobOut)
 def get_import(job_id: int, db: Session = Depends(get_db)):
+    mark_stuck_jobs(db)
     return _get_job(db, job_id)
+
+
+@router.delete("/{job_id}", status_code=204)
+def delete_import(job_id: int, db: Session = Depends(get_db)):
+    """Anuluje import (także zawieszony) albo usuwa go z listy. Gotowe przepisy zostają."""
+    job = _get_job(db, job_id)
+    db.delete(job)
+    db.commit()
+    # Import w tle, który jeszcze trwa, sam zauważy brak zadania i niczego nie zapisze
+    shutil.rmtree(job_upload_dir(job_id), ignore_errors=True)
 
 
 @router.post("/{job_id}/retry", response_model=ImportJobOut, status_code=202)
@@ -112,7 +134,7 @@ def retry_import(job_id: int, background: BackgroundTasks, db: Session = Depends
         raise HTTPException(400, "Ponowić można tylko nieudany import")
     if job.kind in ("image", "text") and not job_upload_dir(job.id).exists():
         raise HTTPException(400, "Materiał z tego importu już nie istnieje - dodaj go jeszcze raz")
-    job.status, job.error = "pending", ""
+    job.status, job.error, job.started_at = "pending", "", utc_now()
     db.commit()
     run = {"image": run_image_import, "text": run_text_import, "url": run_url_import}[job.kind]
     background.add_task(run, job.id)

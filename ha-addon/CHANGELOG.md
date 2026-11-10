@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.9.7
+
+- Import nie wisi już bez końca na „czytam przepis…”: każde zapytanie do AI w tle ma limit
+  czasu, a import trwający ponad 15 minut kończy się błędem z przyciskiem „Ponów”.
+- W „Ostatnich importach” można anulować trwający import („anuluj”) i usunąć nieudany
+  („usuń z listy”).
+
 ## 0.9.6
 
 - Promocje: wybór działu (np. tylko „Mięso i ryby”), przycisk × w wyszukiwaniu,

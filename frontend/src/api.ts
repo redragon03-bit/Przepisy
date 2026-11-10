@@ -238,6 +238,7 @@ export const api = {
   listImports: () => request<ImportJob[]>("GET", "/api/imports"),
   getImport: (id: number) => request<ImportJob>("GET", `/api/imports/${id}`),
   retryImport: (id: number) => request<ImportJob>("POST", `/api/imports/${id}/retry`),
+  deleteImport: (id: number) => request<void>("DELETE", `/api/imports/${id}`),
 };
 
 export function formatMinutes(minutes: number | null): string {
