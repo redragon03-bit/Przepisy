@@ -1326,9 +1326,9 @@ a.chip {
 .check {
   flex: none;
   position: relative;
-  width: 28px;
-  height: 28px;
-  border: 2.5px solid var(--field-border);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--field-border);
   border-radius: 50%;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -1336,12 +1336,12 @@ a.chip {
 .check::after {
   content: "";
   position: absolute;
-  left: 8px;
-  top: 3px;
-  width: 7px;
-  height: 13px;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
   border: solid var(--on-accent);
-  border-width: 0 3px 3px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg) scale(0);
   transition: transform var(--dur) var(--ease-spring);
 }

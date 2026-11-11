@@ -2,7 +2,7 @@
 
 ## 0.11.1
 
-- Składniki w przepisie i lista zakupów mają mniejsze litery, takie jak linijka z kaloriami.
+- Składniki w przepisie i lista zakupów mają mniejsze litery, takie jak linijka z kaloriami, i mniejsze kółka do odhaczania.
 
 ## 0.11.0
 
