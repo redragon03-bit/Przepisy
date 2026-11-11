@@ -123,7 +123,7 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: var(--fs-body);
-  line-height: 1.5;
+  line-height: 1.4;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -138,7 +138,12 @@ h1 {
 
 h2 {
   font-size: 1.1rem;
-  margin: 1.2rem 0 0.5rem;
+  margin: 0.9rem 0 0.35rem;
+}
+
+/* Akapity ciaśniej niż domyślne 1em - mniej "rozdmuchane" ekrany */
+p {
+  margin: 0.5em 0;
 }
 
 /* Treść strony: miejsce na pasek zakładek na dole i "notch" iPhone'a */
@@ -328,8 +333,8 @@ button.small,
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  margin: 12px 0;
+  padding: 10px 12px;
+  margin: 8px 0;
 }
 
 .box h2 {
@@ -1305,15 +1310,15 @@ a.chip {
   font-size: var(--fs-small);
 }
 
-/* --- Listy do odhaczania: składniki i zakupy --- */
+/* --- Listy do odhaczania: składniki i zakupy (litery jak linijka z kcal) --- */
 .checklist li {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: var(--hit);
-  padding: 10px 4px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 5px 4px;
   border-bottom: 1px solid var(--border);
-  font-size: var(--fs-list);
+  font-size: 14px;
   line-height: 1.35;
   cursor: pointer;
 }
@@ -1326,9 +1331,9 @@ a.chip {
 .check {
   flex: none;
   position: relative;
-  width: 28px;
-  height: 28px;
-  border: 2.5px solid var(--field-border);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--field-border);
   border-radius: 50%;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -1336,12 +1341,12 @@ a.chip {
 .check::after {
   content: "";
   position: absolute;
-  left: 8px;
-  top: 3px;
-  width: 7px;
-  height: 13px;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
   border: solid var(--on-accent);
-  border-width: 0 3px 3px 0;
+  border-width: 0 2px 2px 0;
   transform: rotate(45deg) scale(0);
   transition: transform var(--dur) var(--ease-spring);
 }
@@ -1427,8 +1432,8 @@ a.chip {
 /* --- Kroki przepisu --- */
 .steps li {
   display: flex;
-  gap: 14px;
-  padding: 14px 4px;
+  gap: 10px;
+  padding: 8px 4px;
   border-radius: var(--radius);
   font-size: var(--fs-list);
   line-height: 1.5;
@@ -1673,13 +1678,13 @@ body:has(.timers) .cooking-body {
   background: var(--border);
 }
 
-/* --- Przeliczanie porcji: 44 px --- */
+/* --- Przeliczanie porcji: 38 px --- */
 .stepper button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 6px 10px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 4px 8px;
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -1695,9 +1700,9 @@ body:has(.timers) .cooking-body {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 56px;
-  padding: 10px 4px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 5px 4px;
   background: var(--bg);
   transition: transform 0.2s var(--ease);
 }
