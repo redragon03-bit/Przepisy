@@ -83,6 +83,9 @@ def merge_ingredients(db: Session, keep: Ingredient, others: list[Ingredient]) -
         db.query(RecipeIngredient).filter_by(ingredient_id=other.id).update({"ingredient_id": keep.id})
         db.query(ShoppingItem).filter_by(name=other.name).update({"name": keep.name})
         keep.is_staple = keep.is_staple or other.is_staple
+        from .kitchen import merge_member_pantry  # tu, bo kitchen importuje ten moduł
+
+        merge_member_pantry(db, keep, other)
         if other.in_pantry:
             keep.in_pantry = True
             if other.pantry_expires and (keep.pantry_expires is None or other.pantry_expires < keep.pantry_expires):

@@ -7,10 +7,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 
-from ..auth import require_auth
+from ..auth import CurrentUser, current_user, require_auth
 from ..config import get_settings
 from ..database import SessionLocal, get_db
-from ..models import PromoFavorite, PromoLeaflet, Promotion, Recipe, RecipeIngredient, ShoppingItem
+from ..models import MemberPromoFavorite, PromoFavorite, PromoLeaflet, Promotion, Recipe, RecipeIngredient, ShoppingItem
 from ..schemas import (
     PromoHit,
     PromoIdeasIn,
@@ -24,6 +24,7 @@ from ..schemas import (
 from ..services import ai, promotions
 from ..services.aisles import OTHER, aisle, aisle_order
 from ..services.categories import category_names
+from ..services.kitchen import Marks
 from .recipes import to_summary
 from .shopping import to_out as shopping_out
 
@@ -68,9 +69,9 @@ def to_out(promo: Promotion, favorites: list[str] = ()) -> PromotionOut:
 
 
 @router.get("", response_model=list[PromotionOut])
-def list_promotions(db: Session = Depends(get_db)):
+def list_promotions(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Produkty w promocji z gazetek, które jeszcze obowiązują (ten sam produkt w sklepie raz)."""
-    favorites = [f.key for f in db.query(PromoFavorite)]
+    favorites = _favorite_keys(db, user)
     seen, found = set(), []
     for promo in promotions.current(db):
         out = to_out(promo, favorites)
@@ -82,25 +83,35 @@ def list_promotions(db: Session = Depends(get_db)):
 
 
 @router.get("/favorites", response_model=list[str])
-def list_favorites(db: Session = Depends(get_db)):
-    """Ulubione produkty, np. ["herbata", "masło"]."""
-    return [f.key for f in db.query(PromoFavorite).order_by(PromoFavorite.key)]
+def list_favorites(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Ulubione produkty, np. ["herbata", "masło"] (każda osoba ma swoje)."""
+    return sorted(_favorite_keys(db, user))
+
+
+def _favorite_keys(db: Session, user: CurrentUser) -> list[str]:
+    if user.is_owner:
+        return [f.key for f in db.query(PromoFavorite)]
+    return [f.key for f in db.query(MemberPromoFavorite).filter_by(user_id=user.id)]
 
 
 @router.put("/favorites/{key}", response_model=list[str])
-def add_favorite(key: str, db: Session = Depends(get_db)):
+def add_favorite(key: str, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     key = key.strip().lower()[:200]
-    if key and db.query(PromoFavorite).filter_by(key=key).one_or_none() is None:
-        db.add(PromoFavorite(key=key))
+    if key and key not in _favorite_keys(db, user):
+        db.add(PromoFavorite(key=key) if user.is_owner else MemberPromoFavorite(user_id=user.id, key=key))
         db.commit()
-    return list_favorites(db)
+    return list_favorites(db, user)
 
 
 @router.delete("/favorites/{key}", response_model=list[str])
-def remove_favorite(key: str, db: Session = Depends(get_db)):
-    db.query(PromoFavorite).filter_by(key=key.strip().lower()).delete()
+def remove_favorite(key: str, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    key = key.strip().lower()
+    if user.is_owner:
+        db.query(PromoFavorite).filter_by(key=key).delete()
+    else:
+        db.query(MemberPromoFavorite).filter_by(user_id=user.id, key=key).delete()
     db.commit()
-    return list_favorites(db)
+    return list_favorites(db, user)
 
 
 @router.get("/{promo_id}/image")
@@ -144,7 +155,7 @@ MAX_PROMO_RECIPES = 30
 
 
 @router.get("/recipes", response_model=list[PromoRecipe])
-def promo_recipes(db: Session = Depends(get_db)):
+def promo_recipes(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Zapisane przepisy, w których składniki są w promocji (najwięcej takich składników na górze)."""
     promos = [p for p in promotions.current(db) if p.ingredient]
     if not promos:
@@ -152,6 +163,7 @@ def promo_recipes(db: Session = Depends(get_db)):
     recipes = db.query(Recipe).filter(Recipe.variant_of.is_(None)).options(
         selectinload(Recipe.ingredients).selectinload(RecipeIngredient.ingredient)
     ).all()
+    marks = Marks(db, user)
     stores: dict[str, list[Promotion]] = {}
     for promo in promos:
         stores.setdefault(promo.leaflet.store, []).append(promo)
@@ -169,21 +181,21 @@ def promo_recipes(db: Session = Depends(get_db)):
                     names.add(name)
                     hits.append(PromoHit(ingredient=name, store=store, label=promotions.label(promo)))
         if hits:
-            found.append(PromoRecipe(recipe=to_summary(recipe), promos=hits))
+            found.append(PromoRecipe(recipe=to_summary(recipe, marks), promos=hits))
     found.sort(key=lambda m: (-len({p.ingredient for p in m.promos}), not m.recipe.favorite,
                               -(m.recipe.rating or 0), m.recipe.title.lower()))
     return found[:MAX_PROMO_RECIPES]
 
 
 @router.post("/{promo_id}/shopping", response_model=ShoppingItemOut, status_code=201)
-def add_to_shopping(promo_id: int, db: Session = Depends(get_db)):
+def add_to_shopping(promo_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Dopisuje produkt z promocji do listy zakupów, np. 'Masło ekstra Polmlek (Biedronka 2,49 zł)'."""
     promo = db.get(Promotion, promo_id)
     if promo is None:
         raise HTTPException(404, "Ta promocja już się skończyła")
     # Pieluchy czy płyn do naczyń nie mają składnika - wtedy na liście jest nazwa produktu
     name = promo.ingredient or promo.name.lower()[:200]
-    item = ShoppingItem(name=name, text=f"{promo.name} ({promotions.label(promo)})"[:500])
+    item = ShoppingItem(name=name, text=f"{promo.name} ({promotions.label(promo)})"[:500], user_id=user.id)
     db.add(item)
     db.commit()
     return shopping_out(item, [promo])

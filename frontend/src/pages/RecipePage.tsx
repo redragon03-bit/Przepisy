@@ -143,7 +143,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
 
       {recipe.image_url ? (
         <img className="hero" src={recipe.image_url} alt="" />
-      ) : (
+      ) : recipe.can_edit && (
         <button type="button" className="hero-placeholder" disabled={searching} onClick={searchImages}>
           {searching ? "Szukam zdjęć w internecie…" : "🔍 Znajdź zdjęcie w internecie"}
         </button>

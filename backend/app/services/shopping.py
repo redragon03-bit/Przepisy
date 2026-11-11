@@ -12,8 +12,11 @@ from datetime import date, timedelta
 import httpx
 from sqlalchemy.orm import Session
 
+from ..auth import CurrentUser, owned
 from ..config import get_settings
-from ..models import Ingredient, MealPlanEntry, Recipe, ShoppingItem
+from ..models import MealPlanEntry, Recipe, ShoppingItem
+from . import kitchen
+from .kitchen import OWNER
 from .matching import covers
 
 log = logging.getLogger(__name__)
@@ -119,49 +122,46 @@ def plan_factor(entry: MealPlanEntry) -> float:
     return entry.servings / base if entry.servings and base else 1
 
 
-def move_to_pantry(db: Session, items: list[ShoppingItem]) -> list[str]:
+def move_to_pantry(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) -> list[str]:
     """Kupione produkty z przepisów trafiają do spiżarni. Zwraca ich nazwy."""
     names = sorted({i.name for i in items if i.name})
-    for ingredient in db.query(Ingredient).filter(Ingredient.name.in_(names)):
-        ingredient.in_pantry = True
+    kitchen.add_to_pantry(db, user, names)
     return names
 
 
-def pantry_names(db: Session) -> list[str]:
-    return [i.name for i in db.query(Ingredient).filter_by(in_pantry=True).order_by(Ingredient.name)]
+def pantry_names(db: Session, user: CurrentUser = OWNER) -> list[str]:
+    return [name for name, _expires in kitchen.pantry(db, user)]
 
 
 # Produkt, który trzeba zużyć w ciągu tylu dni, jest "do zużycia najpierw"
 USE_FIRST_DAYS = 3
 
 
-def expiring_names(db: Session, days: int = USE_FIRST_DAYS) -> list[str]:
+def expiring_names(db: Session, user: CurrentUser = OWNER, days: int = USE_FIRST_DAYS) -> list[str]:
     """Produkty ze spiżarni, którym kończy się termin (najpilniejsze najpierw)."""
     until = date.today() + timedelta(days=days)
-    items = (db.query(Ingredient).filter(Ingredient.in_pantry.is_(True), Ingredient.pantry_expires.is_not(None),
-                                         Ingredient.pantry_expires <= until)
-             .order_by(Ingredient.pantry_expires, Ingredient.name))
-    return [i.name for i in items]
+    items = [(expires, name) for name, expires in kitchen.pantry(db, user) if expires and expires <= until]
+    return [name for _expires, name in sorted(items)]
 
 
-def pantry_text(db: Session) -> str:
+def pantry_text(db: Session, user: CurrentUser = OWNER) -> str:
     """Spiżarnia dla AI, np. 'jajko, mleko (zużyć do 28.10)'."""
-    items = db.query(Ingredient).filter_by(in_pantry=True).order_by(Ingredient.name)
     return ", ".join(
-        i.name + (f" (zużyć do {i.pantry_expires:%d.%m})" if i.pantry_expires else "") for i in items
+        name + (f" (zużyć do {expires:%d.%m})" if expires else "") for name, expires in kitchen.pantry(db, user)
     ) or "nic"
 
 
 def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: bool = True,
-               skipped: list[str] | None = None) -> int:
+               skipped: list[str] | None = None, user: CurrentUser = OWNER) -> int:
     """Dopisuje składniki przepisu do listy. Zwraca liczbę dodanych/zmienionych pozycji.
 
     Ten sam składnik w tej samej jednostce (np. "mąka pszenna" w gramach) z kilku
     przepisów łączymy w jedną pozycję i sumujemy ilości.
     Składniki ze spiżarni pomijamy i dopisujemy do listy `skipped` (jeśli podana).
     """
-    open_items = db.query(ShoppingItem).filter_by(checked=False).all()
-    pantry = pantry_names(db)
+    open_items = db.query(ShoppingItem).filter(ShoppingItem.checked.is_(False),
+                                               owned(ShoppingItem.user_id, user)).all()
+    pantry = pantry_names(db, user)
     changed = 0
     for line in recipe.ingredients:
         name = line.ingredient.name
@@ -179,7 +179,7 @@ def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: boo
                      and not i.ha_text), None)
         if same is None:
             item = ShoppingItem(name=name, text=scale_text(line.text, line.amount, factor),
-                                amount=amount, unit=line.unit, recipes=recipe.title)
+                                amount=amount, unit=line.unit, recipes=recipe.title, user_id=user.id)
             db.add(item)
             open_items.append(item)
         else:
@@ -254,7 +254,8 @@ def sync_with_home_assistant(db: Session) -> None:
         # Ta sama nazwa dwa razy: liczy się nieodhaczona
         if status.get(ha_item["summary"]) != "needs_action":
             status[ha_item["summary"]] = ha_item["status"]
-    items = db.query(ShoppingItem).all()
+    # Lista w HA to lista właściciela
+    items = db.query(ShoppingItem).filter(ShoppingItem.user_id.is_(None)).all()
     for item in items:
         if item.ha_text and item.ha_text in status:
             item.checked = status[item.ha_text] == "completed"

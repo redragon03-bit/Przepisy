@@ -10,13 +10,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFi
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import forget_owner_name, require_owner
 from ..database import get_db
 from ..models import Recipe
 from ..schemas import BackupFile, RestoreResult
 from ..services import backup, schema_org
 
-router = APIRouter(prefix="/api", tags=["kopia"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/api", tags=["kopia"], dependencies=[Depends(require_owner)])
 
 
 @router.get("/backup")
@@ -66,6 +66,8 @@ def restore_backup(file: UploadFile):
         with zip_path.open("wb") as out:
             shutil.copyfileobj(file.file, out)
         try:
-            return RestoreResult(recipes=backup.restore_zip(zip_path))
+            result = RestoreResult(recipes=backup.restore_zip(zip_path))
+            forget_owner_name()  # nazwa właściciela przyszła z kopii
+            return result
         except backup.RestoreError as exc:
             raise HTTPException(400, str(exc)) from exc

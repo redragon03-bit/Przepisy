@@ -98,14 +98,19 @@ export default function RecipeMenu({ recipe, scale, servings, onChange, onSearch
       <input ref={photoInput} type="file" accept="image/*" hidden onChange={(e) => changePhoto(e.target.files?.[0])} />
       {panel === "menu" && (
         <Sheet onClose={close}>
-          <SheetTile icon="✏️" label="Edytuj" onClick={() => navigate(`/przepis/${recipe.id}/edytuj`)} />
+          {recipe.can_edit && <SheetTile icon="✏️" label="Edytuj" onClick={() => navigate(`/przepis/${recipe.id}/edytuj`)} />}
           <SheetTile icon="📅" label="Zaplanuj" onClick={() => setPanel("plan")} />
           <SheetTile icon="🛒" label="Do zakupów" onClick={toShopping} />
           <SheetTile icon="📤" label="Udostępnij" onClick={() => setPanel("share")} />
           {aiEnabled && <SheetTile icon="🔀" label="Wariant" onClick={() => setPanel("variant")} />}
-          <SheetTile icon="🖼️" label="Zdjęcie" onClick={() => setPanel("photo")} />
-          <SheetTile icon="🔥" label={recipe.kcal == null ? "Kalorie" : "Kalorie od nowa"} onClick={nutrition} />
-          <SheetTile icon="🗑️" label="Usuń" onClick={remove} danger />
+          {/* Domownik zmienia tylko przepisy, które sam dodał */}
+          {recipe.can_edit && (
+            <>
+              <SheetTile icon="🖼️" label="Zdjęcie" onClick={() => setPanel("photo")} />
+              <SheetTile icon="🔥" label={recipe.kcal == null ? "Kalorie" : "Kalorie od nowa"} onClick={nutrition} />
+              <SheetTile icon="🗑️" label="Usuń" onClick={remove} danger />
+            </>
+          )}
         </Sheet>
       )}
       {panel === "plan" && <PlanDaySheet recipeId={recipe.id} onClose={close} />}

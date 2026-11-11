@@ -22,6 +22,32 @@ recipe_categories = Table(
 )
 
 
+class User(Base):
+    """Konto domownika (np. brata). Właściciel aplikacji nie ma tu wiersza - loguje się hasłem
+    z opcji dodatku (app_password), a jego dane mają user_id = None.
+
+    Przepisy są wspólne; plan, lista zakupów, spiżarnia, ulubione i oceny - osobne (patrz services/kitchen.py).
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Nazwa do logowania, np. "Naszman"
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    # pbkdf2: "sól$skrót" (patrz auth.hash_password)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AppSetting(Base):
+    """Drobne ustawienia aplikacji zmieniane w Ustawieniach, np. nazwa konta właściciela."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[str] = mapped_column(String(500), default="")
+
+
 class Category(Base):
     """Kategoria, np. "Deser", "Zupa". Nazwa z dużej litery."""
 
@@ -64,6 +90,8 @@ class Recipe(Base):
     variant_of: Mapped[int | None] = mapped_column(ForeignKey("recipes.id", ondelete="SET NULL"))
     # Krótka nazwa wariantu, np. "wege"
     variant_name: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    # Kto dodał przepis: konto domownika (User.id); None = właściciel aplikacji
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -147,6 +175,8 @@ class ImportJob(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     # Kiedy zadanie ostatnio ruszyło (start albo "Ponów", czas UTC) - po nim poznajemy zawieszone
     started_at: Mapped[datetime | None] = mapped_column(default=None)
+    # Czyja to pozycja: konto domownika (User.id); None = właściciel aplikacji
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
 class ShoppingItem(Base):
@@ -168,6 +198,8 @@ class ShoppingItem(Base):
     # Tekst pozycji na liście w Home Assistant; pusty = nie ma jej w HA (patrz shopping.sync_with_home_assistant)
     ha_text: Mapped[str] = mapped_column(String(500), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Czyja to pozycja: konto domownika (User.id); None = właściciel aplikacji
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
 class MealPlanEntry(Base):
@@ -182,6 +214,8 @@ class MealPlanEntry(Base):
     servings: Mapped[int | None]
     # Składniki są już na liście zakupów - drugi raz ich nie dodajemy
     in_shopping: Mapped[bool] = mapped_column(default=False, server_default="0")
+    # Czyja to pozycja: konto domownika (User.id); None = właściciel aplikacji
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     recipe: Mapped[Recipe] = relationship(lazy="joined")
 
@@ -198,6 +232,8 @@ class CookLogEntry(Base):
     rating: Mapped[int | None]
     note: Mapped[str] = mapped_column(Text, default="")
     image: Mapped[str | None] = mapped_column(String(200))
+    # Czyja to pozycja: konto domownika (User.id); None = właściciel aplikacji
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
     recipe: Mapped[Recipe] = relationship(back_populates="cook_log")
 
@@ -278,3 +314,46 @@ class Promotion(Base):
     image: Mapped[str] = mapped_column(String(100), default="", server_default="")
 
     leaflet: Mapped[PromoLeaflet] = relationship(back_populates="promotions", lazy="joined")
+
+
+class MemberMark(Base):
+    """Ulubione, ocena i licznik gotowań przepisu dla domownika.
+
+    Właściciel trzyma je w kolumnach Recipe (favorite, rating...), tak jak przed kontami.
+    """
+
+    __tablename__ = "member_marks"
+    __table_args__ = (UniqueConstraint("user_id", "recipe_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id", ondelete="CASCADE"))
+    favorite: Mapped[bool] = mapped_column(default=False)
+    rating: Mapped[int | None]
+    cooked_count: Mapped[int] = mapped_column(default=0)
+    last_cooked_at: Mapped[datetime | None]
+
+
+class MemberPantry(Base):
+    """Spiżarnia domownika (właściciel ma swoją w kolumnach Ingredient.in_pantry i pantry_expires)."""
+
+    __tablename__ = "member_pantry"
+    __table_args__ = (UniqueConstraint("user_id", "ingredient_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id", ondelete="CASCADE"))
+    expires: Mapped[date | None]
+
+    ingredient: Mapped[Ingredient] = relationship(lazy="joined")
+
+
+class MemberPromoFavorite(Base):
+    """Ulubiony produkt w promocjach domownika (właściciel: PromoFavorite)."""
+
+    __tablename__ = "member_promo_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    key: Mapped[str] = mapped_column(String(200))

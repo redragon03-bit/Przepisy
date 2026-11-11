@@ -13,6 +13,7 @@ export type Ingredient = Api.IngredientOut;
 export type CookMatch = Api.CookMatch;
 export type ImportJob = Api.ImportJobOut;
 export type AuthStatus = Api.AuthStatus;
+export type Account = Api.AccountOut;
 export type ImageSearchProgress = Api.ImageSearchProgress;
 export type ShoppingItem = Api.ShoppingItemOut;
 export type PlanEntry = Api.MealPlanOut;
@@ -58,6 +59,18 @@ export function savedAuth(): AuthStatus | null {
     return JSON.parse(localStorage.getItem(AUTH_KEY) ?? "null");
   } catch {
     return null;
+  }
+}
+
+// Lista zakupów i przepisy zapamiętane offline należą do zalogowanej osoby -
+// po wylogowaniu je usuwamy, żeby kolejna osoba na tym telefonie nie zobaczyła cudzych
+const PERSONAL_KEYS = ["shopping-items", "shopping-queue", "offline-recipes", "offline-recipe-list", "recent-recipes", AUTH_KEY];
+
+function forgetPersonalData() {
+  try {
+    for (const key of PERSONAL_KEYS) localStorage.removeItem(key);
+  } catch {
+    // tryb prywatny - nic nie zapisaliśmy
   }
 }
 
@@ -110,8 +123,18 @@ function query(params: Record<string, string | string[]>): string {
 
 export const api = {
   authStatus: () => request<AuthStatus>("GET", "/api/auth/status"),
-  login: (password: string) => request<void>("POST", "/api/auth/login", { password }),
-  logout: () => request<void>("POST", "/api/auth/logout"),
+  // Puste `name` = konto właściciela (jak przed kontami)
+  login: (name: string, password: string) => request<void>("POST", "/api/auth/login", { name, password }),
+  logout: () => request<void>("POST", "/api/auth/logout").then(forgetPersonalData),
+  // Konta domowników (Ustawienia → Konta, tylko właściciel)
+  listAccounts: () => request<Account[]>("GET", "/api/auth/accounts"),
+  addAccount: (name: string, password: string) => request<Account[]>("POST", "/api/auth/accounts", { name, password }),
+  renameOwner: (name: string) => request<Account[]>("PATCH", "/api/auth/accounts/owner", { name }),
+  updateAccount: (id: number, data: { name?: string; password?: string }) =>
+    request<Account[]>("PATCH", `/api/auth/accounts/${id}`, data),
+  deleteAccount: (id: number) => request<Account[]>("DELETE", `/api/auth/accounts/${id}`),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<void>("POST", "/api/auth/password", { old_password: oldPassword, new_password: newPassword }),
 
   // category: nazwa kategorii, "-" = przepisy bez kategorii, "" = wszystkie
   listRecipes: (q: string, ingredients: string[], category = "", favorite = false) =>

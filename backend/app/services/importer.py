@@ -169,6 +169,8 @@ def _run(job_id: int, work) -> None:
                 db.rollback()
                 log.info("Import %s anulowany - wynik pominięty", job_id)
                 return
+            for recipe in recipes:
+                recipe.created_by = job.user_id  # przepis należy do osoby, która go zaimportowała
             db.flush()
             job.recipe_id = recipes[0].id
             job.recipe_count = len(recipes)

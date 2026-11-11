@@ -2020,3 +2020,26 @@ body:has(.fab) .back-to-top {
   outline: 2px solid var(--accent-strong, var(--accent));
   outline-offset: 2px;
 }
+
+/* Ustawienia → Konta */
+.account-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 12px;
+}
+
+.account-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-list input {
+  flex: 1;
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

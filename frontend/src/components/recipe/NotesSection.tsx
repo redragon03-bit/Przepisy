@@ -21,9 +21,11 @@ export default function NotesSection({ recipe, onChange }: { recipe: Recipe; onC
       {editing === null ? (
         <>
           {recipe.notes ? <p className="notes">{recipe.notes}</p> : <p className="muted small">Brak notatek.</p>}
-          <button type="button" className="link small" onClick={() => setEditing(recipe.notes)}>
-            {recipe.notes ? "Edytuj notatki" : "+ Dodaj notatkę, np. „następnym razem mniej cukru”"}
-          </button>
+          {recipe.can_edit && (
+            <button type="button" className="link small" onClick={() => setEditing(recipe.notes)}>
+              {recipe.notes ? "Edytuj notatki" : "+ Dodaj notatkę, np. „następnym razem mniej cukru”"}
+            </button>
+          )}
         </>
       ) : (
         <>

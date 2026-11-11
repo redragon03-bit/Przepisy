@@ -390,3 +390,32 @@ test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", asyn
   await expect(page.getByRole("heading", { name: "Kotlety schabowe" })).toBeVisible();
   await expect(page.locator(".tag-promo")).toHaveCount(0);
 });
+
+test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia tylko swoje", async ({ page }) => {
+  await login(page);
+  await page.goto("/ustawienia");
+  await page.getByPlaceholder("Nazwa nowego konta, np. imię").fill("Naszman");
+  await page.getByPlaceholder("Hasło (min. 4 znaki)").fill("brat123");
+  await page.getByRole("button", { name: "Dodaj konto" }).click();
+  await expect(page.locator(".account-list")).toContainText("Naszman");
+  await page.screenshot({ path: "test-results/konta-wlasciciel.png" });
+  await page.getByRole("button", { name: /^Wyloguj/ }).click();
+
+  await page.getByPlaceholder("Nazwa konta").fill("Naszman");
+  await page.getByPlaceholder("Hasło").fill("brat123");
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  await expect(page.getByRole("button", { name: "Wyloguj (Naszman)" })).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByText("Naleśniki")).toBeVisible();
+  await page.getByText("Naleśniki").click();
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("button", { name: "Zaplanuj" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edytuj" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Usuń" })).toHaveCount(0);
+
+  await page.goto("/ustawienia");
+  await expect(page.getByRole("heading", { name: "Twoje konto" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kopia zapasowa" })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/konta-domownik.png" });
+  await page.getByRole("button", { name: /^Wyloguj/ }).click();
+});

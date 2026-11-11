@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import CurrentUser, current_user, require_auth, require_owner
 from ..config import get_settings
 from ..database import get_db
 from ..models import Ingredient, RecipeIngredient
 from ..schemas import CookMatch, CookRequest, DuplicateGroup, IngredientOut, IngredientUpdate, MergeIn, StapleIn
 from ..services import ai
 from ..services.ingredients import get_or_create_ingredient, group_similar, merge_ingredients, normalize_name
+from ..services.kitchen import Marks
 from ..services.matching import find_recipes
 from ..services.shopping import expiring_names
 from .recipes import to_summary
@@ -40,7 +41,7 @@ def list_ingredients(q: str = "", staples_only: bool = False, db: Session = Depe
     ]
 
 
-@router.patch("/ingredients/{ingredient_id}", response_model=IngredientOut)
+@router.patch("/ingredients/{ingredient_id}", response_model=IngredientOut, dependencies=[Depends(require_owner)])
 def update_ingredient(ingredient_id: int, data: IngredientUpdate, db: Session = Depends(get_db)):
     ingredient = db.get(Ingredient, ingredient_id)
     if ingredient is None:
@@ -50,7 +51,8 @@ def update_ingredient(ingredient_id: int, data: IngredientUpdate, db: Session = 
     return ingredient
 
 
-@router.post("/ingredients/staples", response_model=IngredientOut, status_code=201)
+@router.post("/ingredients/staples", response_model=IngredientOut, status_code=201,
+             dependencies=[Depends(require_owner)])
 def add_staple(data: StapleIn, db: Session = Depends(get_db)):
     """Dodaje składnik do podstawowych, np. {"name": "masło"}."""
     name = data.name.strip()
@@ -66,7 +68,7 @@ def add_staple(data: StapleIn, db: Session = Depends(get_db)):
 MAX_DUPLICATE_NAMES = 400
 
 
-@router.get("/ingredients/duplicates", response_model=list[DuplicateGroup])
+@router.get("/ingredients/duplicates", response_model=list[DuplicateGroup], dependencies=[Depends(require_owner)])
 def find_duplicates(db: Session = Depends(get_db)):
     """Składniki zapisane na kilka sposobów ("pomidor", "pomidory") - do połączenia jednym stuknięciem.
 
@@ -100,7 +102,7 @@ def find_duplicates(db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/ingredients/merge", status_code=204)
+@router.post("/ingredients/merge", status_code=204, dependencies=[Depends(require_owner)])
 def merge(data: MergeIn, db: Session = Depends(get_db)):
     """Łączy składniki `others` w `keep` (przepisy, lista zakupów, spiżarnia)."""
     keep = db.query(Ingredient).filter_by(name=normalize_name(data.keep)).one_or_none()
@@ -113,8 +115,9 @@ def merge(data: MergeIn, db: Session = Depends(get_db)):
 
 
 @router.post("/cook", response_model=list[CookMatch])
-def what_can_i_cook(data: CookRequest, db: Session = Depends(get_db)):
+def what_can_i_cook(data: CookRequest, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    marks = Marks(db, user)
     return [
-        CookMatch(recipe=to_summary(m.recipe), have=m.have, missing=m.missing, use_first=m.use_first)
-        for m in find_recipes(db, data.ingredients, data.max_missing, expiring_names(db))
+        CookMatch(recipe=to_summary(m.recipe, marks), have=m.have, missing=m.missing, use_first=m.use_first)
+        for m in find_recipes(db, data.ingredients, data.max_missing, expiring_names(db, user))
     ]

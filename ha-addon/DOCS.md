@@ -2,7 +2,8 @@
 
 ## Opcje
 
-- **app_password** - hasło do aplikacji. Ustaw koniecznie, jeśli aplikacja będzie dostępna spoza domu.
+- **app_password** - hasło do aplikacji (konto właściciela). Ustaw koniecznie, jeśli aplikacja będzie dostępna spoza domu.
+  Konta dla domowników (wspólne przepisy, własny plan, zakupy i spiżarnia) dodasz w aplikacji: Ustawienia → Konta.
 - **ai_provider** - które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral` albo `anthropic`. Gdy ono zawiedzie
   (np. skończy się darmowy limit), aplikacja sama pyta kolejnych AI, do których podasz klucz.
 - **gemini_api_key** - klucz z https://aistudio.google.com (ma darmowy limit).

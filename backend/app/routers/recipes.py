@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import CurrentUser, current_user, require_auth, require_owner
 from ..config import get_settings
 from ..database import fold, get_db
 from ..models import Category, CookLogEntry, Ingredient, Recipe, RecipeIngredient, Step
@@ -31,11 +31,14 @@ from ..schemas import (
 from ..services import ai, fetcher, image_search, images, importer
 from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, guess_ingredient_name, normalize_name
+from ..services.kitchen import OWNER, Marks
 
 router = APIRouter(prefix="/api/recipes", tags=["przepisy"], dependencies=[Depends(require_auth)])
 
 
-def to_summary(recipe: Recipe) -> RecipeSummary:
+def to_summary(recipe: Recipe, marks: Marks | None = None) -> RecipeSummary:
+    """`marks` - ulubione/oceny osoby, która ogląda; None = właściciela."""
+    marks = marks or _OWNER_MARKS
     return RecipeSummary(
         id=recipe.id,
         title=recipe.title,
@@ -44,17 +47,34 @@ def to_summary(recipe: Recipe) -> RecipeSummary:
         total_minutes=recipe.total_minutes,
         source_type=recipe.source_type,
         categories=sorted(c.name for c in recipe.categories),
-        favorite=recipe.favorite,
-        rating=recipe.rating,
-        cooked_count=recipe.cooked_count,
-        last_cooked_at=recipe.last_cooked_at,
+        favorite=marks.favorite(recipe),
+        rating=marks.rating(recipe),
+        cooked_count=marks.cooked_count(recipe),
+        last_cooked_at=marks.last_cooked_at(recipe),
         created_at=recipe.created_at,
     )
 
 
-def to_out(recipe: Recipe) -> RecipeOut:
+class _OwnerMarks(Marks):
+    """Marks właściciela bez sesji bazy - czyta tylko kolumny przepisu."""
+
+    def __init__(self):
+        self.user, self._rows = OWNER, {}
+
+
+_OWNER_MARKS = _OwnerMarks()
+
+
+def can_edit(recipe: Recipe, user: CurrentUser) -> bool:
+    """Właściciel zmienia każdy przepis, domownik - tylko te, które sam dodał."""
+    return user.is_owner or recipe.created_by == user.id
+
+
+def to_out(recipe: Recipe, marks: Marks | None = None) -> RecipeOut:
+    user = marks.user if marks else OWNER
     return RecipeOut(
-        **to_summary(recipe).model_dump(),
+        **to_summary(recipe, marks).model_dump(),
+        can_edit=can_edit(recipe, user),
         description=recipe.description,
         servings=recipe.servings,
         prep_minutes=recipe.prep_minutes,
@@ -78,7 +98,7 @@ def to_out(recipe: Recipe) -> RecipeOut:
         variants=[_ref(v) for v in _variants(recipe)],
         cook_log=[
             CookLogOut(id=e.id, cooked_at=e.cooked_at, rating=e.rating, note=e.note, image_url=image_url(e.image))
-            for e in recipe.cook_log
+            for e in recipe.cook_log if e.user_id == user.id
         ],
     )
 
@@ -100,6 +120,13 @@ def _get(db: Session, recipe_id: int) -> Recipe:
     return recipe
 
 
+def _get_editable(db: Session, recipe_id: int, user: CurrentUser) -> Recipe:
+    recipe = _get(db, recipe_id)
+    if not can_edit(recipe, user):
+        raise HTTPException(403, "Ten przepis może zmienić tylko osoba, która go dodała")
+    return recipe
+
+
 @router.get("", response_model=list[RecipeSummary])
 def list_recipes(
     q: str = "",
@@ -107,11 +134,13 @@ def list_recipes(
     category: str = Query(default="", description="Tylko przepisy z tej kategorii; '-' = bez kategorii"),
     favorite: bool = Query(default=False, description="Tylko ulubione"),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(current_user),
 ):
+    marks = Marks(db, user)
     # Warianty (np. "wege") widać na stronie przepisu głównego, nie na liście
     query = db.query(Recipe).filter(Recipe.variant_of.is_(None))
     if favorite:
-        query = query.filter(Recipe.favorite.is_(True))
+        query = query.filter(Recipe.favorite.is_(True) if user.is_owner else Recipe.id.in_(marks.favorite_ids()))
     # Każde słowo musi być w tytule, składnikach, opisie, krokach albo notatkach.
     # fold() pomija wielkość liter i ogonki: "zurek" znajdzie "Żurek".
     for word in fold(q).split():
@@ -138,7 +167,7 @@ def list_recipes(
             (Ingredient.name == name) | Ingredient.name.like(f"{name} %")
         ))
         query = query.filter(has_it)
-    return [to_summary(r) for r in query.order_by(Recipe.created_at.desc(), Recipe.id.desc())]
+    return [to_summary(r, marks) for r in query.order_by(Recipe.created_at.desc(), Recipe.id.desc())]
 
 
 @router.get("/stats", response_model=RecipeStats)
@@ -159,7 +188,8 @@ def image_search_status(db: Session = Depends(get_db)):
     return _search_progress(db)
 
 
-@router.post("/image-search", response_model=ImageSearchProgress, status_code=202)
+@router.post("/image-search", response_model=ImageSearchProgress, status_code=202,
+             dependencies=[Depends(require_owner)])
 def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db)):
     """Szuka w internecie zdjęć dla wszystkich przepisów bez zdjęcia (w tle)."""
     if not image_search.progress["running"]:
@@ -168,8 +198,8 @@ def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db
 
 
 @router.get("/{recipe_id}", response_model=RecipeOut)
-def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
-    return to_out(_get(db, recipe_id))
+def get_recipe(recipe_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    return to_out(_get(db, recipe_id), Marks(db, user))
 
 
 def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
@@ -200,45 +230,48 @@ def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
 
 
 @router.post("", response_model=RecipeOut, status_code=201)
-def create_recipe(data: RecipeIn, db: Session = Depends(get_db)):
-    recipe = Recipe(source_type="manual")
+def create_recipe(data: RecipeIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    recipe = Recipe(source_type="manual", created_by=user.id)
     db.add(recipe)
     _apply(db, recipe, data)
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))
 
 
 @router.put("/{recipe_id}", response_model=RecipeOut)
-def update_recipe(recipe_id: int, data: RecipeIn, db: Session = Depends(get_db)):
-    recipe = _get(db, recipe_id)
+def update_recipe(recipe_id: int, data: RecipeIn, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(current_user)):
+    recipe = _get_editable(db, recipe_id, user)
     _apply(db, recipe, data)
     db.commit()
     db.refresh(recipe)
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))
 
 
 @router.patch("/{recipe_id}", response_model=RecipeOut)
-def patch_recipe(recipe_id: int, data: RecipePatch, db: Session = Depends(get_db)):
-    """Ulubione, ocena, notatki - zmieniane jednym tapnięciem na stronie przepisu."""
+def patch_recipe(recipe_id: int, data: RecipePatch, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(current_user)):
+    """Ulubione, ocena (każdy ma swoje), notatki (część przepisu) - jednym tapnięciem na stronie przepisu."""
     recipe = _get(db, recipe_id)
+    marks = Marks(db, user)
     if data.favorite is not None:
-        recipe.favorite = data.favorite
+        marks.edit(recipe).favorite = data.favorite
     if data.rating is not None:
-        recipe.rating = data.rating or None
+        marks.edit(recipe).rating = data.rating or None
     if data.notes is not None:
-        recipe.notes = data.notes
+        _get_editable(db, recipe_id, user).notes = data.notes
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, marks)
 
 
 # Ocena przepisu to średnia z tylu ostatnich ocenionych gotowań - zmienia się z czasem
 RATING_FROM_LAST = 5
 
 
-def _rating_from_log(recipe: Recipe) -> None:
-    ratings = [e.rating for e in recipe.cook_log if e.rating][:RATING_FROM_LAST]
+def _rating_from_log(recipe: Recipe, marks: Marks) -> None:
+    ratings = [e.rating for e in recipe.cook_log if e.rating and e.user_id == marks.user.id][:RATING_FROM_LAST]
     if ratings:
-        recipe.rating = round(sum(ratings) / len(ratings))
+        marks.edit(recipe).rating = round(sum(ratings) / len(ratings))
 
 
 @router.post("/{recipe_id}/cooked", response_model=RecipeOut)
@@ -248,6 +281,7 @@ def mark_cooked(
     note: str = Form(default="", max_length=2000),
     photo: UploadFile | None = File(default=None, description="Zdjęcie tego, co wyszło"),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(current_user),
 ):
     """Przycisk "Ugotowane": wpis w dzienniku gotowania (ocena, notatka i zdjęcie - wszystko opcjonalne)."""
     recipe = _get(db, recipe_id)
@@ -257,28 +291,34 @@ def mark_cooked(
             image = images.save_image_bytes(photo.file.read())
         except Exception as exc:
             raise HTTPException(400, "Nie udało się odczytać zdjęcia") from exc
-    recipe.cooked_count += 1
-    recipe.last_cooked_at = datetime.now()
-    recipe.cook_log.insert(0, CookLogEntry(cooked_at=recipe.last_cooked_at, rating=rating,
-                                           note=note.strip(), image=image))
-    _rating_from_log(recipe)
+    marks = Marks(db, user)
+    mark = marks.edit(recipe)
+    mark.cooked_count = (mark.cooked_count or 0) + 1
+    mark.last_cooked_at = datetime.now()
+    recipe.cook_log.insert(0, CookLogEntry(cooked_at=mark.last_cooked_at, rating=rating,
+                                           note=note.strip(), image=image, user_id=user.id))
+    _rating_from_log(recipe, marks)
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, marks)
 
 
 @router.delete("/{recipe_id}/cooked/{entry_id}", response_model=RecipeOut)
-def delete_cooked(recipe_id: int, entry_id: int, db: Session = Depends(get_db)):
+def delete_cooked(recipe_id: int, entry_id: int, db: Session = Depends(get_db),
+                  user: CurrentUser = Depends(current_user)):
     """Usuwa wpis z dziennika (np. "Ugotowane" wciśnięte przez pomyłkę)."""
     recipe = _get(db, recipe_id)
-    entry = next((e for e in recipe.cook_log if e.id == entry_id), None)
+    entry = next((e for e in recipe.cook_log if e.id == entry_id and e.user_id == user.id), None)
     if entry is None:
         raise HTTPException(404, "Nie ma takiego wpisu")
     recipe.cook_log.remove(entry)
     images.delete_image(entry.image)
-    recipe.cooked_count = max(recipe.cooked_count - 1, 0)
-    recipe.last_cooked_at = recipe.cook_log[0].cooked_at if recipe.cook_log else None
+    marks = Marks(db, user)
+    mark = marks.edit(recipe)
+    mine = [e for e in recipe.cook_log if e.user_id == user.id]
+    mark.cooked_count = max((mark.cooked_count or 0) - 1, 0)
+    mark.last_cooked_at = mine[0].cooked_at if mine else None
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, marks)
 
 
 @router.post("/{recipe_id}/substitute", response_model=SubstituteOut)
@@ -303,7 +343,8 @@ def recipe_text(recipe: Recipe) -> str:
 
 
 @router.post("/{recipe_id}/variant", response_model=RecipeOut, status_code=201)
-def create_variant(recipe_id: int, data: VariantIn, db: Session = Depends(get_db)):
+def create_variant(recipe_id: int, data: VariantIn, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(current_user)):
     """AI tworzy wariant przepisu (np. "wersja wege"), zapisany przy przepisie głównym."""
     recipe = _get(db, recipe_id)
     main = recipe.parent or recipe  # wariant wariantu też należy do przepisu głównego
@@ -314,6 +355,7 @@ def create_variant(recipe_id: int, data: VariantIn, db: Session = Depends(get_db
     variant = importer.save_ai_recipe(db, answer.recipe, "ai", "", [], lambda _source: None)
     variant.variant_name = answer.name.strip()[:100] or data.wish.strip()[:100]
     variant.parent = main
+    variant.created_by = user.id
     variant.source_url = recipe.source_url
     if recipe.image:
         # Własna kopia zdjęcia - usunięcie jednego przepisu nie kasuje zdjęcia drugiemu
@@ -321,12 +363,12 @@ def create_variant(recipe_id: int, data: VariantIn, db: Session = Depends(get_db
         if original.exists():
             variant.image = images.save_image_bytes(original.read_bytes())
     db.commit()
-    return to_out(variant)
+    return to_out(variant, Marks(db, user))
 
 
 @router.delete("/{recipe_id}", status_code=204)
-def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
-    recipe = _get(db, recipe_id)
+def delete_recipe(recipe_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    recipe = _get_editable(db, recipe_id, user)
     files = [recipe.image] + [s.image for s in recipe.steps] + [e.image for e in recipe.cook_log]
     db.delete(recipe)
     db.commit()
@@ -335,16 +377,16 @@ def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{recipe_id}/nutrition", response_model=RecipeOut)
-def calculate_nutrition(recipe_id: int, db: Session = Depends(get_db)):
+def calculate_nutrition(recipe_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """AI szacuje kalorie i makro na 1 porcję."""
-    recipe = _get(db, recipe_id)
+    recipe = _get_editable(db, recipe_id, user)
     try:
         result = ai.estimate_nutrition(recipe.title, recipe.servings, [ri.text for ri in recipe.ingredients])
     except ai.AiError as exc:
         raise HTTPException(502, str(exc)) from exc
     recipe.kcal, recipe.protein, recipe.fat, recipe.carbs = result.kcal, result.protein, result.fat, result.carbs
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))
 
 
 @router.get("/{recipe_id}/image-candidates", response_model=list[str])
@@ -356,8 +398,9 @@ def image_candidates(recipe_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{recipe_id}/image-from-url", response_model=RecipeOut)
-def image_from_url(recipe_id: int, data: ImageFromUrl, db: Session = Depends(get_db)):
-    recipe = _get(db, recipe_id)
+def image_from_url(recipe_id: int, data: ImageFromUrl, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(current_user)):
+    recipe = _get_editable(db, recipe_id, user)
     try:
         filename = images.save_image_bytes(fetcher.fetch_image(data.url))
     except Exception as exc:
@@ -365,12 +408,13 @@ def image_from_url(recipe_id: int, data: ImageFromUrl, db: Session = Depends(get
     images.delete_image(recipe.image)
     recipe.image = filename
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))
 
 
 @router.post("/{recipe_id}/image", response_model=RecipeOut)
-def upload_main_image(recipe_id: int, file: UploadFile, db: Session = Depends(get_db)):
-    recipe = _get(db, recipe_id)
+def upload_main_image(recipe_id: int, file: UploadFile, db: Session = Depends(get_db),
+                      user: CurrentUser = Depends(current_user)):
+    recipe = _get_editable(db, recipe_id, user)
     try:
         filename = images.save_image_bytes(file.file.read())
     except Exception as exc:
@@ -378,4 +422,4 @@ def upload_main_image(recipe_id: int, file: UploadFile, db: Session = Depends(ge
     images.delete_image(recipe.image)
     recipe.image = filename
     db.commit()
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))
