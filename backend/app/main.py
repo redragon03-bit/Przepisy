@@ -15,6 +15,7 @@ from .auth import require_auth
 from .config import get_settings
 from .database import init_db
 from .routers import (
+    appearance,
     auth,
     backup,
     calendar,
@@ -62,6 +63,7 @@ app.include_router(backup.router)
 app.include_router(timers.router)
 app.include_router(calendar.router)
 app.include_router(promotions.router)
+app.include_router(appearance.router)
 
 
 @app.get("/api/health")

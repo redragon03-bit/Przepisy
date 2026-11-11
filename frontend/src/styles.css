@@ -39,11 +39,21 @@
   --timer-done-text: #ffffff;
 
   /* Rozmiary: płynnie rosną z szerokością ekranu (iPhone 13 = 390 px) */
-  --fs-small: clamp(13px, 3.4vw, 14px);
-  --fs-body: clamp(16px, 4.3vw, 17px);
-  --fs-list: clamp(17px, 4.6vw, 19px);
-  --fs-kitchen: clamp(22px, 6.6vw, 30px);
-  --fs-timer: clamp(22px, 6.2vw, 28px);
+  /* Skala z Ustawień → Wygląd (lib/uiScale.ts ustawia --s-* na <html>; 1 = 100%) */
+  --s-title: 1;
+  --s-body: 1;
+  --s-list: 1;
+  --s-small: 1;
+  --s-kitchen: 1;
+  --s-timer: 1;
+  --s-check: 1;
+  --s-space: 1;
+  --fs-small: calc(clamp(13px, 3.4vw, 14px) * var(--s-small));
+  --fs-body: calc(clamp(16px, 4.3vw, 17px) * var(--s-body));
+  --fs-list: calc(clamp(17px, 4.6vw, 19px) * var(--s-body));
+  --fs-items: calc(14px * var(--s-list));
+  --fs-kitchen: calc(clamp(22px, 6.6vw, 30px) * var(--s-kitchen));
+  --fs-timer: calc(clamp(22px, 6.2vw, 28px) * var(--s-timer));
   --hit: 48px;
   --hit-kitchen: 60px;
 
@@ -132,18 +142,18 @@ a {
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--s-title));
   margin: 0.4rem 0;
 }
 
 h2 {
-  font-size: 1.1rem;
-  margin: 0.9rem 0 0.35rem;
+  font-size: calc(1.1rem * var(--s-title));
+  margin: calc(0.9rem * var(--s-space)) 0 calc(0.35rem * var(--s-space));
 }
 
 /* Akapity ciaśniej niż domyślne 1em - mniej "rozdmuchane" ekrany */
 p {
-  margin: 0.5em 0;
+  margin: calc(0.5em * var(--s-space)) 0;
 }
 
 /* Treść strony: miejsce na pasek zakładek na dole i "notch" iPhone'a */
@@ -172,7 +182,7 @@ select,
 button,
 .button {
   font: inherit;
-  font-size: 16px;
+  font-size: calc(16px * var(--s-body));
   color: inherit;
 }
 
@@ -226,7 +236,7 @@ textarea.auto {
 label {
   display: block;
   margin: 10px 0;
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
   color: var(--muted);
 }
 
@@ -274,7 +284,7 @@ button:disabled {
 .small,
 button.small,
 .button.small {
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
 }
 
 button.small,
@@ -333,8 +343,8 @@ button.small,
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 12px;
-  margin: 8px 0;
+  padding: calc(10px * var(--s-space)) 12px;
+  margin: calc(8px * var(--s-space)) 0;
 }
 
 .box h2 {
@@ -630,7 +640,7 @@ span.drag-handle:not(.step-number) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: calc(11px * var(--s-small));
   color: var(--muted);
   text-decoration: none;
 }
@@ -658,7 +668,7 @@ span.drag-handle:not(.step-number) {
 }
 
 .stars.small {
-  font-size: 13px;
+  font-size: calc(13px * var(--s-small));
 }
 
 .servings {
@@ -739,7 +749,7 @@ span.drag-handle:not(.step-number) {
   border: 2px dashed var(--border);
   border-radius: 14px;
   background: var(--accent-soft);
-  font-size: 16px;
+  font-size: calc(16px * var(--s-body));
 }
 
 .candidates {
@@ -860,7 +870,7 @@ body:has(.chat-input) .back-to-top {
   border: 0;
   border-radius: 0;
   background: none;
-  font-size: 11px;
+  font-size: calc(11px * var(--s-small));
   color: var(--muted);
 }
 
@@ -884,7 +894,7 @@ body:has(.chat-input) .back-to-top {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
   text-align: center;
   text-decoration: none;
 }
@@ -933,7 +943,7 @@ body:has(.chat-input) .back-to-top {
   justify-content: center;
   overflow: hidden;
   color: var(--muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
 }
 
 /* Ostatnio oglądane: jeden rząd miniaturek przewijany w bok */
@@ -955,7 +965,7 @@ body:has(.chat-input) .back-to-top {
   flex-direction: column;
   gap: 4px;
   color: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--s-small));
   text-decoration: none;
 }
 
@@ -993,7 +1003,7 @@ body:has(.chat-input) .back-to-top {
   grid-column: 1 / -1;
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1020,7 +1030,7 @@ body:has(.chat-input) .back-to-top {
 
 button.sheet-tile {
   font: inherit;
-  font-size: 14px;
+  font-size: calc(14px * var(--s-small));
 }
 
 .sheet-tile.danger-tile {
@@ -1072,7 +1082,7 @@ button.sheet-tile {
 h2.aisle {
   margin: 1rem 0 0.25rem;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--s-title));
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1315,10 +1325,10 @@ a.chip {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  padding: 5px 4px;
+  min-height: calc(40px * var(--s-space));
+  padding: calc(5px * var(--s-space)) 4px;
   border-bottom: 1px solid var(--border);
-  font-size: 14px;
+  font-size: var(--fs-items);
   line-height: 1.35;
   cursor: pointer;
 }
@@ -1331,9 +1341,11 @@ a.chip {
 .check {
   flex: none;
   position: relative;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--field-border);
+  /* Wielkość z Ustawień → Wygląd; ptaszek w em rośnie razem z kółkiem */
+  font-size: calc(20px * var(--s-check));
+  width: 1em;
+  height: 1em;
+  border: 0.1em solid var(--field-border);
   border-radius: 50%;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -1341,12 +1353,12 @@ a.chip {
 .check::after {
   content: "";
   position: absolute;
-  left: 5px;
-  top: 1px;
-  width: 5px;
-  height: 10px;
+  left: 0.25em;
+  top: 0.05em;
+  width: 0.25em;
+  height: 0.5em;
   border: solid var(--on-accent);
-  border-width: 0 2px 2px 0;
+  border-width: 0 0.1em 0.1em 0;
   transform: rotate(45deg) scale(0);
   transition: transform var(--dur) var(--ease-spring);
 }
@@ -1433,7 +1445,7 @@ a.chip {
 .steps li {
   display: flex;
   gap: 10px;
-  padding: 8px 4px;
+  padding: calc(8px * var(--s-space)) 4px;
   border-radius: var(--radius);
   font-size: var(--fs-list);
   line-height: 1.5;
@@ -1455,7 +1467,7 @@ a.chip {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--s-body));
 }
 
 .done .step-number {
@@ -1480,7 +1492,7 @@ a.chip {
 .timer-button.big {
   min-height: var(--hit-kitchen);
   padding: 12px 22px;
-  font-size: 20px;
+  font-size: calc(20px * var(--s-timer));
 }
 
 /* --- Minutniki: ciemna pastylka z paskiem postępu --- */
@@ -1543,11 +1555,11 @@ a.chip {
 
 .timer-label small {
   opacity: 0.75;
-  font-size: 13px;
+  font-size: calc(13px * var(--s-small));
 }
 
 .timer-label b {
-  font-size: 16px;
+  font-size: calc(16px * var(--s-body));
 }
 
 .timer-time {
@@ -1625,7 +1637,7 @@ body:has(.timers) .cooking-body {
 .tabbar a,
 .tabbar button {
   gap: 2px;
-  font-size: 12px;
+  font-size: calc(12px * var(--s-small));
 }
 
 .tabbar a span,
@@ -1684,7 +1696,7 @@ body:has(.timers) .cooking-body {
   min-height: 38px;
   padding: 4px 8px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: calc(18px * var(--s-body));
   line-height: 1;
 }
 
@@ -1701,8 +1713,8 @@ body:has(.timers) .cooking-body {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  padding: 5px 4px;
+  min-height: calc(40px * var(--s-space));
+  padding: calc(5px * var(--s-space)) 4px;
   background: var(--bg);
   transition: transform 0.2s var(--ease);
 }
@@ -1722,7 +1734,7 @@ body:has(.timers) .cooking-body {
   border-radius: 20px;
   background: var(--accent-strong);
   color: var(--on-accent);
-  font-size: 17px;
+  font-size: calc(17px * var(--s-body));
   font-weight: 700;
   text-decoration: none;
   box-shadow: var(--shadow-2);
@@ -1796,7 +1808,7 @@ body:has(.fab) .back-to-top {
 
 .step-ingredients li,
 .cooking-ingredients li {
-  font-size: clamp(19px, 5.2vw, 23px);
+  font-size: calc(clamp(19px, 5.2vw, 23px) * var(--s-kitchen));
 }
 
 .cooking-ingredients {
@@ -1812,7 +1824,7 @@ body:has(.fab) .back-to-top {
 .cooking-nav button {
   flex: 1;
   min-height: 64px;
-  font-size: 20px;
+  font-size: calc(20px * var(--s-kitchen));
   border-radius: var(--radius-lg);
 }
 
@@ -1826,7 +1838,7 @@ body:has(.fab) .back-to-top {
   padding: 2px 10px;
   border-radius: var(--radius-pill);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: calc(12px * var(--s-small));
 }
 
 /* --- Czat --- */
@@ -2047,4 +2059,34 @@ body:has(.fab) .back-to-top {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* --- Ustawienia → Wygląd: skala grup --- */
+.scale-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.scale-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(6px * var(--s-space)) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.scale-list .block {
+  display: block;
+}
+
+.scale-value {
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.scale-summary {
+  margin-top: 10px;
 }

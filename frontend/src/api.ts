@@ -13,6 +13,7 @@ export type Ingredient = Api.IngredientOut;
 export type CookMatch = Api.CookMatch;
 export type ImportJob = Api.ImportJobOut;
 export type AuthStatus = Api.AuthStatus;
+export type Appearance = Api.AppearanceOut;
 export type Account = Api.AccountOut;
 export type ImageSearchProgress = Api.ImageSearchProgress;
 export type ShoppingItem = Api.ShoppingItemOut;
@@ -249,6 +250,8 @@ export const api = {
   // Powiadomienie z Home Assistant o końcu minutnika (gdy ustawiono ha_notify)
   startTimer: (id: number, label: string, seconds: number) => request<void>("POST", "/api/timers", { id, label, seconds }),
   cancelTimer: (id: number) => request<void>("DELETE", `/api/timers/${id}`),
+  saveAppearance: (scales: Record<string, number>, device: string) =>
+    request<Appearance>("POST", "/api/appearance", { scales, device }),
 
   // force = importuj, nawet jeśli link już jest w bazie
   importUrl: (url: string, force = false) => request<ImportJob>("POST", "/api/imports/url", { url, force }),

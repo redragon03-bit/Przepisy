@@ -80,6 +80,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "⚙️",
     title: "Ustawienia (pod „Więcej”)",
     items: [
+      "Wygląd: wielkość tytułów, tekstu, składników i zakupów, małych napisów, trybu gotowania, minutnika, kółek i odstępów – każda osobno, co 5% (przycisk „Przywróć 100%” cofa wszystko).",
       "Promocje: przełącznik „Ceny z gazetek przy składnikach” chowa plakietki 🏷️ w przepisach i na liście zakupów.",
       "„Zawsze w domu” (sól, olej…), kopia zapasowa i przywracanie, porządki w składnikach i kategoriach.",
       "Adres kalendarza z planem posiłków – do Home Assistant, Google albo iPhone'a.",

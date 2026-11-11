@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient } from "../api";
 import AccountsSection from "../components/AccountsSection";
+import AppearanceSection from "../components/AppearanceSection";
 import { usePromoBadges } from "../lib/promoBadges";
 import { useToast } from "../lib/toast";
 
@@ -164,6 +165,8 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           />
         </label>
       </section>
+
+      <AppearanceSection />
 
       <AccountsSection auth={auth} />
 

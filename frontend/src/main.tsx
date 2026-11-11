@@ -5,10 +5,14 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { ToastProvider } from "./lib/toast";
 import { TimersProvider } from "./lib/useTimers";
+import { applyScales, loadScales } from "./lib/uiScale";
 import "./styles.css";
 
 // Przewijanie po "Wstecz" ustawiamy sami (lista przepisów), przeglądarka by to zrobiła za wcześnie.
 history.scrollRestoration = "manual";
+
+// Skala czcionek i odstępów z Ustawień → Wygląd - przed pierwszym rysowaniem, bez mrugnięcia
+applyScales(loadScales());
 
 // Nowa wersja aplikacji: przy starcie i przy każdym powrocie do aplikacji pytamy serwer,
 // czy jest nowsza. Jeśli tak, nowy service worker przejmuje stronę i ta przeładowuje się

@@ -383,6 +383,17 @@ class TimerIn(BaseModel):
     seconds: int = Field(ge=1, le=24 * 3600)
 
 
+class AppearanceIn(BaseModel):
+    """Skala wyglądu z telefonu (Ustawienia → Wygląd): grupa -> procent, np. {"title": 95}."""
+    scales: dict[str, int] = Field(description="Procent dla każdej grupy, 50-200")
+    device: str = Field(default="", max_length=200, description="Ekran, np. 'iPhone 428×926 @3'")
+
+
+class AppearanceOut(AppearanceIn):
+    user: str
+    saved_at: datetime
+
+
 class DuplicateGroup(BaseModel):
     keep: str = Field(description="Nazwa, która zostanie (najczęściej używana)")
     others: list[str] = Field(description="Nazwy do połączenia z `keep`")

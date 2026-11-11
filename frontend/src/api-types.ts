@@ -67,6 +67,23 @@ export interface AiStep {
   image_index: number | null;
 }
 
+// Skala wyglądu z telefonu (Ustawienia → Wygląd): grupa -> procent, np. {"title": 95}.
+export interface AppearanceIn {
+  // Procent dla każdej grupy, 50-200
+  scales: Record<string, number>;
+  // Ekran, np. 'iPhone 428×926 @3'
+  device?: string;
+}
+
+export interface AppearanceOut {
+  // Procent dla każdej grupy, 50-200
+  scales: Record<string, number>;
+  // Ekran, np. 'iPhone 428×926 @3'
+  device: string;
+  user: string;
+  saved_at: string;
+}
+
 export interface AuthStatus {
   authenticated: boolean;
   auth_required: boolean;
