@@ -80,6 +80,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "⚙️",
     title: "Ustawienia (pod „Więcej”)",
     items: [
+      "Promocje: przełącznik „Ceny z gazetek przy składnikach” chowa plakietki 🏷️ w przepisach i na liście zakupów.",
       "„Zawsze w domu” (sól, olej…), kopia zapasowa i przywracanie, porządki w składnikach i kategoriach.",
       "Adres kalendarza z planem posiłków – do Home Assistant, Google albo iPhone'a.",
     ],

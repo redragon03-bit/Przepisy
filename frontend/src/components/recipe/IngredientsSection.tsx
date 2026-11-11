@@ -3,6 +3,7 @@ import { Recipe } from "../../api";
 import { useCheckedSet } from "../../lib/progress";
 import { promoLabel } from "../../lib/promo";
 import { usePantry } from "../../lib/usePantry";
+import { usePromoBadges } from "../../lib/promoBadges";
 import { usePromotions } from "../../lib/usePromotions";
 import { formatAmount, scaleText } from "../../lib/scale";
 import { useLongPress } from "../../lib/useLongPress";
@@ -25,7 +26,9 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   const [showOriginal, setShowOriginal] = useState(false);
   const [substitute, setSubstitute] = useState<string | null>(null);
   // Plakietka "🏷️ Lidl 2,49 zł" przy składnikach, które są teraz w promocji
+  // (można je wyłączyć w Ustawieniach)
   const promos = usePromotions();
+  const [showPromos] = usePromoBadges();
   // "brak" przy składnikach, których nie ma w spiżarni (tylko gdy spiżarnia jest uzupełniona)
   const pantry = usePantry();
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
@@ -60,7 +63,7 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
             key={i}
             text={scaleText(ing.text, ing.amount, scale)}
             original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
-            promo={promoLabel(ing.name, promos)}
+            promo={showPromos ? promoLabel(ing.name, promos) : ""}
             missing={pantry.known && !pantry.has(ing.name)}
             done={checked.has(i)}
             onToggle={() => toggle(i)}

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ShoppingItem } from "../api";
 import SwipeRow from "../components/SwipeRow";
+import { usePromoBadges } from "../lib/promoBadges";
 import { applyChange, cachedItems, cacheItems, Change, pendingChanges, queueChange, sendChanges } from "../lib/offlineShopping";
 import { useToast } from "../lib/toast";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
@@ -14,6 +15,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const { toast, undoable, run } = useToast();
+  const [showPromos] = usePromoBadges();
 
   const setItems = (list: ShoppingItem[]) => {
     setItemsState(list);
@@ -108,7 +110,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       <span className="grow">
         <span className="item-text">{item.text}</span>
         {item.recipes && <span className="muted small"> · {item.recipes}</span>}
-        {item.promo && !item.text.includes(item.promo) && <span className="tag tag-promo">🏷️ {item.promo}</span>}
+        {showPromos && item.promo && !item.text.includes(item.promo) && <span className="tag tag-promo">🏷️ {item.promo}</span>}
       </span>
     </SwipeRow>
   );

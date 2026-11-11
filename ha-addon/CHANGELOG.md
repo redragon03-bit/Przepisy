@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.10.1
+
+- Ustawienia → Promocje: przełącznik „Ceny z gazetek przy składnikach” (zapamiętany w telefonie)
+  chowa żółte cenówki w przepisach i na liście zakupów.
+- Poprawka: cena z gazetki trafia do składnika tylko wtedy, gdy nazwa produktu do niego pasuje
+  (wcześniej sól i pieprz mogły dostać cenę schabu, bo AI źle opisało produkt).
+
 ## 0.10.0
 
 - Nowy wygląd do kuchni: większe pola do odhaczania składników i zakupów (okrągłe, cały wiersz
