@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.11.1
+
+- Składniki w przepisie mają mniejsze litery, takie jak opis potrawy (lista zakupów bez zmian).
+
 ## 0.11.0
 
 - Konta dla domowników (Ustawienia → Konta): właściciel dodaje konto z nazwą i hasłem.

@@ -57,7 +57,7 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
           </span>
         )}
       </div>
-      <ul className="checklist">
+      <ul className="checklist ingredients">
         {recipe.ingredients.map((ing, i) => (
           <IngredientRow
             key={i}

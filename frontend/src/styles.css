@@ -1318,6 +1318,13 @@ a.chip {
   cursor: pointer;
 }
 
+/* Składniki w przepisie: tej samej wielkości co opis potrawy (lista zakupów zostaje większa) */
+.checklist.ingredients li {
+  gap: 12px;
+  padding: 8px 4px;
+  font-size: var(--fs-body);
+}
+
 .checklist li:active {
   background: var(--surface-2);
 }
