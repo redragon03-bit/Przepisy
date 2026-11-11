@@ -36,9 +36,9 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "👨‍🍳",
     title: "Tryb gotowania",
     items: [
-      "Przycisk „Tryb gotowania” nad krokami przepisu: duża czcionka, jeden krok na ekranie.",
+      "Pomarańczowy przycisk „👨‍🍳 Gotuj” w prawym dolnym rogu przepisu: duża czcionka, jeden krok na ekranie, pasek postępu kroków.",
       "Przy każdym kroku widać składniki, których potrzebuje.",
-      "„10 min” w kroku to przycisk minutnika. Gdy minutnik się skończy, przyjdzie też powiadomienie z Home Assistant.",
+      "„10 min” w kroku to przycisk minutnika. W ostatniej minucie minutnik robi się żółty, po czasie czerwony; „+1” dodaje minutę. Gdy minutnik się skończy, przyjdzie też powiadomienie z Home Assistant.",
       "🔊 czyta krok na głos. Ekran nie gaśnie, a aplikacja pamięta, na którym kroku skończyłeś.",
     ],
   },
