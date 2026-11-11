@@ -1305,24 +1305,17 @@ a.chip {
   font-size: var(--fs-small);
 }
 
-/* --- Listy do odhaczania: składniki i zakupy --- */
+/* --- Listy do odhaczania: składniki i zakupy (litery jak linijka z kcal) --- */
 .checklist li {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: var(--hit);
-  padding: 10px 4px;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 4px;
   border-bottom: 1px solid var(--border);
-  font-size: var(--fs-list);
+  font-size: 14px;
   line-height: 1.35;
   cursor: pointer;
-}
-
-/* Składniki w przepisie: tej samej wielkości co opis potrawy (lista zakupów zostaje większa) */
-.checklist.ingredients li {
-  gap: 12px;
-  padding: 8px 4px;
-  font-size: var(--fs-body);
 }
 
 .checklist li:active {
@@ -1702,9 +1695,9 @@ body:has(.timers) .cooking-body {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 56px;
-  padding: 10px 4px;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 4px;
   background: var(--bg);
   transition: transform 0.2s var(--ease);
 }

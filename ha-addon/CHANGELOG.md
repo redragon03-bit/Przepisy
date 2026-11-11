@@ -2,7 +2,7 @@
 
 ## 0.11.1
 
-- Składniki w przepisie mają mniejsze litery, takie jak opis potrawy (lista zakupów bez zmian).
+- Składniki w przepisie i lista zakupów mają mniejsze litery, takie jak linijka z kaloriami.
 
 ## 0.11.0
 
