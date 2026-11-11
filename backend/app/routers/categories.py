@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import require_auth, require_owner
 from ..config import get_settings
 from ..database import get_db
 from ..models import Category, Recipe, recipe_categories
@@ -33,7 +33,7 @@ def list_categories(db: Session = Depends(get_db)):
     return [CategoryOut(name=c.name, recipe_count=n) for c, n in rows]
 
 
-@router.post("/auto", response_model=AutoCategorizeOut)
+@router.post("/auto", response_model=AutoCategorizeOut, dependencies=[Depends(require_owner)])
 def auto_categorize(db: Session = Depends(get_db)):
     """AI przypisuje kategorie przepisom, które jeszcze ich nie mają."""
     if not get_settings().ai_enabled:

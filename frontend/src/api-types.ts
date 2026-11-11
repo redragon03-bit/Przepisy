@@ -2,6 +2,24 @@
 // Źródło: backend/app/schemas.py. Odświeżenie (z folderu backend):
 //   python -m app.export_types > ../frontend/src/api-types.ts
 
+export interface AccountIn {
+  name: string;
+  password: string;
+}
+
+// Konto w Ustawieniach → Konta. id None = właściciel.
+export interface AccountOut {
+  id: number | null;
+  name: string;
+  is_owner: boolean;
+}
+
+// Nowa nazwa albo nowe hasło (puste pola zostają bez zmian).
+export interface AccountPatch {
+  name?: string | null;
+  password?: string | null;
+}
+
 export interface AiIngredient {
   // Linijka po polsku do wyświetlenia, np. '200 g mąki pszennej'
   text: string;
@@ -57,6 +75,8 @@ export interface AuthStatus {
   ai_providers: string[];
   ha_enabled: boolean;
   notify_enabled: boolean;
+  user_name: string;
+  is_owner: boolean;
 }
 
 export interface AutoCategorizeOut {
@@ -185,6 +205,7 @@ export interface IngredientUpdate {
 }
 
 export interface LoginIn {
+  name?: string;
   password: string;
 }
 
@@ -211,6 +232,11 @@ export interface MealPlanPatch {
 export interface MergeIn {
   keep: string;
   others: string[];
+}
+
+export interface OwnPasswordIn {
+  old_password: string;
+  new_password: string;
 }
 
 export interface PantryExpiresIn {
@@ -339,6 +365,7 @@ export interface RecipeOut {
   cooked_count: number;
   last_cooked_at: string | null;
   created_at: string;
+  can_edit: boolean;
   description: string;
   servings: string;
   prep_minutes: number | null;

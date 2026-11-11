@@ -88,6 +88,12 @@ ADDED_COLUMNS = [
     ("promotions", "category", "VARCHAR(20) NOT NULL DEFAULT 'jedzenie'"),
     ("promotions", "discount", "INTEGER NOT NULL DEFAULT 0"),
     ("promotions", "image", "VARCHAR(100) NOT NULL DEFAULT ''"),
+    # Konta domowników (0.11.0): NULL = właściciel, więc dotychczasowe dane zostają jego
+    ("recipes", "created_by", "INTEGER REFERENCES users(id) ON DELETE SET NULL"),
+    ("import_jobs", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
+    ("shopping_items", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
+    ("meal_plan", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
+    ("cook_log", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
 ]
 
 

@@ -83,6 +83,8 @@ class CookLogOut(BaseModel):
 
 
 class RecipeOut(RecipeSummary):
+    # Czy zalogowana osoba może zmienić albo usunąć przepis (domownik - tylko swoje)
+    can_edit: bool = True
     description: str
     servings: str
     prep_minutes: int | None
@@ -353,6 +355,8 @@ class ImportJobOut(BaseModel):
 
 
 class LoginIn(BaseModel):
+    # Nazwa konta; puste albo nazwa właściciela + hasło z opcji dodatku = właściciel
+    name: str = ""
     password: str
 
 
@@ -368,6 +372,9 @@ class AuthStatus(BaseModel):
     ha_enabled: bool
     # Czy koniec minutnika przychodzi jako powiadomienie z Home Assistant (opcja ha_notify)
     notify_enabled: bool = False
+    # Kto jest zalogowany: nazwa konta i czy to właściciel (domownik nie widzi kopii, HA ani kont)
+    user_name: str = ""
+    is_owner: bool = True
 
 
 class TimerIn(BaseModel):
@@ -458,3 +465,28 @@ class PromoIdeasOut(BaseModel):
     error: str
     text: str
     recipes: list[AiRecipe]
+
+
+class AccountOut(BaseModel):
+    """Konto w Ustawieniach → Konta. id None = właściciel."""
+
+    id: int | None
+    name: str
+    is_owner: bool
+
+
+class AccountIn(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=4, max_length=200)
+
+
+class AccountPatch(BaseModel):
+    """Nowa nazwa albo nowe hasło (puste pola zostają bez zmian)."""
+
+    name: str | None = Field(default=None, max_length=50)
+    password: str | None = Field(default=None, max_length=200)
+
+
+class OwnPasswordIn(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=4, max_length=200)

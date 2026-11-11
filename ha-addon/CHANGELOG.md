@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.11.0
+
+- Konta dla domowników (Ustawienia → Konta): właściciel dodaje konto z nazwą i hasłem.
+  Przepisy są wspólne; plan posiłków, lista zakupów, spiżarnia, ulubione, oceny i dziennik
+  gotowania każdy ma swoje. Domownik zmienia i usuwa tylko przepisy, które sam dodał,
+  i nie widzi kopii zapasowych ani Home Assistant (lista w HA, kalendarz, czujnik
+  i powiadomienia z minutników zostają przy właścicielu).
+- Logowanie: nazwa konta + hasło. Właściciel loguje się jak dotąd hasłem z opcji dodatku
+  (nazwę można zostawić pustą albo wpisać swoją - zmienisz ją w Ustawieniach → Konta).
+  Dotychczasowe dane zostają przy właścicielu, zapamiętane logowanie działa dalej.
+- Domownik może zmienić swoje hasło w Ustawieniach.
+
 ## 0.10.1
 
 - Ustawienia → Promocje: przełącznik „Ceny z gazetek przy składnikach” (zapamiętany w telefonie)

@@ -9,7 +9,7 @@ import shutil
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import CurrentUser, current_user, owned, require_auth
 from ..config import get_settings
 from ..database import get_db
 from ..models import ImportJob, Recipe
@@ -39,7 +39,8 @@ def _same_link(db: Session, url: str) -> Recipe | None:
 
 
 @router.post("/url", response_model=ImportJobOut, status_code=202)
-def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Depends(get_db),
+               user: CurrentUser = Depends(current_user)):
     url = data.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "Podaj pełny link, zaczynający się od https://")
@@ -47,11 +48,11 @@ def import_url(data: UrlImportIn, background: BackgroundTasks, db: Session = Dep
     if existing and not data.force:
         # Nie importujemy drugi raz - frontend pokaże "już masz" z linkiem i "importuj mimo to"
         job = ImportJob(kind="url", source=url, status="duplicate", recipe_id=existing.id,
-                        error=f"Ten link jest już w bazie: „{existing.title}”.")
+                        error=f"Ten link jest już w bazie: „{existing.title}”.", user_id=user.id)
         db.add(job)
         db.commit()
         return job
-    job = ImportJob(kind="url", source=url)
+    job = ImportJob(kind="url", source=url, user_id=user.id)
     db.add(job)
     db.commit()
     background.add_task(run_url_import, job.id)
@@ -63,6 +64,7 @@ def import_images(
     background: BackgroundTasks,
     files: list[UploadFile] = File(description="Zdjęcia/screeny jednego przepisu"),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(current_user),
 ):
     if not files or len(files) > MAX_FILES:
         raise HTTPException(400, f"Wybierz od 1 do {MAX_FILES} zdjęć")
@@ -70,7 +72,7 @@ def import_images(
     for upload in files:
         if (upload.size or 0) > MAX_FILE_BYTES:
             raise HTTPException(400, f"Plik {upload.filename} jest za duży (max 20 MB)")
-    job = ImportJob(kind="image", source=", ".join(f.filename or "zdjęcie" for f in files))
+    job = ImportJob(kind="image", source=", ".join(f.filename or "zdjęcie" for f in files), user_id=user.id)
     db.add(job)
     db.commit()
     folder = job_upload_dir(job.id)
@@ -83,13 +85,14 @@ def import_images(
 
 
 @router.post("/text", response_model=ImportJobOut, status_code=202)
-def import_text(data: TextImportIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+def import_text(data: TextImportIn, background: BackgroundTasks, db: Session = Depends(get_db),
+                user: CurrentUser = Depends(current_user)):
     """Przepis z wklejonego tekstu (np. z Messengera albo notatki) - odczytuje go AI."""
     if not get_settings().ai_enabled:
         raise HTTPException(400, "Tekst odczytuje AI - ustaw klucz API do AI.")
     text = data.text.strip()
     # Na liście importów widać początek tekstu
-    job = ImportJob(kind="text", source=" ".join(text.split())[:120])
+    job = ImportJob(kind="text", source=" ".join(text.split())[:120], user_id=user.id)
     db.add(job)
     db.commit()
     save_import_text(job.id, text)
@@ -98,28 +101,30 @@ def import_text(data: TextImportIn, background: BackgroundTasks, db: Session = D
 
 
 @router.get("", response_model=list[ImportJobOut])
-def list_imports(db: Session = Depends(get_db)):
+def list_imports(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Ostatnie importy tej osoby."""
     mark_stuck_jobs(db)
-    return db.query(ImportJob).order_by(ImportJob.id.desc()).limit(20).all()
+    query = db.query(ImportJob).filter(owned(ImportJob.user_id, user))
+    return query.order_by(ImportJob.id.desc()).limit(20).all()
 
 
-def _get_job(db: Session, job_id: int) -> ImportJob:
+def _get_job(db: Session, job_id: int, user: CurrentUser) -> ImportJob:
     job = db.get(ImportJob, job_id)
-    if job is None:
+    if job is None or job.user_id != user.id:
         raise HTTPException(404, "Nie ma takiego importu")
     return job
 
 
 @router.get("/{job_id}", response_model=ImportJobOut)
-def get_import(job_id: int, db: Session = Depends(get_db)):
+def get_import(job_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     mark_stuck_jobs(db)
-    return _get_job(db, job_id)
+    return _get_job(db, job_id, user)
 
 
 @router.delete("/{job_id}", status_code=204)
-def delete_import(job_id: int, db: Session = Depends(get_db)):
+def delete_import(job_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Anuluje import (także zawieszony) albo usuwa go z listy. Gotowe przepisy zostają."""
-    job = _get_job(db, job_id)
+    job = _get_job(db, job_id, user)
     db.delete(job)
     db.commit()
     # Import w tle, który jeszcze trwa, sam zauważy brak zadania i niczego nie zapisze
@@ -127,9 +132,10 @@ def delete_import(job_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{job_id}/retry", response_model=ImportJobOut, status_code=202)
-def retry_import(job_id: int, background: BackgroundTasks, db: Session = Depends(get_db)):
+def retry_import(job_id: int, background: BackgroundTasks, db: Session = Depends(get_db),
+                 user: CurrentUser = Depends(current_user)):
     """Ponawia nieudany import (np. gdy AI było chwilowo przeciążone)."""
-    job = _get_job(db, job_id)
+    job = _get_job(db, job_id, user)
     if job.status != "failed":
         raise HTTPException(400, "Ponowić można tylko nieudany import")
     if job.kind in ("image", "text") and not job_upload_dir(job.id).exists():

@@ -23,6 +23,7 @@ def client():
     from app import auth
 
     auth._failures.clear()
+    auth.forget_owner_name()
     Base.metadata.drop_all(engine)
     init_db()
     with TestClient(app) as test_client:

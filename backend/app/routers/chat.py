@@ -12,12 +12,13 @@ from datetime import date
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..auth import require_auth
+from ..auth import CurrentUser, current_user, require_auth
 from ..database import SessionLocal, fold, get_db
 from ..models import Ingredient, Recipe
 from ..schemas import ChatIn, ChatMessage, ChatOut, ChatSaveIn, RecipeOut
 from ..services import ai, importer, promotions
 from ..services.categories import category_names
+from ..services.kitchen import Marks
 from ..services.shopping import pantry_text
 from .promotions import promo_lines
 from .recipes import to_out, to_summary
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/api/chat", tags=["czat"], dependencies=[Depends(requ
 WEEKDAYS = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
 
 
-def recipe_line(recipe: Recipe) -> str:
+def recipe_line(recipe: Recipe, marks: Marks) -> str:
     """Jedna krótka linijka o przepisie dla AI, np. '12. Pierogi [Obiad] 90 min, ulubiony: mąka, ser, ziemniak'.
 
     Lista trafia do AI przy każdej wiadomości, więc jest jak najkrótsza: bez podstawowych
@@ -37,12 +38,12 @@ def recipe_line(recipe: Recipe) -> str:
     details = []
     if recipe.total_minutes:
         details.append(f"{recipe.total_minutes} min")
-    if recipe.favorite:
+    if marks.favorite(recipe):
         details.append("ulubiony")
-    if recipe.rating:
-        details.append(f"ocena {recipe.rating}/5")
-    if recipe.cooked_count:
-        details.append(f"ugotowany {recipe.cooked_count}×")
+    if rating := marks.rating(recipe):
+        details.append(f"ocena {rating}/5")
+    if cooked := marks.cooked_count(recipe):
+        details.append(f"ugotowany {cooked}×")
     names = [ri.ingredient.name for ri in recipe.ingredients if not ri.ingredient.is_staple][:5]
     categories = ", ".join(c.name for c in recipe.categories)
     head = f"{recipe.id}. {recipe.title}" + (f" [{categories}]" if categories else "")
@@ -58,7 +59,7 @@ def _staple_names(db: Session) -> list[str]:
 MAX_CHAT_RECIPES = 60
 
 
-def _relevant(recipes: list[Recipe], messages: list[ChatMessage]) -> list[Recipe]:
+def _relevant(recipes: list[Recipe], messages: list[ChatMessage], marks: Marks) -> list[Recipe]:
     """Przepisy najbardziej pasujące do rozmowy (słowa z wiadomości), potem ulubione i najlepiej ocenione."""
     if len(recipes) <= MAX_CHAT_RECIPES:
         return recipes
@@ -68,7 +69,8 @@ def _relevant(recipes: list[Recipe], messages: list[ChatMessage]) -> list[Recipe
     def score(recipe: Recipe) -> tuple:
         text = fold(" ".join([recipe.title, *(c.name for c in recipe.categories),
                               *(ri.ingredient.name for ri in recipe.ingredients)]))
-        return (sum(stem in text for stem in stems), recipe.favorite, recipe.rating or 0, recipe.cooked_count)
+        return (sum(stem in text for stem in stems), marks.favorite(recipe), marks.rating(recipe) or 0,
+                marks.cooked_count(recipe))
 
     chosen = sorted(recipes, key=score, reverse=True)[:MAX_CHAT_RECIPES]
     return sorted(chosen, key=lambda r: r.title)
@@ -92,18 +94,18 @@ def _promotions(db: Session, messages: list[ChatMessage]) -> list[str]:
     return ["", "Produkty w promocji w tym tygodniu (z gazetek, z cenami):", promo_lines(promos)]
 
 
-def _context(db: Session, messages: list[ChatMessage]) -> str:
+def _context(db: Session, messages: list[ChatMessage], marks: Marks) -> str:
     every = db.query(Recipe).order_by(Recipe.title).all()
-    recipes = _relevant(every, messages)
+    recipes = _relevant(every, messages, marks)
     today = date.today()
     return "\n".join([
         f"Dziś: {WEEKDAYS[today.weekday()]}, {today}",
         "Przepisy użytkownika:" if len(recipes) == len(every)
         else f"Przepisy użytkownika (najbardziej pasujące {len(recipes)} z {len(every)}):",
-        *([recipe_line(r) for r in recipes] or ["(brak)"]),
+        *([recipe_line(r, marks) for r in recipes] or ["(brak)"]),
         "",
         # Spiżarnia to tylko to, co użytkownik zaznaczył - nie wszystko, co ma w domu
-        "Zaznaczone w spiżarni (lista niepełna): " + pantry_text(db),
+        "Zaznaczone w spiżarni (lista niepełna): " + pantry_text(db, marks.user),
         "Podstawowe produkty, które zwykle są w domu: " + (", ".join(_staple_names(db)) or "nie podano"),
         "Kategorie: " + ", ".join(category_names(db)),
         *_promotions(db, messages),
@@ -122,14 +124,15 @@ def _conversation(messages: list[ChatMessage]) -> str:
 
 
 @router.post("", response_model=ChatOut)
-def chat(data: ChatIn, db: Session = Depends(get_db)):
+def chat(data: ChatIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    marks = Marks(db, user)
     try:
-        answer = ai.chat(_context(db, data.messages), _conversation(data.messages))
+        answer = ai.chat(_context(db, data.messages, marks), _conversation(data.messages))
     except ai.AiError as exc:
         raise HTTPException(502, str(exc)) from exc
     # AI może podać nieistniejący numer - takie pomijamy
     recipes = [r for r in (db.get(Recipe, i) for i in answer.recipe_ids[:3]) if r is not None]
-    return ChatOut(text=answer.text, recipes=[to_summary(r) for r in recipes], new_recipe=answer.new_recipe)
+    return ChatOut(text=answer.text, recipes=[to_summary(r, marks) for r in recipes], new_recipe=answer.new_recipe)
 
 
 def _find_image(recipe_id: int) -> None:
@@ -140,9 +143,11 @@ def _find_image(recipe_id: int) -> None:
 
 
 @router.post("/save", response_model=RecipeOut, status_code=201)
-def save(data: ChatSaveIn, background: BackgroundTasks, db: Session = Depends(get_db)):
+def save(data: ChatSaveIn, background: BackgroundTasks, db: Session = Depends(get_db),
+         user: CurrentUser = Depends(current_user)):
     """Zapisuje przepis wymyślony przez AI; zdjęcie szukamy w tle."""
     recipe = importer.save_ai_recipe(db, data.recipe, "ai", "", [], lambda _source: None)
+    recipe.created_by = user.id
     db.commit()
     background.add_task(_find_image, recipe.id)
-    return to_out(recipe)
+    return to_out(recipe, Marks(db, user))

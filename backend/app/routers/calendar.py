@@ -10,7 +10,7 @@ import hmac
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
-from ..auth import _password_tag, require_auth
+from ..auth import _password_tag, require_owner
 from ..config import get_settings
 from ..database import get_db
 from ..models import MealPlanEntry
@@ -25,7 +25,7 @@ def calendar_token() -> str:
     return hmac.new(key, f"calendar:{_password_tag()}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
-@router.get("/calendar/link", response_model=CalendarLink, dependencies=[Depends(require_auth)])
+@router.get("/calendar/link", response_model=CalendarLink, dependencies=[Depends(require_owner)])
 def calendar_link():
     """Ścieżka do kalendarza z tokenem - Ustawienia doklejają do niej adres aplikacji."""
     return CalendarLink(path=f"/api/calendar.ics?token={calendar_token()}")
@@ -39,7 +39,7 @@ def calendar_ics(request: Request, token: str = "", app: str = "", db: Session =
     start, end = calendar_feed.window()
     entries = (
         db.query(MealPlanEntry)
-        .filter(MealPlanEntry.day.between(start, end))
+        .filter(MealPlanEntry.day.between(start, end), MealPlanEntry.user_id.is_(None))  # plan właściciela
         .order_by(MealPlanEntry.day, MealPlanEntry.id)
         .all()
     )

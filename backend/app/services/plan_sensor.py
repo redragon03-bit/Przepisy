@@ -30,7 +30,8 @@ MAX_STATE = 255
 
 
 def _titles(db: Session, day: date) -> list[MealPlanEntry]:
-    return db.query(MealPlanEntry).filter_by(day=day).order_by(MealPlanEntry.id).all()
+    # Czujnik w HA pokazuje plan właściciela (domownicy mają własne plany)
+    return db.query(MealPlanEntry).filter_by(day=day, user_id=None).order_by(MealPlanEntry.id).all()
 
 
 def sensor_state(db: Session, today: date | None = None) -> dict:
