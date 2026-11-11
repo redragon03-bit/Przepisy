@@ -353,3 +353,40 @@ test("import: zawieszony import da się anulować", async ({ page }) => {
   await expect(page.getByText("aniagotuje.pl/przepis/ciapkapusta")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Ostatnie importy" })).toHaveCount(0);
 });
+
+test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", async ({ page }) => {
+  const promo = (id: number, name: string, ingredient: string, price: string) => ({
+    id, store: "Biedronka", name, category: "jedzenie", ingredient, price, note: "", leaflet: "Gazetka",
+    valid_from: null, valid_to: null, discount: 0, aisle: "Mięso", aisle_order: 1, image_url: "", key: ingredient, favorite: false,
+  });
+  // AI przypisało schabowi także "sól" - przy soli ceny schabu nie pokazujemy
+  await page.route("**/api/promotions", (route) =>
+    route.fulfill({ json: [promo(1, "Schab wieprzowy bez kości", "schab", "14,99 zł/kg"), promo(2, "Schab wieprzowy bez kości", "sól", "14,99 zł/kg")] }),
+  );
+  const response = await server.post("/api/recipes", {
+    data: {
+      title: "Kotlety schabowe", servings: "4 porcje", steps: [{ text: "Usmaż." }],
+      ingredients: [{ text: "4 kotlety ze schabu", name: "schab" }, { text: "1/2 łyżeczki soli", name: "sól" }],
+    },
+  });
+  const { id } = (await response.json()) as { id: number };
+
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  await expect(page.locator(".checklist .tag-promo")).toHaveCount(1);
+  await expect(page.locator(".checklist li", { hasText: "schabu" }).locator(".tag-promo")).toHaveText("🏷️ Biedronka 14,99 zł/kg");
+
+  await page.goto("/ustawienia");
+  const toggle = page.getByRole("switch", { name: "Pokazuj ceny z promocji przy składnikach" });
+  await expect(toggle).toBeChecked();
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto(`/przepis/${id}`);
+  await expect(page.getByRole("heading", { name: "Kotlety schabowe" })).toBeVisible();
+  await expect(page.locator(".tag-promo")).toHaveCount(0);
+  // Wybór zostaje zapamiętany
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Kotlety schabowe" })).toBeVisible();
+  await expect(page.locator(".tag-promo")).toHaveCount(0);
+});

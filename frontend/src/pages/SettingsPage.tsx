@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient } from "../api";
+import { usePromoBadges } from "../lib/promoBadges";
 import { useToast } from "../lib/toast";
 
 const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", groq: "Groq", mistral: "Mistral" };
@@ -14,6 +15,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
   const { toast, run } = useToast();
+  const [showPromos, setShowPromos] = usePromoBadges();
 
   const refresh = () => api.listIngredients("", true).then(setStaples);
   useEffect(() => {
@@ -128,6 +130,24 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           <input value={newStaple} onChange={(e) => setNewStaple(e.target.value)} placeholder="np. masło" autoCapitalize="none" />
           <button>Dodaj</button>
         </form>
+      </section>
+
+      <section className="box">
+        <h2>Promocje</h2>
+        <label className="toggle switch-row">
+          <span className="grow">
+            Ceny z gazetek przy składnikach
+            <span className="muted small block">Plakietki „🏷️ Biedronka 5,99 zł” w przepisach i na liście zakupów.</span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            className="switch"
+            checked={showPromos}
+            onChange={(e) => setShowPromos(e.target.checked)}
+            aria-label="Pokazuj ceny z promocji przy składnikach"
+          />
+        </label>
       </section>
 
       <section className="box">

@@ -298,8 +298,11 @@ def discount_of(promo: Promotion) -> int:
 
 def _promotion(product: ai.AiPromotion, image: str = "") -> Promotion:
     discount = product.discount if 0 < product.discount < 100 else 0
-    return Promotion(name=clean_name(product.name)[:300], category=product.category,
-                     ingredient=product.ingredient[:200], price=product.price[:100], note=product.note[:300],
+    name = clean_name(product.name)
+    # Składnik, który nie pasuje do nazwy z gazetki (AI: "Schab bez kości" -> "sól"), pomijamy
+    ingredient = product.ingredient if name_fits(name, product.ingredient) else ""
+    return Promotion(name=name[:300], category=product.category,
+                     ingredient=ingredient[:200], price=product.price[:100], note=product.note[:300],
                      discount=discount, image=image)
 
 
@@ -554,6 +557,17 @@ def matches(promo: str, needed: str) -> bool:
     return promo == needed or needed.startswith(promo + " ") or promo.startswith(needed + " ")
 
 
+def name_fits(product: str, ingredient: str) -> bool:
+    """Czy nazwa z gazetki mówi o tym składniku: początek któregoś słowa ("sól" -> "só", "jajko" -> "jaj",
+    "ser żółty" -> "ser"/"żół") musi być w nazwie produktu. Chroni przed złym przypisaniem przez AI
+    (cena schabu przy soli i pieprzu). Tak samo w aplikacji (frontend/src/lib/promo.ts: nameFits)."""
+    stems = [w[:3] if len(w) >= 4 else w[:2] for w in ingredient.lower().split() if len(w) >= 3]
+    if not product or not stems:
+        return True
+    name = product.lower()
+    return any(stem in name for stem in stems)
+
+
 def current(db: Session) -> list[Promotion]:
     """Promocje z gazetek, które jeszcze obowiązują (także te od przyszłego tygodnia)."""
     today = date.today()
@@ -572,6 +586,6 @@ def label(promo: Promotion) -> str:
 
 def find_for(name: str, promos: list[Promotion]) -> Promotion | None:
     """Promocja na ten składnik (najpierw dokładnie ta sama nazwa)."""
-    hits = [p for p in promos if matches(p.ingredient, name)]
+    hits = [p for p in promos if matches(p.ingredient, name) and name_fits(p.name, p.ingredient)]
     hits.sort(key=lambda p: p.ingredient != name)
     return hits[0] if hits else None

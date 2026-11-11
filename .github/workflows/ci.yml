@@ -56,7 +56,9 @@ jobs:
       - run: pip install -r ../backend/requirements.txt
       - run: npm ci
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      # Gdy serwery apt Ubuntu są niedostępne (zdarza się DNS na runnerze), instalujemy samą
+      # przeglądarkę - biblioteki systemowe Chromium są już w obrazie ubuntu-latest
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
       - run: npm run test:e2e
         env:
           PYTHON: python
