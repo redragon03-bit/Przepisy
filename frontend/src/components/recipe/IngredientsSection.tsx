@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Recipe } from "../../api";
 import { useCheckedSet } from "../../lib/progress";
 import { promoLabel } from "../../lib/promo";
+import { usePantry } from "../../lib/usePantry";
 import { usePromotions } from "../../lib/usePromotions";
 import { formatAmount, scaleText } from "../../lib/scale";
 import { useLongPress } from "../../lib/useLongPress";
@@ -25,6 +26,8 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   const [substitute, setSubstitute] = useState<string | null>(null);
   // Plakietka "🏷️ Lidl 2,49 zł" przy składnikach, które są teraz w promocji
   const promos = usePromotions();
+  // "brak" przy składnikach, których nie ma w spiżarni (tylko gdy spiżarnia jest uzupełniona)
+  const pantry = usePantry();
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
 
   return (
@@ -58,6 +61,7 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
             text={scaleText(ing.text, ing.amount, scale)}
             original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
             promo={promoLabel(ing.name, promos)}
+            missing={pantry.known && !pantry.has(ing.name)}
             done={checked.has(i)}
             onToggle={() => toggle(i)}
             onLongPress={aiEnabled ? () => setSubstitute(ing.text) : undefined}
@@ -75,22 +79,31 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   );
 }
 
-function IngredientRow({ text, original, promo, done, onToggle, onLongPress }: {
+function IngredientRow({ text, original, promo, missing, done, onToggle, onLongPress }: {
   text: string;
   original: string;
   promo: string;
+  missing: boolean;
   done: boolean;
   onToggle: () => void;
   onLongPress?: () => void;
 }) {
   const { wasLongPress, ...longPress } = useLongPress(() => onLongPress?.());
   return (
-    <li className={done ? "done" : ""} {...(onLongPress ? longPress : {})} onClick={() => !wasLongPress() && onToggle()}>
-      <span className="box-icon">{done ? "☑" : "☐"}</span>
+    <li
+      className={[done && "done", missing && !done && "missing"].filter(Boolean).join(" ")}
+      role="checkbox"
+      aria-checked={done}
+      tabIndex={0}
+      {...(onLongPress ? longPress : {})}
+      onClick={() => !wasLongPress() && onToggle()}
+    >
+      <span className="check" aria-hidden="true" />
       <span>
-        {text}
+        <span className="item-text">{text}</span>
         {original && <span className="muted small"> ({original})</span>}
-        {promo && <span className="small promo-badge"> 🏷️ {promo}</span>}
+        {missing && !done && <span className="tag tag-missing">brak</span>}
+        {promo && <span className="tag tag-promo">🏷️ {promo}</span>}
       </span>
     </li>
   );

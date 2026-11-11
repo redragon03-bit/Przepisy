@@ -7,6 +7,8 @@ export interface Timer {
   label: string;
   endsAt: number; // Date.now() w milisekundach
   done: boolean;
+  // Pełna długość w sekundach - do paska postępu (starsze zapisane minutniki jej nie mają)
+  total?: number;
   // Przepis, z którego jest minutnik - stuknięcie w minutnik tam wraca
   recipeId?: number;
 }
@@ -29,6 +31,8 @@ interface Timers {
   now: number;
   start: (label: string, seconds: number, recipeId?: number) => void;
   remove: (id: number) => void;
+  // "+1 min": dłużej o podaną liczbę sekund (także minutnik, który już zadzwonił)
+  extend: (id: number, seconds: number) => void;
 }
 
 const TimersContext = createContext<Timers | null>(null);
@@ -81,7 +85,7 @@ export function TimersProvider({ children }: { children: ReactNode }) {
     unlockSound();
     const id = Date.now();
     setNow(id);
-    setTimers((list) => [...list, { id, label, endsAt: id + seconds * 1000, done: false, recipeId }]);
+    setTimers((list) => [...list, { id, label, endsAt: id + seconds * 1000, done: false, recipeId, total: seconds }]);
     // Serwer przypomni przez Home Assistant, nawet gdy telefon ma zgaszony ekran (jeśli to ustawiono)
     api.startTimer(id, label, seconds).catch(() => {});
   };
@@ -91,7 +95,21 @@ export function TimersProvider({ children }: { children: ReactNode }) {
     api.cancelTimer(id).catch(() => {});
   };
 
-  return <TimersContext.Provider value={{ timers, now, start, remove }}>{children}</TimersContext.Provider>;
+  const extend = (id: number, seconds: number) => {
+    const current = Date.now();
+    setNow(current);
+    const timer = timers.find((t) => t.id === id);
+    if (!timer) return;
+    const endsAt = Math.max(timer.endsAt, current) + seconds * 1000;
+    setTimers((list) => list.map((t) => (t.id === id ? { ...t, endsAt, done: false, total: (t.total ?? 0) + seconds } : t)));
+    // Przypomnienie z HA: odwołujemy stare i ustawiamy nowe na pozostały czas
+    api
+      .cancelTimer(id)
+      .then(() => api.startTimer(id, timer.label, Math.round((endsAt - current) / 1000)))
+      .catch(() => {});
+  };
+
+  return <TimersContext.Provider value={{ timers, now, start, remove, extend }}>{children}</TimersContext.Provider>;
 }
 
 // "Nie wygaszaj ekranu" (Wake Lock). Zwraca false, gdy przeglądarka tego nie obsługuje.

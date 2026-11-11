@@ -1,5 +1,16 @@
 # Zmiany
 
+## 0.10.0
+
+- Nowy wygląd do kuchni: większe pola do odhaczania składników i zakupów (okrągłe, cały wiersz
+  do stuknięcia), większe litery na listach i w trybie gotowania, czytelniejsze kolory (kontrast AA).
+- Minutnik: ciemna pastylka z paskiem postępu i przyciskiem „+1” (dodaje minutę, przypomnienie w HA też),
+  żółty w ostatniej minucie, czerwony po czasie. Nie zasłania już pola wpisywania w czacie.
+- Przy składnikach, których nie ma w spiżarni, jest czerwony znaczek „brak”; promocje mają żółtą cenówkę.
+- Przepis: przycisk „👨‍🍳 Gotuj” w rogu ekranu zamiast przycisku nad krokami.
+- Tryb gotowania: pasek postępu kroków, odhaczanie składników przed startem, większe przyciski.
+- Czat: animowane „piszę…”, pole rośnie z treścią, okrągły przycisk wysyłania.
+
 ## 0.9.8
 
 - Import przy przeciążonym Gemini nie trwa już kilkanaście minut: jedno AI ma najwyżej

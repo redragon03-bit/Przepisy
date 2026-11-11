@@ -1,9 +1,9 @@
-import { TouchEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, TouchEvent, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api, Recipe } from "../api";
 import CookedSheet from "../components/recipe/CookedSheet";
 import { useGoBack } from "../lib/navigation";
-import { useSavedState } from "../lib/progress";
+import { useCheckedSet, useSavedState } from "../lib/progress";
 import { cachedRecipe } from "../lib/recipeCache";
 import { scaleStep, scaleText } from "../lib/scale";
 import { canSpeak, readAloudPreference, saveReadAloudPreference, speak, stopSpeaking } from "../lib/speech";
@@ -30,6 +30,14 @@ export default function CookingModePage() {
   const [screenMaySleep, setScreenMaySleep] = useState(() => !("wakeLock" in navigator));
   useWakeLock(true, () => setScreenMaySleep(true));
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  // Te same odhaczone składniki co na ekranie przepisu
+  const [checked, toggleChecked] = useCheckedSet(`checked-ingredients-${id}`);
+  // Kierunek animacji kroku: do przodu wjeżdża z prawej, wstecz z lewej
+  const [direction, setDirection] = useState(1);
+  const go = (next: number) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  };
 
   useEffect(() => {
     api
@@ -71,8 +79,8 @@ export default function CookingModePage() {
     const dx = e.changedTouches[0].clientX - from.x;
     const dy = e.changedTouches[0].clientY - from.y;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx < 0 && step < last) setStep(step + 1);
-    if (dx > 0 && step >= 0) setStep(step - 1);
+    if (dx < 0 && step < last) go(step + 1);
+    if (dx > 0 && step >= 0) go(step - 1);
   };
 
   return (
@@ -89,17 +97,21 @@ export default function CookingModePage() {
         )}
       </header>
 
-      {screenMaySleep && (
-        <p className="muted small center">
-          Ekran może gasnąć{window.isSecureContext ? "" : " – przez adres https aplikacja utrzyma go włączony"}.
-        </p>
-      )}
+      {/* Postęp: kreska na każdy krok, widać z daleka, ile zostało */}
+      <div className="cooking-progress" aria-hidden="true">
+        {recipe.steps.map((_, i) => (
+          <span key={i} className={i <= step ? "on" : ""} />
+        ))}
+      </div>
+      <p className="wake-chip muted">
+        {screenMaySleep ? `Ekran może gasnąć${window.isSecureContext ? "" : " – utrzyma go adres https"}` : "☀️ Ekran nie zgaśnie"}
+      </p>
       <div className="cooking-body" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <h2>{recipe.title}</h2>
         {current ? (
           <>
             {/* Stuknięcie w krok czyta go jeszcze raz */}
-            <p className="cooking-step" onClick={() => readAloud && speak(text)}>
+            <p key={step} className="cooking-step" style={{ "--from": `${direction * 24}px` } as CSSProperties} onClick={() => readAloud && speak(text)}>
               {text}
             </p>
             {used.length > 0 && (
@@ -117,20 +129,24 @@ export default function CookingModePage() {
             {current.image_url && <img src={current.image_url} alt="" />}
           </>
         ) : (
-          <ul className="cooking-ingredients">
+          // Przed startem: lista do odhaczenia "mam na blacie" - duże wiersze, cały wiersz do stuknięcia
+          <ul className="checklist cooking-ingredients">
             {recipe.ingredients.map((ing, i) => (
-              <li key={i}>{scaleText(ing.text, ing.amount, scale)}</li>
+              <li key={i} className={checked.has(i) ? "done" : ""} role="checkbox" aria-checked={checked.has(i)} tabIndex={0} onClick={() => toggleChecked(i)}>
+                <span className="check" aria-hidden="true" />
+                <span className="item-text">{scaleText(ing.text, ing.amount, scale)}</span>
+              </li>
             ))}
           </ul>
         )}
       </div>
 
       <div className="cooking-nav">
-        <button type="button" disabled={step < 0} onClick={() => setStep(step - 1)}>
+        <button type="button" disabled={step < 0} onClick={() => go(step - 1)}>
           ‹ Wstecz
         </button>
         {step < last ? (
-          <button type="button" className="primary" onClick={() => setStep(step + 1)}>
+          <button type="button" className="primary" onClick={() => go(step + 1)}>
             {step < 0 ? "Zaczynamy ›" : "Dalej ›"}
           </button>
         ) : (
