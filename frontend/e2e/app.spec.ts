@@ -419,3 +419,27 @@ test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia ty
   await page.screenshot({ path: "test-results/konta-domownik.png" });
   await page.getByRole("button", { name: /^Wyloguj/ }).click();
 });
+
+test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async ({ page }) => {
+  await login(page);
+  await page.goto("/ustawienia");
+  const smaller = page.getByRole("button", { name: "Tytuły: mniejsze" });
+  await smaller.click();
+  await smaller.click();
+  await expect(page.getByLabel("Tytuły: wielkość")).toHaveText("90%");
+  await expect(page.getByText("Ustawione teraz:")).toContainText("Tytuły 90%");
+  // h1 ma 1.5rem = 24 px, po zmianie 90%
+  const h1Size = () => page.locator("h1").first().evaluate((e) => getComputedStyle(e).fontSize);
+  expect(await h1Size()).toBe("21.6px");
+  // Odstępy i kółka też osobno
+  await page.getByRole("button", { name: "Kółka do odhaczania: większe" }).click();
+  await expect(page.getByLabel("Kółka do odhaczania: wielkość")).toHaveText("105%");
+
+  await page.reload();
+  await expect(page.getByLabel("Tytuły: wielkość")).toHaveText("90%");
+  expect(await h1Size()).toBe("21.6px");
+
+  await page.getByRole("button", { name: "Przywróć 100%" }).click();
+  await expect(page.getByText("Ustawione teraz:")).toContainText("wszystko 100%");
+  expect(await h1Size()).toBe("24px");
+});

@@ -6,6 +6,7 @@ import Sheet from "./components/Sheet";
 import TimersBar from "./components/TimersBar";
 import { scrollToTop } from "./lib/navigation";
 import { prefetchPlanned } from "./lib/recipeCache";
+import { deviceLabel, loadScales } from "./lib/uiScale";
 import { SWIPE_BACK_DISTANCE, useEdgeSwipeBack } from "./lib/useEdgeSwipeBack";
 import ChatPage from "./pages/ChatPage";
 import CookingModePage from "./pages/CookingModePage";
@@ -60,6 +61,12 @@ export default function App() {
   };
 
   const [offline, setOffline] = useState(false);
+
+  // Raz po otwarciu aplikacji: ustawienia wyglądu i ekran do logu dodatku (wiadomo, co jest ustawione)
+  const authenticated = !!auth?.authenticated;
+  useEffect(() => {
+    if (authenticated) api.saveAppearance(loadScales(), deviceLabel()).catch(() => undefined);
+  }, [authenticated]);
   const refreshAuth = () =>
     api.authStatus().then((status) => {
       setAuth(status);
