@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.12.0
+
+- Ustawienia → Wygląd: własna wielkość tytułów, tekstu, składników i zakupów, małych napisów,
+  trybu gotowania, minutnika, kółek do odhaczania i odstępów, każda osobno, co 5% (50–200%).
+  Działa od razu i zostaje w telefonie; „Przywróć 100%” cofa wszystko.
+- Ustawienia wyglądu (z wielkością ekranu) trafiają do logu dodatku i do pliku appearance.json,
+  żeby było wiadomo, co jest ustawione.
+
 ## 0.11.1
 
 - Składniki w przepisie i lista zakupów mają mniejsze litery, takie jak linijka z kaloriami, i mniejsze kółka do odhaczania.
