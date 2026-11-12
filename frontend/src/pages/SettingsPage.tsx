@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient } from "../api";
+import { Link } from "react-router-dom";
 import AccountsSection from "../components/AccountsSection";
 import AppearanceSection from "../components/AppearanceSection";
 import { usePromoBadges } from "../lib/promoBadges";
@@ -216,6 +217,9 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
               <button type="button" className="wide" disabled={working === "categories" || !uncategorized} onClick={autoCategorize}>
                 {working === "categories" ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie (${uncategorized} bez kategorii)`}
               </button>
+              <Link className="button wide" to="/sekcje">
+                🧩 Podziel przepisy na sekcje (przegląd z AI)
+              </Link>
               <button type="button" className="wide" disabled={!images || images.running || !images.missing} onClick={findImages}>
                 {images?.running
                   ? `🔍 Szukam zdjęć… ${images.done}/${images.total}`

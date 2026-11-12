@@ -20,6 +20,7 @@ import PlanPage from "./pages/PlanPage";
 import PromotionsPage from "./pages/PromotionsPage";
 import RecipePage from "./pages/RecipePage";
 import RecipesPage from "./pages/RecipesPage";
+import SectionsReviewPage from "./pages/SectionsReviewPage";
 import SettingsPage from "./pages/SettingsPage";
 import ShoppingPage from "./pages/ShoppingPage";
 
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
           <Route path="/pomoc" element={<HelpPage />} />
+          <Route path="/sekcje" element={<SectionsReviewPage />} />
         </Routes>
       </main>
       <BackToTop />

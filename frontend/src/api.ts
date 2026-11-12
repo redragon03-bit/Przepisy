@@ -188,6 +188,10 @@ export const api = {
   // AI dzieli składniki i kroki z formularza na sekcje (nic nie zapisuje)
   suggestSections: (data: { title: string; ingredients: string[]; steps: string[] }) =>
     request<Api.SectionsOut>("POST", "/api/recipes/sections", data),
+  // Przegląd sekcji: przepisy bez sekcji, propozycja AI dla zapisanego przepisu i jej zapis
+  sectionsTodo: () => request<RecipeSummary[]>("GET", "/api/recipes/sections/todo"),
+  suggestRecipeSections: (id: number) => request<Api.SectionsOut>("POST", `/api/recipes/${id}/sections`),
+  applyRecipeSections: (id: number, data: Api.SectionsOut) => request<Recipe>("PUT", `/api/recipes/${id}/sections`, data),
   createVariant: (id: number, wish: string) => request<Recipe>("POST", `/api/recipes/${id}/variant`, { wish }),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();

@@ -615,6 +615,79 @@ span.drag-handle:not(.step-number) {
   flex-wrap: wrap;
 }
 
+/* Przegląd sekcji: dwie kolumny "Teraz" | "Propozycja AI" i przyciski nad paskiem nawigacji */
+.sections-review {
+  padding-bottom: 88px;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: calc(13px * var(--s-small));
+  line-height: 1.35;
+}
+
+.compare section {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.compare-after {
+  border-color: var(--accent) !important;
+}
+
+.compare-title {
+  margin: 0 0 4px;
+  font-size: calc(14px * var(--s-small));
+}
+
+.compare h4 {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: inherit;
+}
+
+.compare ul,
+.compare ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.compare li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.compare .section-title {
+  margin: 6px 0 2px;
+  font-size: inherit;
+}
+
+.compare li.moved {
+  color: var(--accent);
+}
+
+.review-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  z-index: 11;
+  display: flex;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.review-actions button {
+  flex: 1;
+  min-height: 52px;
+}
+
 /* Import */
 .jobs {
   list-style: none;

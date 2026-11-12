@@ -200,6 +200,20 @@ def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db
     return _search_progress(db)
 
 
+@router.get("/sections/todo", response_model=list[RecipeSummary])
+def sections_todo(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Przepisy do przeglądu sekcji: bez żadnej sekcji, z co najmniej 3 składnikami
+    i 2 krokami (krótszych nie ma co dzielić) i takie, które ta osoba może zmienić."""
+    marks = Marks(db, user)
+    recipes = (
+        db.query(Recipe)
+        .filter(~Recipe.ingredients.any(RecipeIngredient.section != ""), ~Recipe.steps.any(Step.section != ""))
+        .order_by(Recipe.created_at.desc(), Recipe.id.desc())
+    )
+    return [to_summary(r, marks) for r in recipes
+            if can_edit(r, user) and len(r.ingredients) >= 3 and len(r.steps) >= 2]
+
+
 @router.get("/{recipe_id}", response_model=RecipeOut)
 def get_recipe(recipe_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     return to_out(_get(db, recipe_id), Marks(db, user))
@@ -363,6 +377,37 @@ def suggest_sections(data: SectionsIn):
     step_order, step_sections = _arrange(answer.steps, len(data.steps))
     return SectionsOut(ingredient_order=ingredient_order, ingredient_sections=ingredient_sections,
                        step_order=step_order, step_sections=step_sections)
+
+
+@router.post("/{recipe_id}/sections", response_model=SectionsOut)
+def suggest_recipe_sections(recipe_id: int, db: Session = Depends(get_db),
+                            user: CurrentUser = Depends(current_user)):
+    """Propozycja AI dla zapisanego przepisu (ekran przeglądu sekcji). Nic nie zapisuje."""
+    recipe = _get_editable(db, recipe_id, user)
+    return suggest_sections(SectionsIn(
+        title=recipe.title, ingredients=[ri.text for ri in recipe.ingredients], steps=[s.text for s in recipe.steps],
+    ))
+
+
+@router.put("/{recipe_id}/sections", response_model=RecipeOut)
+def apply_sections(recipe_id: int, data: SectionsOut, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(current_user)):
+    """Zapisuje zaakceptowaną propozycję: nowa kolejność i sekcje, reszta przepisu bez zmian
+    (zdjęcia kroków, ilości i nazwy składników zostają)."""
+    recipe = _get_editable(db, recipe_id, user)
+
+    def arrange(rows: list, order: list[int], names: list[str]) -> None:
+        if sorted(order) != list(range(len(rows))) or len(names) != len(rows):
+            raise HTTPException(409, "Przepis zmienił się od propozycji - odśwież i spróbuj jeszcze raz")
+        for position, (index, name) in enumerate(zip(order, names, strict=True)):
+            rows[index].position = position
+            rows[index].section = name.strip()[:100]
+
+    arrange(list(recipe.ingredients), data.ingredient_order, data.ingredient_sections)
+    arrange(list(recipe.steps), data.step_order, data.step_sections)
+    db.commit()
+    db.expire(recipe, ["ingredients", "steps"])
+    return to_out(recipe, Marks(db, user))
 
 
 def recipe_text(recipe: Recipe) -> str:

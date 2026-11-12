@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.15.0
+
+- Ustawienia → Porządki → „🧩 Podziel przepisy na sekcje”: przegląd wszystkich przepisów
+  bez sekcji po kolei. Po lewej przepis teraz, po prawej propozycja AI (sekcje i poprawiona
+  kolejność kroków, przeniesione kroki oznaczone ↕), pod spodem „✕ Pomiń” i „✓ Akceptuj”.
+  Propozycję dla następnego przepisu AI liczy już w tle. Pominięte nie wracają
+  (chyba że „Przejrzyj jeszcze raz pominięte”).
+
 ## 0.14.0
 
 - Sekcje w składnikach i krokach, np. „Omlet” i „Krem do omleta”: w edycji przyciski
