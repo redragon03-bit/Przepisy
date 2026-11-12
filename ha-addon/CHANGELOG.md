@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.16.4
+
+- Logo: nowy obrazek z większym smokiem przy kociołku.
+
 ## 0.16.3
 
 - Nowa nazwa aplikacji: **Smocza strawa** (ikona na ekranie głównym, tytuł karty,
