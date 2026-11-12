@@ -83,15 +83,25 @@ export function setUnauthorizedHandler(handler: () => void) {
 
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const isForm = body instanceof FormData;
-  let response: Response;
-  try {
-    response = await fetch(path, {
+  const send = () =>
+    fetch(path, {
       method,
       credentials: "same-origin",
       headers: body && !isForm ? { "Content-Type": "application/json" } : undefined,
       body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
       signal,
     });
+  let response: Response;
+  try {
+    try {
+      response = await send();
+    } catch (e) {
+      // iPhone po powrocie do aplikacji (np. z galerii zdjęć) potrafi raz zgubić połączenie -
+      // odczyt (GET) można bezpiecznie powtórzyć, zanim pokażemy błąd
+      if (method !== "GET" || signal?.aborted) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      response = await send();
+    }
   } catch (e) {
     // Przerwanie przez nas (AbortController) przekazujemy dalej bez zmian
     if (signal?.aborted) throw e;

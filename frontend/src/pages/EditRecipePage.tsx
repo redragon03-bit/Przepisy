@@ -1,8 +1,8 @@
 import { ClipboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, Category, IngredientLine, RecipeInput } from "../api";
+import { api, Category, IngredientLine, Recipe, RecipeInput } from "../api";
 import AutoTextarea from "../components/AutoTextarea";
-import { forgetRecipe } from "../lib/recipeCache";
+import { cachedRecipe, forgetRecipe } from "../lib/recipeCache";
 import { useReorder } from "../lib/useReorder";
 
 const EMPTY: RecipeInput = {
@@ -35,34 +35,72 @@ export default function EditRecipePage() {
   const initial = useRef(form ? JSON.stringify(form) : "");
 
   useEffect(() => {
-    api.listCategories().then(setAllCategories);
+    api.listCategories().then(setAllCategories, () => {});
   }, []);
+
+  // Licznik prób wczytania - "Spróbuj ponownie" po błędzie zwiększa go i wczytuje jeszcze raz
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!id) return;
-    api.getRecipe(id).then((r) => {
-      const loaded = {
-        title: r.title,
-        description: r.description,
-        servings: r.servings,
-        prep_minutes: r.prep_minutes,
-        cook_minutes: r.cook_minutes,
-        total_minutes: r.total_minutes,
-        source_url: r.source_url,
-        notes: r.notes,
-        ingredients: r.ingredients,
-        steps: r.steps.map((s, i) => ({ text: s.text, image: r.step_images[i] })),
-        categories: r.categories,
-      };
-      initial.current = JSON.stringify(loaded);
-      setForm(loaded);
+    let active = true;
+    const toForm = (r: Recipe): RecipeInput => ({
+      title: r.title,
+      description: r.description,
+      servings: r.servings,
+      prep_minutes: r.prep_minutes,
+      cook_minutes: r.cook_minutes,
+      total_minutes: r.total_minutes,
+      source_url: r.source_url,
+      notes: r.notes,
+      ingredients: r.ingredients,
+      steps: r.steps.map((s, i) => ({ text: s.text, image: r.step_images?.[i] ?? null })),
+      categories: r.categories,
     });
-  }, [id]);
+    // Przepis zapamiętany w telefonie pokazujemy od razu (jak ekran przepisu), świeży z serwera podmieniamy w tle
+    const cached = cachedRecipe(id);
+    let shown = cached ? JSON.stringify(toForm(cached)) : "";
+    if (cached) {
+      initial.current = shown;
+      setForm(toForm(cached));
+    }
+    setError("");
+    api
+      .getRecipe(id)
+      .then((r) => {
+        if (!active) return;
+        const loaded = toForm(r);
+        // Nie nadpisujemy tego, co ktoś zdążył już zmienić w formularzu
+        setForm((current) => {
+          if (current && JSON.stringify(current) !== shown) return current;
+          shown = JSON.stringify(loaded);
+          initial.current = shown;
+          return loaded;
+        });
+      })
+      .catch((e: Error) => {
+        // Wcześniej błąd (np. "Load failed" po powrocie z galerii zdjęć) zostawiał wieczne "Ładowanie…"
+        if (active && !cached) setError(e.message || "Nie udało się wczytać przepisu.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, attempt]);
 
   const ingredientOrder = useReorder(form?.ingredients ?? [], (ingredients) => form && setForm({ ...form, ingredients }));
   const stepOrder = useReorder(form?.steps ?? [], (steps) => form && setForm({ ...form, steps }));
 
-  if (!form) return <p className="muted center">Ładowanie…</p>;
+  if (!form)
+    return error ? (
+      <div className="center">
+        <p className="error">{error}</p>
+        <button type="button" onClick={() => setAttempt(attempt + 1)}>
+          Spróbuj ponownie
+        </button>
+      </div>
+    ) : (
+      <p className="muted center">Ładowanie…</p>
+    );
 
   const cancel = () => {
     if (JSON.stringify(form) !== initial.current && !window.confirm("Odrzucić zmiany w przepisie?")) return;

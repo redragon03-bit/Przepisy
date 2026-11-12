@@ -171,6 +171,26 @@ test("edycja: Anuluj bez zmian nie pyta, wklejenie kilku linijek dodaje składni
   await expect(page.getByRole("heading", { name: "Edycja" })).toBeVisible();
 });
 
+test("edycja nie wisi na „Ładowanie…”, gdy serwer nie odpowie", async ({ page }) => {
+  const { id } = await addRecipe("Sernik z bananowym brownie", ["2 banany"], ["Upiecz."]);
+  await login(page);
+  // Pierwsze wejście bez przepisu w pamięci telefonu: błąd sieci -> komunikat i ponowna próba
+  let fail = true;
+  await page.route(`**/api/recipes/${id}`, (route) => (fail ? route.abort("failed") : route.continue()));
+  await page.goto(`/przepis/${id}/edytuj`);
+  await expect(page.getByText("Brak połączenia z serwerem")).toBeVisible();
+  fail = false;
+  await page.getByRole("button", { name: "Spróbuj ponownie" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Sernik z bananowym brownie");
+
+  // Przepis otwarty wcześniej (jest w pamięci telefonu) - edycja otwiera się od razu, nawet bez serwera
+  await page.goto(`/przepis/${id}`);
+  await expect(page.getByRole("heading", { name: "Sernik z bananowym brownie" })).toBeVisible();
+  fail = true;
+  await page.goto(`/przepis/${id}/edytuj`);
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Sernik z bananowym brownie");
+});
+
 test("ugotowane z oceną i notatką trafia do dziennika", async ({ page }) => {
   const { id } = await addRecipe("Gulasz", ["500 g wołowiny"], ["Duś 90 min."]);
   await login(page);
