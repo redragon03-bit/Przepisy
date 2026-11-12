@@ -478,3 +478,26 @@ test("zdjęcie przepisu: gdy żadne nie pasuje, pokazuje inne albo bierze własn
   await expect(page.locator("img.hero")).toBeVisible();
   await expect(page.locator(".image-candidates")).toHaveCount(0);
 });
+
+test("aktualizacja dodatku: ekran „Trwa aktualizacja” zamiast czarnego, potem aplikacja wraca sama", async ({ page }) => {
+  await login(page);
+  // Tailscale/HA odpowiada 502 bez treści, gdy dodatek się aktualizuje
+  await page.route("**/api/**", (route) => route.fulfill({ status: 502, body: "" }));
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pracuj bez połączenia" })).toBeVisible();
+
+  // Serwer wraca - aplikacja sama się przeładowuje
+  await page.unroute("**/api/**");
+  await expect(page.getByRole("heading", { name: "Przepisy" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+});
+
+test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", async ({ page }) => {
+  await login(page);
+  await page.route("**/api/recipes/stats", (route) => route.fulfill({ status: 502, json: { detail: "Gemini nie odpowiada" } }));
+  await page.route("**/api/recipes?**", (route) => route.fulfill({ status: 502, json: { detail: "Gemini nie odpowiada" } }));
+  await page.reload();
+  await page.waitForTimeout(1000);
+  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+});

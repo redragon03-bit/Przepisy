@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.13.1
+
+- Podczas aktualizacji dodatku albo restartu Home Assistanta zamiast czarnego ekranu jest ekran
+  „Trwa aktualizacja”. Aplikacja co 3 s sprawdza serwer i sama się odświeża, gdy wróci
+  (w formularzu przepisu tylko chowa ekran, żeby wpisany tekst nie przepadł).
+  „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.
+- Przy otwieraniu aplikacji od razu widać tło w kolorze aplikacji i „Ładowanie…”, a gdy skrypt
+  aplikacji nie wczyta się w 10 s, też pokazuje się „Trwa aktualizacja”.
+- Błędy AI (np. Gemini nie odpowiada) nie włączają tego ekranu - tylko prawdziwy brak serwera.
+
 ## 0.12.1
 
 - Wybór zdjęcia przepisu: gdy żadne nie pasuje, są teraz przyciski „🔄 Pokaż inne” (szuka kolejnych,
