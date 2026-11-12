@@ -2331,3 +2331,19 @@ body:has(.fab) .back-to-top {
 .receipt-name.unknown::placeholder {
   color: var(--missing);
 }
+
+/* Podpowiedź pod polem dopisywania: ten sam produkt już jest na liście albo w domu */
+.similar-hint {
+  margin: 8px 2px 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.similar-hint b {
+  color: var(--text);
+  font-weight: 600;
+}
+.similar-hint .link {
+  min-height: 0;
+  padding: 4px 2px;
+  font-weight: 600;
+}

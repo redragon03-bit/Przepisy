@@ -82,11 +82,11 @@ def apply(data: ReceiptApplyIn, db: Session = Depends(get_db), user: CurrentUser
     lines = [line for line in lines if line[1]]
     if not lines:
         raise HTTPException(400, "Zaznacz co najmniej jeden produkt")
-    kitchen.add_to_pantry(db, user, [name for _raw, name, _expires in lines], create=True)
+    stored = kitchen.add_to_pantry(db, user, [name for _raw, name, _expires in lines], create=True)
     db.flush()
     for _raw, name, expires in lines:
         if expires:
-            kitchen.set_expires(db, user, name, expires)
+            kitchen.set_expires(db, user, stored.get(name, name), expires)
     receipts.remember(db, data.store, [(raw, name) for raw, name, _expires in lines])
     db.commit()
     return [pantry_item(name, expires) for name, expires in kitchen.pantry(db, user)]

@@ -1,5 +1,17 @@
 # Zmiany
 
+## 0.16.1
+
+- Ten sam produkt pod inną nazwą się nie dubluje: „Kurczak piersi” i „Pierś z kurczaka”,
+  „pomidory” i „2 kg pomidorów” to jedno (odmiana, szyk wyrazów i ilość się nie liczą).
+  Przy dopisywaniu do listy zakupów widać „Już jest na liście” i „Dodaj” nie tworzy kopii
+  (kupione wcześniej wraca na listę); „Dodaj osobno” dopisuje mimo to. Podpowiedź pokazuje
+  też, gdy produkt jest w spiżarni.
+- Dwie podobne pozycje, które już są na liście (np. jedna dopisana w Home Assistant),
+  łączy „Połącz” (z „Cofnij”).
+- Spiżarnia: dopisanie produktu pod inną nazwą nie tworzy drugiego, a dopisanie go do
+  zakupów zabiera ze spiżarni także wersję z inną nazwą.
+
 ## 0.16.0
 
 - Spiżarnia osobno od listy zakupów: w Zakupach przełącznik „Do kupienia | W domu”.

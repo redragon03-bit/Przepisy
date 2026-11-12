@@ -61,6 +61,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
       "Lista jest ułożona według działów w sklepie i działa bez internetu. Przesuń pozycję w lewo, żeby ją usunąć (z możliwością cofnięcia).",
       "Stuknięcie odhacza pozycję: kupione jedzenie od razu trafia do spiżarni (chemia i rzeczy dla domu – nie). „Cofnij” albo ponowne stuknięcie zabiera je ze spiżarni.",
       "Dopisanie czegoś do listy (ręcznie, z promocji albo w Home Assistant) znaczy, że tego nie masz – produkt znika ze spiżarni. Z przepisu do listy trafia tylko to, czego w spiżarni nie ma, a „zawsze w domu” (sól, olej…) jest pomijane.",
+      "Ten sam produkt pod inną nazwą („Kurczak piersi” i „Pierś z kurczaka”, „pomidory” i „2 kg pomidorów”) się nie dubluje: przy wpisywaniu zobaczysz „Już jest na liście”, a „Dodaj” nic nie doda (kupione wcześniej wróci na listę). Gdy chcesz mieć obie pozycje – „Dodaj osobno”. Dwie podobne pozycje, które już są na liście, łączy „Połącz”.",
       "Listę można wysłać do Home Assistant; odhaczone tam też trafia do spiżarni.",
     ],
   },

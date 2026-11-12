@@ -17,7 +17,7 @@ from ..config import get_settings
 from ..models import MealPlanEntry, Recipe, ShoppingItem
 from . import kitchen
 from .aisles import OTHER, aisle
-from .ingredients import find_ingredient, product_name
+from .ingredients import find_ingredient, product_name, similar
 from .kitchen import OWNER
 from .matching import covers
 
@@ -153,8 +153,10 @@ def bought(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) ->
 
 def not_bought(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) -> list[str]:
     """Odznaczone albo dopisane do listy = nie ma tego w domu: znika ze spiżarni."""
-    names = sorted({n for n in (pantry_name(db, i) for i in items) if n})
-    return kitchen.remove_from_pantry(db, user, names)
+    names = {n for n in (pantry_name(db, i) for i in items) if n}
+    # W spiżarni ten sam produkt mógł trafić pod inną nazwą ('kurczak piersi' / 'pierś z kurczaka')
+    names |= {p for p in pantry_names(db, user) if any(similar(p, n) for n in names)}
+    return kitchen.remove_from_pantry(db, user, sorted(names))
 
 
 def pantry_names(db: Session, user: CurrentUser = OWNER) -> list[str]:
