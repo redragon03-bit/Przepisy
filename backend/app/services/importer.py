@@ -56,13 +56,15 @@ def save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url:
             amount=item.amount,
             unit=item.unit,
             original_text=item.original_text,
+            section=item.section.strip()[:100],
             ingredient=get_or_create_ingredient(db, item.name),
         ))
     for position, step in enumerate(data.steps):
         source = _pick(image_sources, step.image_index)
         # To samo zdjęcie co główne nie powtarza się przy kroku
         image = load_image(source) if source is not None and source != main else None
-        recipe.steps.append(Step(position=position, text=step.text, image=image))
+        recipe.steps.append(Step(position=position, text=step.text, image=image,
+                                 section=step.section.strip()[:100]))
     set_categories(db, recipe, data.categories)
     db.add(recipe)
     return recipe

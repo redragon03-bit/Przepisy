@@ -6,6 +6,7 @@ import { useGoBack } from "../lib/navigation";
 import { useCheckedSet, useSavedState } from "../lib/progress";
 import { cachedRecipe } from "../lib/recipeCache";
 import { scaleStep, scaleText } from "../lib/scale";
+import { groupBySection } from "../lib/sections";
 import { canSpeak, readAloudPreference, saveReadAloudPreference, speak, stopSpeaking } from "../lib/speech";
 import { stepIngredients } from "../lib/stepIngredients";
 import { findDurations } from "../lib/timers";
@@ -110,6 +111,7 @@ export default function CookingModePage() {
         <h2>{recipe.title}</h2>
         {current ? (
           <>
+            {current.section && <p className="section-title cooking-section">{current.section}</p>}
             {/* Stuknięcie w krok czyta go jeszcze raz */}
             <p key={step} className="cooking-step" style={{ "--from": `${direction * 24}px` } as CSSProperties} onClick={() => readAloud && speak(text)}>
               {text}
@@ -130,14 +132,20 @@ export default function CookingModePage() {
           </>
         ) : (
           // Przed startem: lista do odhaczenia "mam na blacie" - duże wiersze, cały wiersz do stuknięcia
-          <ul className="checklist cooking-ingredients">
-            {recipe.ingredients.map((ing, i) => (
-              <li key={i} className={checked.has(i) ? "done" : ""} role="checkbox" aria-checked={checked.has(i)} tabIndex={0} onClick={() => toggleChecked(i)}>
-                <span className="check" aria-hidden="true" />
-                <span className="item-text">{scaleText(ing.text, ing.amount, scale)}</span>
-              </li>
-            ))}
-          </ul>
+          // Z sekcjami (np. "Omlet", "Krem") każdą część można przygotować osobno
+          groupBySection(recipe.ingredients).map((group) => (
+            <div key={group.items[0].index}>
+              {group.section && <h3 className="section-title">{group.section}</h3>}
+              <ul className="checklist cooking-ingredients">
+                {group.items.map(({ item: ing, index: i }) => (
+                  <li key={i} className={checked.has(i) ? "done" : ""} role="checkbox" aria-checked={checked.has(i)} tabIndex={0} onClick={() => toggleChecked(i)}>
+                    <span className="check" aria-hidden="true" />
+                    <span className="item-text">{scaleText(ing.text, ing.amount, scale)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </div>
 

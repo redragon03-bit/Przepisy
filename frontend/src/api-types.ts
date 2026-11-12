@@ -31,6 +31,8 @@ export interface AiIngredient {
   unit: string;
   // Linijka dokładnie tak, jak w źródle
   original_text: string;
+  // Część dania, do której należy składnik, np. 'Ciasto', 'Krem', 'Sos'; '' gdy przepis nie ma części
+  section?: string;
 }
 
 export interface AiRecipe {
@@ -65,6 +67,8 @@ export interface AiStep {
   text: string;
   // Numer obrazka (z listy obrazków) pokazującego ten krok, albo null
   image_index: number | null;
+  // Część dania, której dotyczy krok (jak przy składnikach), albo ''
+  section?: string;
 }
 
 // Skala wyglądu z telefonu (Ustawienia → Wygląd): grupa -> procent, np. {"title": 95}.
@@ -198,6 +202,7 @@ export interface IngredientLineInput {
   amount?: number | null;
   unit?: string;
   original_text?: string;
+  section?: string;
 }
 
 export interface IngredientLine {
@@ -208,6 +213,7 @@ export interface IngredientLine {
   amount: number | null;
   unit: string;
   original_text: string;
+  section: string;
 }
 
 export interface IngredientOut {
@@ -443,6 +449,22 @@ export interface RestoreResult {
   recipes: number;
 }
 
+// Składniki i kroki z formularza edycji (także niezapisane) do podziału na sekcje.
+export interface SectionsIn {
+  title?: string;
+  ingredients: string[];
+  steps: string[];
+}
+
+// Propozycja AI: nowa kolejność (numery z formularza, od 0) i sekcja na każdej pozycji.
+// Każdy numer występuje dokładnie raz, więc nic z formularza nie ginie.
+export interface SectionsOut {
+  ingredient_order: number[];
+  ingredient_sections: string[];
+  step_order: number[];
+  step_sections: string[];
+}
+
 export interface ShoppingFromPlan {
   start: string;
   end: string;
@@ -487,12 +509,14 @@ export interface StapleIn {
 
 export interface StepIn {
   text: string;
+  section?: string;
   image?: string | null;
 }
 
 export interface StepOut {
   text: string;
   image_url: string | null;
+  section: string;
 }
 
 export interface SubstituteIn {

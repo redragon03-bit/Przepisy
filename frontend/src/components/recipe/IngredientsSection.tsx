@@ -6,12 +6,22 @@ import { usePantry } from "../../lib/usePantry";
 import { usePromoBadges } from "../../lib/promoBadges";
 import { usePromotions } from "../../lib/usePromotions";
 import { formatAmount, scaleText } from "../../lib/scale";
+import { groupBySection } from "../../lib/sections";
 import { useLongPress } from "../../lib/useLongPress";
 import SubstituteSheet from "./SubstituteSheet";
 
 // Składniki z odhaczaniem i przeliczaniem porcji ("4 porcje" -> 6 porcji, albo mnożnik 2×).
 // Przytrzymanie składnika pyta AI, czym go zastąpić.
-export default function IngredientsSection({ recipe, baseServings, servings, setServings, factor, setFactor, scale, aiEnabled }: {
+export default function IngredientsSection({
+  recipe,
+  baseServings,
+  servings,
+  setServings,
+  factor,
+  setFactor,
+  scale,
+  aiEnabled,
+}: {
   recipe: Recipe;
   aiEnabled: boolean;
   baseServings: number | null;
@@ -57,20 +67,25 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
           </span>
         )}
       </div>
-      <ul className="checklist ingredients">
-        {recipe.ingredients.map((ing, i) => (
-          <IngredientRow
-            key={i}
-            text={scaleText(ing.text, ing.amount, scale)}
-            original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
-            promo={showPromos ? promoLabel(ing.name, promos) : ""}
-            missing={pantry.known && !pantry.has(ing.name)}
-            done={checked.has(i)}
-            onToggle={() => toggle(i)}
-            onLongPress={aiEnabled ? () => setSubstitute(ing.text) : undefined}
-          />
-        ))}
-      </ul>
+      {groupBySection(recipe.ingredients).map((group) => (
+        <div key={group.items[0].index}>
+          {group.section && <h3 className="section-title">{group.section}</h3>}
+          <ul className="checklist ingredients">
+            {group.items.map(({ item: ing, index: i }) => (
+              <IngredientRow
+                key={i}
+                text={scaleText(ing.text, ing.amount, scale)}
+                original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
+                promo={showPromos ? promoLabel(ing.name, promos) : ""}
+                missing={pantry.known && !pantry.has(ing.name)}
+                done={checked.has(i)}
+                onToggle={() => toggle(i)}
+                onLongPress={aiEnabled ? () => setSubstitute(ing.text) : undefined}
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
       {aiEnabled && recipe.ingredients.length > 0 && <p className="muted small hint">Brakuje czegoś? Przytrzymaj składnik.</p>}
       {substitute && <SubstituteSheet recipeId={recipe.id} ingredient={substitute} onClose={() => setSubstitute(null)} />}
       {hasOriginal && (
@@ -82,7 +97,15 @@ export default function IngredientsSection({ recipe, baseServings, servings, set
   );
 }
 
-function IngredientRow({ text, original, promo, missing, done, onToggle, onLongPress }: {
+function IngredientRow({
+  text,
+  original,
+  promo,
+  missing,
+  done,
+  onToggle,
+  onLongPress,
+}: {
   text: string;
   original: string;
   promo: string;

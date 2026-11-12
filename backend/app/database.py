@@ -94,6 +94,9 @@ ADDED_COLUMNS = [
     ("shopping_items", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
     ("meal_plan", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
     ("cook_log", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE"),
+    # Sekcje w składnikach i krokach (0.13.0), np. "Omlet", "Krem do omleta"
+    ("steps", "section", "VARCHAR(100) NOT NULL DEFAULT ''"),
+    ("recipe_ingredients", "section", "VARCHAR(100) NOT NULL DEFAULT ''"),
 ]
 
 

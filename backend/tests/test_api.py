@@ -104,7 +104,7 @@ def test_url_import_with_ai(client, monkeypatch):
     assert recipe["categories"] == ["Deser", "Śniadanie"]
     assert recipe["ingredients"][0] == {
         "text": "190 g mąki pszennej", "name": "mąka pszenna", "amount": 190.0, "unit": "g",
-        "original_text": "1 1/2 cups all-purpose flour",
+        "original_text": "1 1/2 cups all-purpose flour", "section": "",
     }
     assert recipe["image_url"] == "/media/pancakes.jpg"
     assert recipe["steps"][0]["image_url"] == "/media/step1.jpg"

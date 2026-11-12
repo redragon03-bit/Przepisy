@@ -21,6 +21,8 @@ from ..schemas import (
     RecipePatch,
     RecipeStats,
     RecipeSummary,
+    SectionsIn,
+    SectionsOut,
     StepOut,
     SubstituteIn,
     SubstituteOut,
@@ -89,10 +91,10 @@ def to_out(recipe: Recipe, marks: Marks | None = None) -> RecipeOut:
         carbs=recipe.carbs,
         ingredients=[
             IngredientLine(text=ri.text, name=ri.ingredient.name, amount=ri.amount,
-                           unit=ri.unit, original_text=ri.original_text)
+                           unit=ri.unit, original_text=ri.original_text, section=ri.section)
             for ri in recipe.ingredients
         ],
-        steps=[StepOut(text=s.text, image_url=image_url(s.image)) for s in recipe.steps],
+        steps=[StepOut(text=s.text, image_url=image_url(s.image), section=s.section) for s in recipe.steps],
         step_images=[s.image for s in recipe.steps],
         variant_of=_ref(recipe.parent) if recipe.parent else None,
         variant_name=recipe.variant_name,
@@ -215,13 +217,14 @@ def _apply(db: Session, recipe: Recipe, data: RecipeIn) -> None:
         images.delete_image(filename)
     # Nie pozwalamy podpiąć cudzego pliku - tylko obrazki, które ten przepis już miał
     recipe.steps = [
-        Step(position=i, text=s.text, image=s.image if s.image in old_images else None)
+        Step(position=i, text=s.text, image=s.image if s.image in old_images else None,
+             section=s.section.strip()[:100])
         for i, s in enumerate(data.steps) if s.text.strip()
     ]
     recipe.ingredients = [
         RecipeIngredient(
             position=i, text=line.text, amount=line.amount, unit=line.unit,
-            original_text=line.original_text,
+            original_text=line.original_text, section=line.section.strip()[:100],
             # Bez nazwy (np. składnik wklejony z kartki) zgadujemy ją z linijki: "200 g mąki" -> "mąki"
             ingredient=get_or_create_ingredient(db, line.name or guess_ingredient_name(line.text)),
         )
@@ -333,13 +336,52 @@ def substitute(recipe_id: int, data: SubstituteIn, db: Session = Depends(get_db)
     return SubstituteOut(text=answer.text)
 
 
+def _arrange(items: list[ai.AiSectionItem], count: int) -> tuple[list[int], list[str]]:
+    """Kolejność i sekcje z odpowiedzi AI; złe lub powtórzone numery pomijamy,
+    a pozycje, o których AI zapomniało, dokładamy na końcu bez sekcji."""
+    order: list[int] = []
+    names: list[str] = []
+    for item in items:
+        if 0 <= item.index < count and item.index not in order:
+            order.append(item.index)
+            names.append(item.section.strip()[:100])
+    for i in range(count):
+        if i not in order:
+            order.append(i)
+            names.append("")
+    return order, names
+
+
+@router.post("/sections", response_model=SectionsOut)
+def suggest_sections(data: SectionsIn):
+    """AI dzieli składniki i kroki z formularza na sekcje (np. "Omlet", "Krem"). Nic nie zapisuje."""
+    try:
+        answer = ai.sections(data.title, data.ingredients, data.steps)
+    except ai.AiError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    ingredient_order, ingredient_sections = _arrange(answer.ingredients, len(data.ingredients))
+    step_order, step_sections = _arrange(answer.steps, len(data.steps))
+    return SectionsOut(ingredient_order=ingredient_order, ingredient_sections=ingredient_sections,
+                       step_order=step_order, step_sections=step_sections)
+
+
 def recipe_text(recipe: Recipe) -> str:
     """Przepis jako zwykły tekst dla AI."""
     lines = [f"Tytuł: {recipe.title}", f"Porcje: {recipe.servings or 'nie podano'}",
              f"Kategorie: {', '.join(c.name for c in recipe.categories) or 'brak'}", "Składniki:"]
-    lines += [f"- {ri.text}" for ri in recipe.ingredients]
+    section = ""
+    for ri in recipe.ingredients:
+        if ri.section != section:
+            section = ri.section
+            lines.append(f"[{section or 'bez części'}]")
+        lines.append(f"- {ri.text}")
     lines.append("Kroki:")
-    lines += [f"{i}. {s.text}" for i, s in enumerate(recipe.steps, 1)]
+    section = ""
+    for i, s in enumerate(recipe.steps, 1):
+        if s.section != section:
+            section = s.section
+            lines.append(f"[{section or 'bez części'}]")
+        lines.append(f"{i}. {s.text}")
     return "\n".join(lines)
 
 
