@@ -31,6 +31,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
       "❤️ dodaje przepis do ulubionych, a ⋯ obok niego to edycja, zaplanowanie, dodanie do zakupów, udostępnienie (tekst albo obrazek), wariant od AI (np. wege), zdjęcie, kalorie.",
       "„✅ Ugotowane” zapisuje gotowanie w dzienniku – z oceną, notatką i zdjęciem.",
       "W edycji „+ Sekcja” dzieli składniki i kroki na części (np. „Omlet”, „Krem”), a „✨ Podziel na sekcje (AI)” robi to za Ciebie. Kolejność zmienisz, przeciągając za numer kroku albo ⠿.",
+      "Ustawienia → Porządki → „🧩 Podziel przepisy na sekcje” przechodzi po kolei przez stare przepisy: obok siebie jest przepis teraz i propozycja AI, do wyboru Pomiń albo Akceptuj.",
     ],
   },
   {

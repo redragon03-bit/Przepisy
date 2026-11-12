@@ -584,3 +584,37 @@ test("sekcje: kroki i składniki w sekcjach, przeciąganie kroku palcem", async 
   await page.goto(`/przepis/${id}/edytuj`);
   await expect(page.getByLabel("Nazwa sekcji")).toHaveCount(2);
 });
+
+test("przegląd sekcji: obok siebie teraz i propozycja AI, Akceptuj zapisuje, Pomiń przechodzi dalej", async ({ page }) => {
+  const a = await addRecipe("Kotlet z ziemniakami", ["2 kotlety schabowe", "1 jajko", "1 kg ziemniaków"], ["Odlej wodę i utłucz ziemniaki.", "Ugotuj ziemniaki.", "Usmaż kotlety."]);
+  const b = await addRecipe("Gulasz z kaszą", ["500 g wołowiny", "1 cebula", "200 g kaszy"], ["Duś mięso.", "Ugotuj kaszę."]);
+  await login(page);
+  // AI podmieniamy: kolejka to tylko te dwa przepisy, propozycja dzieli na części
+  await page.route("**/api/recipes/sections/todo", (route) =>
+    route.fulfill({ json: [a, b].map((r) => ({ id: r.id, title: r.id === a.id ? "Kotlet z ziemniakami" : "Gulasz z kaszą" })) }),
+  );
+  await page.route(/\/api\/recipes\/\d+\/sections$/, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    route.fulfill({
+      json: { ingredient_order: [2, 0, 1], ingredient_sections: ["Ziemniaki", "Kotlety", "Kotlety"], step_order: [1, 0, 2], step_sections: ["Ziemniaki", "Ziemniaki", "Kotlety"] },
+    });
+  });
+  await page.goto("/sekcje");
+  await expect(page.getByRole("link", { name: "Kotlet z ziemniakami" })).toBeVisible();
+  await expect(page.getByText("1 z 2")).toBeVisible();
+  const after = page.locator(".compare-after");
+  await expect(after.locator(".section-title").first()).toHaveText("Ziemniaki");
+  await expect(after.locator("li.moved")).toHaveCount(2);
+  await page.screenshot({ path: "test-results/sekcje-przeglad.png" });
+
+  await page.getByRole("button", { name: "✓ Akceptuj" }).click();
+  await expect(page.getByRole("link", { name: "Gulasz z kaszą" })).toBeVisible();
+  const saved = await (await server.get(`/api/recipes/${a.id}`)).json();
+  expect(saved.steps.map((s: { text: string }) => s.text)).toEqual(["Ugotuj ziemniaki.", "Odlej wodę i utłucz ziemniaki.", "Usmaż kotlety."]);
+  expect(saved.ingredients[0].section).toBe("Ziemniaki");
+
+  // Gulasz ma 2 kroki, a propozycja 3 - serwer odmawia, więc go pomijamy
+  await page.getByRole("button", { name: "✕ Pomiń" }).click();
+  await expect(page.getByText("Wszystkie przejrzane")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Przejrzyj jeszcze raz pominięte \(1\)/ })).toBeVisible();
+});
