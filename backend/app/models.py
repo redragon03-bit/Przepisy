@@ -362,3 +362,20 @@ class MemberPromoFavorite(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     key: Mapped[str] = mapped_column(String(200))
+
+
+class ReceiptAlias(Base):
+    """Jak domownicy nazwali linijkę z paragonu, np. Biedronka "SER GOUDA PLAST 150G" -> "ser gouda".
+
+    Wspólne dla całego domu: poprawka jednej osoby pomaga przy następnym paragonie każdej.
+    """
+
+    __tablename__ = "receipt_aliases"
+    __table_args__ = (UniqueConstraint("store", "raw"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Sklep i linijka po fold() (bez ogonków, małymi literami, pojedyncze spacje); sklep "" = nieznany
+    store: Mapped[str] = mapped_column(String(100), default="")
+    raw: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(200))
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

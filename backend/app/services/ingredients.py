@@ -47,6 +47,29 @@ def guess_ingredient_name(line: str) -> str:
     return normalize_name(text) or normalize_name(line)
 
 
+# Ilość na końcu linijki dopisanej ręcznie: "mleko 2 l", "jajka 10 szt.", "ser x2"
+_TRAILING_QUANTITY = re.compile(rf"\s+(x\s*\d+|{_QUANTITY}\s*(?:{_UNITS})?)\s*$")
+
+
+def product_name(text: str) -> str:
+    """Nazwa produktu z pozycji listy zakupów: '2 l mleka' -> 'mleka', 'mleko 2 l' -> 'mleko'."""
+    name = guess_ingredient_name(text)
+    return normalize_name(_TRAILING_QUANTITY.sub("", name)) or name
+
+
+def find_ingredient(db: Session, name: str) -> Ingredient | None:
+    """Istniejący składnik o tej nazwie albo o tej samej nazwie w innej formie ('mleka' -> 'mleko')."""
+    name = normalize_name(name)
+    if not name:
+        return None
+    exact = db.query(Ingredient).filter_by(name=name).one_or_none()
+    if exact is not None:
+        return exact
+    first = fold(name)[:3]
+    candidates = [i for i in db.query(Ingredient).all() if fold(i.name).startswith(first)]
+    return next((i for i in sorted(candidates, key=lambda i: i.id) if similar(name, i.name)), None)
+
+
 def _similar_word(a: str, b: str) -> bool:
     """Ten sam wyraz w innej formie: 'pomidor' i 'pomidory', 'jajko' i 'jajka' (bez ogonków)."""
     if a == b:

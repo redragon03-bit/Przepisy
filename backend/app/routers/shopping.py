@@ -72,6 +72,8 @@ def sync(db: Session = Depends(get_db)):
 def add_item(data: ShoppingItemIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     item = ShoppingItem(text=data.text.strip(), user_id=user.id)
     db.add(item)
+    # Dopisane do listy = nie ma tego w domu
+    shopping.not_bought(db, [item], user)
     db.commit()
     return to_out(item)
 
@@ -110,6 +112,11 @@ def update_item(item_id: int, data: ShoppingItemPatch, db: Session = Depends(get
     item = _get(db, item_id, user)
     if data.checked is not None and data.checked != item.checked:
         item.checked = data.checked
+        # Odhaczone = kupione, jest w domu; odznaczone (pomyłka) - znowu nie ma
+        if item.checked:
+            shopping.bought(db, [item], user)
+        else:
+            shopping.not_bought(db, [item], user)
         if item.ha_text:
             shopping.update_in_home_assistant([(item.ha_text, "completed" if item.checked else "needs_action")])
     if data.text is not None and data.text.strip():
@@ -129,12 +136,13 @@ def delete_item(item_id: int, db: Session = Depends(get_db), user: CurrentUser =
 
 @router.post("/clear", status_code=204)
 def clear(only_checked: bool = True, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
-    """Usuwa odhaczone pozycje i dopisuje je do spiżarni (albo usuwa wszystkie, gdy only_checked=false)."""
+    """Usuwa odhaczone pozycje (albo wszystkie, gdy only_checked=false).
+
+    Kupione są już w spiżarni - trafiły tam przy odhaczeniu.
+    """
     query = _mine(db, user)
     if only_checked:
         query = query.filter(ShoppingItem.checked.is_(True))
-        # Kupione produkty z przepisów są teraz w domu
-        shopping.move_to_pantry(db, query.all(), user)
     else:
         # Cała lista wyczyszczona - plan można znów dodać do zakupów
         db.query(MealPlanEntry).filter(owned(MealPlanEntry.user_id, user)).update({"in_shopping": False})
