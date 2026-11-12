@@ -1,36 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, CookMatch, isoDay, PantryItem, PromoRecipe } from "../api";
-import IngredientPicker from "../components/IngredientPicker";
+import { api, CookMatch, PantryItem, PromoRecipe } from "../api";
+import { expiresLabel, inDays, USE_FIRST_DAYS } from "../components/ExpirySheet";
 import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
-import Sheet from "../components/Sheet";
-import { dayLabel } from "../lib/days";
 import { useRemembered } from "../lib/remember";
 import { usePromotions } from "../lib/usePromotions";
-import { useToast } from "../lib/toast";
 
-// Termin "do zużycia najpierw" (tak samo jak USE_FIRST_DAYS na serwerze)
-const USE_FIRST_DAYS = 3;
-
-function inDays(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return isoDay(date);
-}
-
-// "dziś", "jutro", "za 3 dni", "po terminie"
-function expiresLabel(expires: string): string {
-  const days = Math.round((new Date(`${expires}T12:00`).getTime() - new Date(`${isoDay(new Date())}T12:00`).getTime()) / 86_400_000);
-  if (days < 0) return "po terminie";
-  if (days === 0) return "dziś";
-  if (days === 1) return "jutro";
-  return `za ${days} dni`;
-}
-
-// "Co mogę ugotować?" - wybierasz składniki, które masz, i dostajesz pasujące przepisy.
-// Wybrane składniki to spiżarnia zapisana na serwerze: lista zakupów je pomija,
-// a czat bierze je pod uwagę.
+// "Co mogę ugotować?" - przepisy z produktów ze spiżarni (Zakupy → W domu).
+// Spiżarnię zmienia się w Zakupach: odhaczone kupione, dopisane ręcznie, z paragonu.
 // Starsze wersje trzymały wybór w przeglądarce - przenosimy go raz do spiżarni.
 const OLD_STORAGE_KEY = "cook-ingredients";
 
@@ -117,58 +95,30 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
 }
 
 export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
-  const [have, setHave] = useState<string[] | null>(null);
+  const [items, setItems] = useState<PantryItem[] | null>(null);
   const [maxMissing, setMaxMissing] = useState(1);
   const [matches, setMatches] = useState<CookMatch[] | null>(null);
-  // Terminy zużycia produktów ze spiżarni: nazwa -> RRRR-MM-DD
-  const [expires, setExpires] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<string | null>(null);
-  const { run } = useToast();
-
-  const applyItems = (items: PantryItem[]) =>
-    setExpires(Object.fromEntries(items.filter((i) => i.expires).map((i) => [i.name, i.expires!])));
 
   useEffect(() => {
-    api.getPantry().then((pantry) => {
-      const old = takeOldSelection();
-      if (!pantry.length && old.length) api.setPantry(old).then(setHave);
-      else setHave(pantry);
+    const old = takeOldSelection();
+    api.pantryItems().then((pantry) => {
+      if (!pantry.length && old.length) api.addToPantry(old).then(setItems);
+      else setItems(pantry);
     });
-    api.pantryItems().then(applyItems);
   }, []);
 
   useEffect(() => {
-    if (!have?.length) {
+    if (!items?.length) {
       setMatches(null);
       return;
     }
-    api.whatCanICook(have, maxMissing).then(setMatches);
-  }, [have, maxMissing, expires]);
+    api.whatCanICook(items.map((i) => i.name), maxMissing).then(setMatches);
+  }, [items, maxMissing]);
 
-  const change = async (names: string[]) => {
-    setHave(names);
-    setHave(await api.setPantry(names));
-  };
-
-  // Data wybierana w kalendarzu "Inna data" (zapisywana po jego zamknięciu)
-  const [otherDay, setOtherDay] = useState("");
-  useEffect(() => setOtherDay(editing ? (expires[editing] ?? "") : ""), [editing, expires]);
-
-  const setTerm = async (name: string, day: string | null) => {
-    setEditing(null);
-    const items = await run(() => api.setPantryExpires(name, day));
-    if (items) applyItems(items);
-  };
-
-  const remove = (name: string) => {
-    setEditing(null);
-    change(have!.filter((n) => n !== name));
-  };
-
-  if (have === null) return <p className="muted center">Ładowanie…</p>;
+  if (items === null) return <p className="muted center">Ładowanie…</p>;
 
   const soon = inDays(USE_FIRST_DAYS);
-  const urgent = have.filter((n) => expires[n] && expires[n] <= soon).sort((a, b) => expires[a].localeCompare(expires[b]));
+  const urgent = items.filter((i) => i.expires && i.expires <= soon).sort((a, b) => a.expires!.localeCompare(b.expires!));
 
   return (
     <>
@@ -177,22 +127,19 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
       </header>
       <section className="box">
         <h2>Moja spiżarnia</h2>
-        <p className="muted small">
-          Wpisz, co masz w domu. Aplikacja to zapamięta: lista zakupów pominie te produkty, a czat weźmie je pod uwagę. Stuknij
-          produkt, żeby ustawić, do kiedy trzeba go zużyć. Sól, pieprz, olej itp. są liczone jako „zawsze w domu” (zmienisz to w
-          Ustawieniach).
-        </p>
-        <IngredientPicker
-          value={have}
-          onChange={change}
-          placeholder="np. jajko, pomidor…"
-          onChipClick={setEditing}
-          chipLabel={(name) => (expires[name] && expires[name] <= soon ? `⏰ ${name}` : name)}
-        />
-        {urgent.length > 0 && (
-          <p className="small use-first">
-            ⏰ Zużyj najpierw: {urgent.map((n) => `${n} (${expiresLabel(expires[n])})`).join(", ")}
+        {items.length === 0 ? (
+          <p className="muted small">
+            Spiżarnia jest pusta. Odhaczaj kupione na liście zakupów albo dopisz, co masz w domu:{" "}
+            <Link to="/zakupy?widok=dom">Zakupy → W domu</Link>.
           </p>
+        ) : (
+          <p className="small">
+            Szukam przepisów z {items.length} {items.length === 1 ? "produktu" : "produktów"} ze spiżarni ·{" "}
+            <Link to="/zakupy?widok=dom">Zmień</Link>
+          </p>
+        )}
+        {urgent.length > 0 && (
+          <p className="small use-first">⏰ Zużyj najpierw: {urgent.map((i) => `${i.name} (${expiresLabel(i.expires!)})`).join(", ")}</p>
         )}
         <label className="row small">
           Może brakować:
@@ -208,7 +155,7 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
       <PromoSection aiEnabled={aiEnabled} />
 
       {matches === null ? null : matches.length === 0 ? (
-        <p className="muted center">Brak pasujących przepisów. Spróbuj dodać składniki albo zwiększyć liczbę braków.</p>
+        <p className="muted center">Brak pasujących przepisów. Dopisz produkty do spiżarni albo zwiększ liczbę braków.</p>
       ) : (
         <div className="grid">
           {matches.map((m) => (
@@ -222,45 +169,6 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
             </RecipeCard>
           ))}
         </div>
-      )}
-
-      {editing && (
-        <Sheet title={expires[editing] ? `${editing}: zużyć do ${dayLabel(expires[editing])}` : `${editing}: do kiedy zużyć?`} onClose={() => setEditing(null)} list>
-          {[
-            ["Dziś", 0],
-            ["Jutro", 1],
-            ["Za 3 dni", 3],
-            ["Za tydzień", 7],
-          ].map(([label, days]) => (
-            <button key={label} type="button" className="sheet-row" onClick={() => setTerm(editing, inDays(days as number))}>
-              {label}
-            </button>
-          ))}
-          <label className="sheet-row">
-            Inna data:{" "}
-            <input
-              type="date"
-              min={isoDay(new Date())}
-              value={otherDay}
-              // iPhone zmienia wartość już przy otwarciu kalendarza i przy każdym stuknięciu w dzień -
-              // zapisujemy dopiero po zamknięciu kalendarza (pole traci fokus), inaczej okno znika,
-              // zanim wybierzesz datę. Zmiana bez fokusu (np. inna przeglądarka) zapisuje się od razu.
-              onChange={(e) => {
-                setOtherDay(e.target.value);
-                if (e.target.value && document.activeElement !== e.target) setTerm(editing, e.target.value);
-              }}
-              onBlur={() => otherDay && otherDay !== expires[editing] && setTerm(editing, otherDay)}
-            />
-          </label>
-          {expires[editing] && (
-            <button type="button" className="sheet-row" onClick={() => setTerm(editing, null)}>
-              Bez terminu
-            </button>
-          )}
-          <button type="button" className="sheet-row danger-tile" onClick={() => remove(editing)}>
-            🗑️ Usuń ze spiżarni
-          </button>
-        </Sheet>
       )}
     </>
   );

@@ -3,12 +3,14 @@ import { ReactNode, TouchEvent, useRef, useState } from "react";
 const DELETE_AT = 90; // tyle pikseli w lewo usuwa pozycję
 
 // Wiersz listy, który przesunięty palcem w lewo się usuwa (jak w aplikacjach iPhone'a).
-export default function SwipeRow({ className, checked, onClick, onDelete, children }: {
+export default function SwipeRow({ className, checked, onClick, onDelete, deleteLabel = "Usuń", children }: {
   className?: string;
   // Wiersz do odhaczania (lista zakupów) - czytnik ekranu ogłasza go jako pole wyboru
   checked?: boolean;
   onClick: () => void;
   onDelete: () => void;
+  // Napis pod przesuwanym wierszem, np. "Zużyte" w spiżarni
+  deleteLabel?: string;
   children: ReactNode;
 }) {
   const [dx, setDx] = useState(0);
@@ -44,7 +46,7 @@ export default function SwipeRow({ className, checked, onClick, onDelete, childr
   return (
     <li className={`swipe-row ${className ?? ""}`}>
       <span className={`swipe-delete ${dx <= -DELETE_AT ? "ready" : ""}`} aria-hidden="true">
-        Usuń
+        {deleteLabel}
       </span>
       <div
         className="swipe-content"

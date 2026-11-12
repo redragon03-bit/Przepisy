@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient } from "../api";
+import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient, ReceiptSettings } from "../api";
 import { Link } from "react-router-dom";
 import AccountsSection from "../components/AccountsSection";
 import AppearanceSection from "../components/AppearanceSection";
@@ -19,11 +19,13 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const restoreInput = useRef<HTMLInputElement>(null);
   const { toast, run } = useToast();
   const [showPromos, setShowPromos] = usePromoBadges();
+  const [receipts, setReceipts] = useState<ReceiptSettings | null>(null);
 
   const refresh = () => api.listIngredients("", true).then(setStaples);
   const owner = auth.is_owner;
   useEffect(() => {
     refresh();
+    api.receiptSettings().then(setReceipts, () => undefined);
     // Kopie i porządki w bazie to sprawy właściciela - domownik ich nie widzi
     if (!owner) return;
     api.listBackups().then(setBackups);
@@ -166,6 +168,42 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           />
         </label>
       </section>
+
+      {receipts && (
+        <section className="box">
+          <h2>Spiżarnia</h2>
+          <label className="toggle switch-row">
+            <span className="grow">
+              Dodawanie z paragonu
+              <span className="muted small block">
+                {receipts.ai_enabled
+                  ? `Zakupy → W domu → „📷 Dodaj z paragonu”: AI odczytuje zdjęcie paragonu, a Ty sprawdzasz listę. Do ${receipts.daily_limit} paragonów dziennie (dziś: ${receipts.used_today}). Tylko na tym koncie.`
+                  : "Paragon odczytuje AI - najpierw ustaw klucz API do AI w opcjach dodatku."}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="switch"
+              checked={receipts.enabled}
+              disabled={!receipts.ai_enabled}
+              onChange={async (e) => {
+                const next = await run(() => api.setReceiptsEnabled(e.target.checked));
+                if (next) {
+                  setReceipts(next);
+                  // Zakupy czytają to ustawienie z pamięci telefonu, zanim zapytają serwer
+                  try {
+                    localStorage.setItem("receipts-enabled", JSON.stringify(next.enabled && next.ai_enabled));
+                  } catch {
+                    // prywatne okno - Zakupy i tak zapytają serwer
+                  }
+                }
+              }}
+              aria-label="Dodawanie produktów do spiżarni z paragonu"
+            />
+          </label>
+        </section>
+      )}
 
       <AppearanceSection />
 

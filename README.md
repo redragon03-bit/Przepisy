@@ -5,11 +5,13 @@ odczytuje przepis, tłumaczy go na polski, przelicza miary na metryczne i zapisu
 instrukcję krok po kroku (razem ze zdjęciami ze strony). Potem możesz:
 
 - szukać przepisów po nazwie, składnikach, krokach i notatkach,
-- wpisać, co masz w domu (spiżarnia), i zobaczyć, co z tego ugotujesz („Co ugotuję?”),
+- trzymać spiżarnię (Zakupy → „W domu”): odhaczone na liście zakupów trafia tam samo,
+  a z paragonu dopisze ją AI; przepisy pokazują, czego brakuje, a „Co ugotuję?” – co z tego ugotujesz,
 - zapytać czat („mam ochotę na coś ostrego, ale bez ryżu”) – poleca Twoje przepisy albo
   wymyśla nowy, który zapisujesz jednym przyciskiem,
 - gotować w trybie krok po kroku (duża czcionka, minutniki, ekran nie gaśnie),
-- planować tydzień, robić listę zakupów (pomija to, co masz w domu) i wysyłać ją do HA,
+- planować tydzień, robić listę zakupów (pomija to, co masz w domu; dopisane do listy znika
+  ze spiżarni) i wysyłać ją do HA,
 - zobaczyć szacunkowe kalorie i makro na porcję, udostępnić przepis jako tekst.
 
 Działa w przeglądarce (Safari na iPhonie, Chrome na Androidzie) i można ją dodać do ekranu
@@ -64,7 +66,7 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 
 | Funkcja | Backend | Frontend |
 |---|---|---|
-| Lista zakupów (działy sklepu, działa offline, dwustronna synchronizacja z listą `todo` w HA) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
+| Lista zakupów (działy sklepu, działa offline, dwustronna synchronizacja z listą `todo` w HA). Odhaczone jedzenie trafia do spiżarni, odznaczone albo dopisane (też w HA, z promocji) – znika z niej (`shopping.bought` / `not_bought`, `pantry_name` pomija chemię) | `routers/shopping.py`, `services/shopping.py` | `pages/ShoppingPage.tsx` |
 | Plan posiłków na tydzień; „Zaplanuj z AI” (w tle, wynik w pamięci serwera do zapisania) | `routers/plan.py`, `ai.suggest_plan` | `pages/PlanPage.tsx`, `components/PlanSuggestSheet.tsx` |
 | Plan na dziś w HA: czujnik `sensor.przepisy_dzis` (stan = tytuły, atrybuty: składniki, plan na jutro), odświeżany co 15 min i po zmianie planu | `services/plan_sensor.py` | – |
 | Import z wklejonego tekstu (to samo pole co link) | `POST /api/imports/text`, `ai.recipes_from_text` | `pages/ImportPage.tsx` |
@@ -72,7 +74,8 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 | Dziennik gotowania („Ugotowane” z oceną, notatką, zdjęciem; ocena przepisu = średnia z 5 ostatnich) | `models.CookLogEntry`, `POST/DELETE .../cooked` | `components/recipe/CookedSheet.tsx`, `CookLogSheet.tsx` |
 | Warianty przepisu od AI („wege”, „na 8 osób”) - przy przepisie głównym, nie na liście | `Recipe.variant_of`, `POST .../variant` | `components/recipe/VariantSheet.tsx` |
 | Zamienniki składników (przytrzymaj składnik) | `POST .../substitute` | `components/recipe/SubstituteSheet.tsx` |
-| Spiżarnia z terminami: „Zużyj najpierw” w „Co ugotuję?”, czacie i planie od AI | `routers/pantry.py`, `services/matching.py` | `pages/CookPage.tsx` |
+| Spiżarnia z terminami (Zakupy → „W domu”): działy, „Zużyj najpierw”, „Zużyte” gestem; używana w „Co ugotuję?”, znacznikach „brak”, czacie i planie od AI | `routers/pantry.py`, `services/kitchen.py`, `services/matching.py` | `components/PantryView.tsx`, `components/ExpirySheet.tsx`, `pages/CookPage.tsx` |
+| Paragon → spiżarnia: zdjęcie (1–3 części) czyta AI w tle, użytkownik sprawdza listę; poprawione nazwy zapamiętane per sklep (`ReceiptAlias`). Domyślnie wyłączone, przełącznik per konto (`AppSetting receipts:<konto>`), limit 10 dziennie; zdjęć nie zapisujemy | `routers/receipts.py`, `services/receipts.py`, `ai.receipt_from_images` | `components/ReceiptSheet.tsx`, `pages/SettingsPage.tsx` |
 | Czytanie kroków na głos (🔊 w trybie gotowania, głos telefonu) | – | `lib/speech.ts` |
 | Udostępnianie jako obrazek (rysowany w telefonie) | – | `lib/shareImage.ts` |
 | Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
@@ -343,6 +346,7 @@ backend/
       shopping.py      ←   /api/shopping     lista zakupów, wysyłka do Home Assistant
       plan.py          ←   /api/plan         plan posiłków na tydzień
       pantry.py        ←   /api/pantry       spiżarnia (co jest w domu)
+      receipts.py      ←   /api/receipts     paragon -> spiżarnia (AI w tle, przełącznik per konto)
       chat.py          ←   /api/chat         czat z asystentem, zapis wymyślonego przepisu
       backup.py        ←   /api/backup(s)    kopia ZIP i kopie automatyczne
     services/          ← LOGIKA, bez wiedzy o HTTP
@@ -356,7 +360,8 @@ backend/
       categories.py    ←   kategorie: domyślna lista, normalizacja nazw
       matching.py      ←   algorytm „Co ugotuję?”
       shopping.py      ←   łączenie składników na liście zakupów, synchronizacja z listą w HA
-      aisles.py        ←   działy sklepu (warzywa, nabiał…) do grupowania listy zakupów
+      aisles.py        ←   działy sklepu (warzywa, nabiał…) do grupowania listy zakupów i spiżarni
+      receipts.py      ←   odczyt paragonu, zapamiętane nazwy z paragonów, dzienny limit
       image_search.py  ←   szukanie zdjęcia dla przepisu bez zdjęcia
       backup.py        ←   tworzenie ZIP-a, cotygodniowa kopia automatyczna
   tests/               ← testy (pytest); AI i internet są w nich podmienione
@@ -433,5 +438,9 @@ danych dodatku (nie widać go w File editor ani Samba) - najprościej pobrać ko
 - **Przeliczanie „cups” na gramy** jest przybliżone (zależy od produktu). Oryginalne
   miary zobaczysz w przepisie („Pokaż oryginalne miary”) i poprawisz w edycji.
 - **AI może się pomylić** – każdy przepis da się edytować.
+- **Paragony** – nazwy na paragonach są skrócone, a druk termiczny blaknie, więc kilka pozycji
+  zwykle trzeba poprawić (aplikacja zapamiętuje poprawki). Paragon czytają tylko AI, które widzą
+  obrazy (Gemini, Claude, Mistral z modelem obsługującym zdjęcia); Groq nie. Gdy darmowy limit
+  Gemini się skończy, a nie ma innego klucza, odczyt pokaże błąd – spróbuj później.
 - **Wyszukiwanie po składnikach** działa na nazwach kanonicznych; „ser” znajdzie
   „ser żółty”, ale nie „serek”. Nazwę do wyszukiwania można poprawić w edycji przepisu.
