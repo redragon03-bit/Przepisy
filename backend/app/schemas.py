@@ -246,6 +246,11 @@ class ImageFromUrl(BaseModel):
     url: str
 
 
+class MoreImageCandidates(BaseModel):
+    skip: list[str] = []  # zdjęcia już pokazane
+    round: int = Field(1, ge=0, le=50)  # która prośba o "inne"
+
+
 class ImageSearchProgress(BaseModel):
     running: bool
     done: int

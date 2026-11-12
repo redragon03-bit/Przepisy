@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.12.1
+
+- Wybór zdjęcia przepisu: gdy żadne nie pasuje, są teraz przyciski „🔄 Pokaż inne” (szuka kolejnych,
+  innym zapytaniem i bez zdjęć, które już były) i „📷 Własne zdjęcie” (wgrywa zdjęcie z telefonu).
+  „Zamknij” chowa propozycje jak dawniej.
+
 ## 0.12.0
 
 - Ustawienia → Wygląd: własna wielkość tytułów, tekstu, składników i zakupów, małych napisów,

@@ -38,4 +38,4 @@ def no_image_search(monkeypatch):
 
     monkeypatch.setattr(image_search.web_search, "search_pages", lambda query: [])
     monkeypatch.setattr(image_search.ai, "search_recipe_pages", lambda title, names: [])
-    monkeypatch.setattr(image_search, "_openverse", lambda query, limit: [])
+    monkeypatch.setattr(image_search, "_openverse", lambda query, limit, page=1: [])

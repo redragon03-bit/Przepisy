@@ -149,6 +149,8 @@ export const api = {
   patchRecipe: (id: number, data: { favorite?: boolean; rating?: number; notes?: string }) =>
     request<Recipe>("PATCH", `/api/recipes/${id}`, data),
   imageCandidates: (id: number) => request<string[]>("GET", `/api/recipes/${id}/image-candidates`),
+  moreImageCandidates: (id: number, skip: string[], round: number) =>
+    request<string[]>("POST", `/api/recipes/${id}/image-candidates`, { skip, round }),
   setImageFromUrl: (id: number, url: string) => request<Recipe>("POST", `/api/recipes/${id}/image-from-url`, { url }),
   imageSearchStatus: () => request<ImageSearchProgress>("GET", "/api/recipes/image-search"),
   startImageSearch: () => request<ImageSearchProgress>("POST", "/api/recipes/image-search"),
