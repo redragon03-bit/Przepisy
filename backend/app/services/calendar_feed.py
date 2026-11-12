@@ -47,7 +47,7 @@ def _event(entry: MealPlanEntry, base_url: str, stamp: str) -> list[str]:
 
 def build(entries: list[MealPlanEntry], base_url: str) -> str:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Przepisy//Plan posilkow//PL",
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Smocza strawa//Plan posilkow//PL",
              "CALSCALE:GREGORIAN", "X-WR-CALNAME:Plan posiłków"]
     for entry in entries:
         lines += _event(entry, base_url, stamp)

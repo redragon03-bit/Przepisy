@@ -1,4 +1,6 @@
-# Przepisy 🍲
+# Smocza strawa 🐉🍲
+
+(Wcześniej „Przepisy” – repozytorium, slug dodatku `przepisy` i adresy zostają bez zmian.)
 
 Aplikacja do przechowywania przepisów. Wrzucasz link albo zdjęcie/screen, a aplikacja sama
 odczytuje przepis, tłumaczy go na polski, przelicza miary na metryczne i zapisuje jako
@@ -215,7 +217,7 @@ GitHub → Twój profil → *Packages* → `przepisy` → *Package settings* →
 
 1. *Ustawienia → Dodatki → Sklep z dodatkami → ⋮ (prawy górny róg) → Repozytoria*.
 2. Wklej `https://github.com/redragon03-bit/Przepisy` i dodaj.
-3. Odśwież stronę, znajdź dodatek **Przepisy**, zainstaluj.
+3. Odśwież stronę, znajdź dodatek **Smocza strawa**, zainstaluj.
 4. Zakładka *Konfiguracja*: ustaw `app_password` i klucz AI (`gemini_api_key` albo `anthropic_api_key`).
 5. Uruchom. Aplikacja działa pod `http://<adres-HA>:8000`.
 

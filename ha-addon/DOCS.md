@@ -1,4 +1,4 @@
-# Przepisy - dodatek Home Assistant
+# Smocza strawa - dodatek Home Assistant
 
 ## Opcje
 

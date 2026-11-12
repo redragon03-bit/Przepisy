@@ -1,7 +1,7 @@
 # Opis dodatku dla Home Assistant.
 # Dokumentacja: https://developers.home-assistant.io/docs/add-ons/configuration
-name: Przepisy
-version: "0.16.2"
+name: Smocza strawa
+version: "0.16.3"
 slug: przepisy
 description: Aplikacja z przepisami (PWA na telefon)
 url: https://github.com/redragon03-bit/Przepisy
@@ -18,8 +18,8 @@ ports:
   8000/tcp: 8000
   8443/tcp: 8443
 ports_description:
-  8000/tcp: Aplikacja Przepisy (http)
-  8443/tcp: Aplikacja Przepisy (https, gdy jest certyfikat)
+  8000/tcp: Aplikacja Smocza strawa (http)
+  8443/tcp: Aplikacja Smocza strawa (https, gdy jest certyfikat)
 # Certyfikat HTTPS z dodatku Tailscale leży w /ssl (patrz DOCS.md)
 map:
   - type: ssl

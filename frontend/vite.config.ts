@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
-        name: "Przepisy",
-        short_name: "Przepisy",
+        name: "Smocza strawa",
+        short_name: "Smocza strawa",
         description: "Moje przepisy",
         lang: "pl",
         start_url: "/",
@@ -21,7 +21,7 @@ export default defineConfig({
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         // Android: aplikacja pojawia się w menu "Udostępnij" (iPhone tego nie obsługuje)
         share_target: {
