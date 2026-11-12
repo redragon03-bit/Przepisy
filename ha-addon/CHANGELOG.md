@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.13.2
+
+- „Edytuj przepis” nie wisi już na „Ładowanie…”: gdy telefon zgubi połączenie (np. po powrocie
+  z galerii zdjęć), formularz otwiera się z przepisu zapamiętanego w telefonie, a jeśli go tam nie ma,
+  pokazuje komunikat i przycisk „Spróbuj ponownie”.
+- Odczyty z serwera są raz powtarzane po zerwanym połączeniu, zanim aplikacja pokaże błąd.
+
 ## 0.13.1
 
 - Podczas aktualizacji dodatku albo restartu Home Assistanta zamiast czarnego ekranu jest ekran
