@@ -6,6 +6,8 @@
   ekran logowania, obrazek „Udostępnij”, nazwa dodatku w Home Assistant). Zakładka
   „Przepisy” zostaje, bo to lista przepisów. Adres, slug dodatku i dane się nie zmieniają.
   Na iPhonie nazwa pod ikoną zmieni się dopiero po ponownym dodaniu do ekranu głównego.
+- Nowe logo: smok mieszający w kociołku (ikona na ekranie głównym, w karcie przeglądarki
+  i w Home Assistant).
 
 ## 0.16.2
 
