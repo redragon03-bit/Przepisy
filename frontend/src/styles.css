@@ -2102,3 +2102,43 @@ body:has(.fab) .back-to-top {
 .scale-summary {
   margin-top: 10px;
 }
+
+/* Ekran „Trwa aktualizacja” - serwer chwilowo niedostępny (aktualizacja dodatku, restart HA) */
+.server-down {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+}
+
+.server-down h1 {
+  margin: 0;
+}
+
+.server-down p {
+  max-width: 340px;
+  margin: 0;
+}
+
+.server-down button {
+  min-width: 220px;
+}
+
+.server-down-spinner {
+  font-size: 48px;
+  animation: server-down-spin 2s linear infinite;
+}
+
+@keyframes server-down-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

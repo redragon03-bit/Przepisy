@@ -2,6 +2,7 @@
 // Typy danych są generowane z backend/app/schemas.py do pliku api-types.ts
 // (python -m app.export_types) - tutaj nadajemy im krótsze nazwy używane w aplikacji.
 import type * as Api from "./api-types";
+import { isProxyError, reportServerProblem } from "./lib/serverStatus";
 
 export type IngredientLine = Api.IngredientLine;
 export type RecipeSummary = Api.RecipeSummary;
@@ -105,17 +106,25 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   } catch (e) {
     // Przerwanie przez nas (AbortController) przekazujemy dalej bez zmian
     if (signal?.aborted) throw e;
+    // Serwer wyłączony (np. aktualizacja dodatku) albo brak internetu - serverStatus sprawdzi, co to
+    reportServerProblem();
     // Safari pisze wtedy "Load failed", Chrome "Failed to fetch" - pokazujemy coś zrozumiałego
     throw new ApiError(0, "Brak połączenia z serwerem - spróbuj jeszcze raz.");
   }
   if (response.status === 401 && path !== "/api/auth/login") onUnauthorized();
   if (!response.ok) {
     let message = `Błąd ${response.status}`;
+    let detail: unknown;
     try {
-      const data = await response.json();
-      if (typeof data.detail === "string") message = data.detail;
+      detail = (await response.json()).detail;
+      if (typeof detail === "string") message = detail;
     } catch {
       // odpowiedź bez JSON - zostaje ogólny komunikat
+    }
+    // 502/503 od Tailscale/HA, gdy dodatek się aktualizuje - pokażemy ekran „Trwa aktualizacja”
+    if (isProxyError(response.status, detail)) {
+      reportServerProblem();
+      message = "Serwer jest chwilowo niedostępny - spróbuj za chwilę.";
     }
     throw new ApiError(response.status, message);
   }

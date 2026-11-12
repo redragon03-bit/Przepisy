@@ -13,7 +13,34 @@
     <title>Przepisy</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Zanim wczyta się aplikacja: jasne/ciemne tło jak w aplikacji zamiast czarnego ekranu.
+         Gdy skrypt aplikacji nie wczyta się w 10 s (serwer w trakcie aktualizacji), pokazujemy
+         „Trwa aktualizacja” i przeładowujemy stronę, gdy /api/health znów odpowie. -->
+    <style>
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 8px; padding: 24px; text-align: center; background: #fffaf5;
+        color: #6f6256; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      .boot strong { color: #2b2118; font-size: 22px; }
+      @media (prefers-color-scheme: dark) {
+        .boot { background: #1b1714; color: #b8a99c; }
+        .boot strong { color: #f3ebe4; }
+      }
+    </style>
+    <div id="root"><div class="boot" id="boot"><span id="boot-text">Ładowanie…</span></div></div>
+    <script>
+      setTimeout(function () {
+        var boot = document.getElementById("boot");
+        if (!boot) return; // aplikacja już działa
+        boot.innerHTML =
+          "<div style='font-size:48px'>🔄</div><strong>Trwa aktualizacja</strong>" +
+          "<span>Serwer aplikacji jest chwilowo niedostępny.<br>Strona odświeży się sama, gdy wróci.</span>";
+        setInterval(function () {
+          fetch("/api/health", { cache: "no-store" }).then(function (r) {
+            if (r.ok) location.reload();
+          }, function () {});
+        }, 3000);
+      }, 10000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
