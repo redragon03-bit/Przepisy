@@ -1,11 +1,17 @@
 # Zmiany
 
-## 0.12.1
+## 0.12.2
 
 - „Edytuj przepis” nie wisi już na „Ładowanie…”: gdy telefon zgubi połączenie (np. po powrocie
   z galerii zdjęć), formularz otwiera się z przepisu zapamiętanego w telefonie, a jeśli go tam nie ma,
   pokazuje komunikat i przycisk „Spróbuj ponownie”.
 - Odczyty z serwera są raz powtarzane po zerwanym połączeniu, zanim aplikacja pokaże błąd.
+
+## 0.12.1
+
+- Wybór zdjęcia przepisu: gdy żadne nie pasuje, są teraz przyciski „🔄 Pokaż inne” (szuka kolejnych,
+  innym zapytaniem i bez zdjęć, które już były) i „📷 Własne zdjęcie” (wgrywa zdjęcie z telefonu).
+  „Zamknij” chowa propozycje jak dawniej.
 
 ## 0.12.0
 

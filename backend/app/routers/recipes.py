@@ -15,6 +15,7 @@ from ..schemas import (
     ImageFromUrl,
     ImageSearchProgress,
     IngredientLine,
+    MoreImageCandidates,
     RecipeIn,
     RecipeOut,
     RecipePatch,
@@ -395,6 +396,13 @@ def image_candidates(recipe_id: int, db: Session = Depends(get_db)):
     # Użytkownik czeka na ekranie - zwracamy to, co uda się znaleźć w limicie czasu
     with ai.time_limit(ai.CHAT_SECONDS):
         return image_search.find_candidates(_get(db, recipe_id))
+
+
+@router.post("/{recipe_id}/image-candidates", response_model=list[str])
+def more_image_candidates(recipe_id: int, data: MoreImageCandidates, db: Session = Depends(get_db)):
+    """"Pokaż inne" - kolejne zdjęcia, bez tych, które już były pokazane."""
+    with ai.time_limit(ai.CHAT_SECONDS):
+        return image_search.find_candidates(_get(db, recipe_id), skip=data.skip[-60:], round_no=data.round)
 
 
 @router.post("/{recipe_id}/image-from-url", response_model=RecipeOut)

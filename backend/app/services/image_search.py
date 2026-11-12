@@ -16,6 +16,7 @@ nie do publikowania.
 import logging
 import threading
 import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, wait
 
 import httpx
@@ -41,11 +42,11 @@ def _page_image(url: str) -> str | None:
     return page.image_urls[0] if page.image_urls else None
 
 
-def _openverse(query: str, limit: int) -> list[str]:
+def _openverse(query: str, limit: int, page: int = 1) -> list[str]:
     try:
         response = httpx.get(
             "https://api.openverse.org/v1/images/",
-            params={"q": query, "page_size": limit, "mature": "false"},
+            params={"q": query, "page_size": limit, "page": page, "mature": "false"},
             headers=fetcher.HEADERS, timeout=15,
         )
         response.raise_for_status()
@@ -60,33 +61,54 @@ def _seconds_left() -> float | None:
     return None if deadline is None else deadline - time.monotonic()
 
 
-def find_candidates(recipe: Recipe, limit: int = 4) -> list[str]:
-    """Adresy zdjęć pasujących do przepisu, najlepsze pierwsze."""
+def _query(recipe: Recipe, round_no: int) -> str:
+    """Zapytanie do wyszukiwarki; każda kolejna runda ("Pokaż inne") pyta trochę inaczej."""
+    names = [ri.ingredient.name for ri in recipe.ingredients][:3]
+    variants = [
+        f"{recipe.title} przepis",
+        recipe.title,
+        f"{recipe.title} zdjęcie",
+        " ".join([recipe.title, *names]),
+        f"{recipe.title} jak zrobić",
+    ]
+    return variants[round_no % len(variants)]
+
+
+def find_candidates(recipe: Recipe, limit: int = 4, skip: Iterable[str] = (), round_no: int = 0) -> list[str]:
+    """Adresy zdjęć pasujących do przepisu, najlepsze pierwsze.
+
+    skip - zdjęcia już pokazane (pomijamy je), round_no - która to prośba o "inne".
+    """
     names = [ri.ingredient.name for ri in recipe.ingredients]
+    seen = set(skip)
     found: list[str] = []
-    pages = web_search.search_pages(f"{recipe.title} przepis")
-    if not pages and get_settings().ai_enabled:
+
+    def add(image: str | None) -> None:
+        if image and image not in seen and image not in found:
+            found.append(image)
+
+    pages = web_search.search_pages(_query(recipe, round_no))
+    if not pages and round_no == 0 and get_settings().ai_enabled:
         try:
             pages = ai.search_recipe_pages(recipe.title, names)
         except ai.AiError as exc:
             log.warning("Wyszukiwanie stron dla %r: %s", recipe.title, exc)
-    # Strony pobieramy naraz, nie po kolei - jedna wolna strona nie blokuje reszty
+    # Strony pobieramy naraz, nie po kolei - jedna wolna strona nie blokuje reszty.
+    # W kolejnych rundach bierzemy więcej stron, bo część zdjęć już była.
+    max_pages = MAX_PAGES if round_no == 0 else MAX_PAGES + 4
     pool = ThreadPoolExecutor(MAX_PAGES)
-    futures = [pool.submit(_page_image, url) for url in pages[:MAX_PAGES]]
+    futures = [pool.submit(_page_image, url) for url in pages[:max_pages]]
     left = _seconds_left()
     done, _ = wait(futures, timeout=None if left is None else max(0, left - 5))
     pool.shutdown(wait=False, cancel_futures=True)
     for future in futures:
-        image = future.result() if future in done and not future.exception() else None
-        if image and image not in found:
-            found.append(image)
+        add(future.result() if future in done and not future.exception() else None)
     if len(found) >= limit:
         return found[:limit]
     left = _seconds_left()
     if left is None or left > 5:
-        for image in _openverse(recipe.title, limit):
-            if image not in found:
-                found.append(image)
+        for image in _openverse(recipe.title, limit + len(seen), page=round_no + 1):
+            add(image)
     return found[:limit]
 
 

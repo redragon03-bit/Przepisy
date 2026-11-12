@@ -251,6 +251,11 @@ export interface MergeIn {
   others: string[];
 }
 
+export interface MoreImageCandidates {
+  skip?: string[];
+  round?: number;
+}
+
 export interface OwnPasswordIn {
   old_password: string;
   new_password: string;

@@ -463,3 +463,38 @@ test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async
   await expect(page.getByText("Ustawione teraz:")).toContainText("wszystko 100%");
   expect(await h1Size()).toBe("24px");
 });
+
+test("zdjęcie przepisu: gdy żadne nie pasuje, pokazuje inne albo bierze własne", async ({ page }) => {
+  const recipe = await addRecipe("Sernik bez zdjęcia", ["1 kg twarogu"], ["Upiecz."]);
+  const svg = (label: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><text y="20">${label}</text></svg>`)}`;
+  const first = ["a", "b", "c", "d"].map(svg);
+  const second = ["e", "f"].map(svg);
+  let asked: { skip: string[]; round: number } | null = null;
+  await page.route(`**/api/recipes/${recipe.id}/image-candidates`, (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: first });
+    asked = route.request().postDataJSON();
+    return route.fulfill({ json: asked!.round === 1 ? second : [] });
+  });
+  await login(page);
+  await page.goto(`/przepis/${recipe.id}`);
+  await page.getByRole("button", { name: "🔍 Znajdź zdjęcie w internecie" }).click();
+  await expect(page.locator(".candidates img")).toHaveCount(4);
+
+  // Kolejna partia - bez zdjęć, które już były
+  await page.getByRole("button", { name: "🔄 Pokaż inne" }).click();
+  await expect(page.locator(".candidates img")).toHaveCount(2);
+  expect(asked).toEqual({ skip: first, round: 1 });
+  // Gdy nic więcej nie ma, zostają ostatnie propozycje i podpowiedź
+  await page.getByRole("button", { name: "🔄 Pokaż inne" }).click();
+  await expect(page.getByText("Nie znalazłem już innych zdjęć")).toBeVisible();
+  await expect(page.locator(".candidates img")).toHaveCount(2);
+
+  // Własne zdjęcie z telefonu
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  await page.locator(".image-candidates input[type=file]").setInputFiles({ name: "sernik.png", mimeType: "image/png", buffer: png });
+  await expect(page.locator("img.hero")).toBeVisible();
+  await expect(page.locator(".image-candidates")).toHaveCount(0);
+});

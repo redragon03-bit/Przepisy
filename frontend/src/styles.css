@@ -766,6 +766,18 @@ span.drag-handle:not(.step-number) {
   aspect-ratio: 4 / 3;
 }
 
+.candidates.loading {
+  opacity: 0.4;
+}
+
+.candidates-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .candidates img {
   width: 100%;
   height: 100%;

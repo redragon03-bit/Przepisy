@@ -135,3 +135,18 @@ def test_web_search_is_tried_before_ai(client, monkeypatch):
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: (PAGE, url))
     recipe = client.post("/api/recipes", json={"title": "Pudding chia"}).json()
     assert client.get(f"/api/recipes/{recipe['id']}/image-candidates").json() == ["https://blog.example/chia.jpg"]
+
+
+def test_more_candidates_skip_shown_and_ask_differently(client, monkeypatch):
+    queries = []
+    pages = {"https://a.example/1": "https://a.example/1.jpg", "https://b.example/2": "https://b.example/2.jpg"}
+    monkeypatch.setattr(image_search.web_search, "search_pages", lambda q: queries.append(q) or list(pages))
+    monkeypatch.setattr(image_search, "_page_image", lambda url: pages[url])
+    monkeypatch.setattr(image_search, "_openverse", lambda q, limit, page=1: [f"https://ov.example/{page}.jpg"])
+    recipe = client.post("/api/recipes", json={"title": "Sernik"}).json()
+    first = client.get(f"/api/recipes/{recipe['id']}/image-candidates").json()
+    assert first[:2] == ["https://a.example/1.jpg", "https://b.example/2.jpg"]
+    more = client.post(f"/api/recipes/{recipe['id']}/image-candidates", json={"skip": first, "round": 1}).json()
+    # Już pokazane zdjęcia nie wracają, a wyszukiwarka dostaje inne zapytanie
+    assert more == ["https://ov.example/2.jpg"]
+    assert queries == ["Sernik przepis", "Sernik"]
