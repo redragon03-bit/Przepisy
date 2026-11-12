@@ -33,15 +33,19 @@ class IngredientLine(BaseModel):
     amount: float | None = None
     unit: str = ""
     original_text: str = ""
+    # Sekcja, np. "Krem do omleta" ('' = bez sekcji)
+    section: str = ""
 
 
 class StepOut(BaseModel):
     text: str
     image_url: str | None = None
+    section: str = ""
 
 
 class StepIn(BaseModel):
     text: str
+    section: str = ""
     # Nazwa pliku istniejącego obrazka kroku - żeby edycja go nie gubiła
     image: str | None = None
 
@@ -122,6 +126,24 @@ class RecipeIn(BaseModel):
     ingredients: list[IngredientLine] = []
     steps: list[StepIn] = []
     categories: list[str] = []
+
+
+class SectionsIn(BaseModel):
+    """Składniki i kroki z formularza edycji (także niezapisane) do podziału na sekcje."""
+
+    title: str = ""
+    ingredients: list[str]
+    steps: list[str]
+
+
+class SectionsOut(BaseModel):
+    """Propozycja AI: nowa kolejność (numery z formularza, od 0) i sekcja na każdej pozycji.
+    Każdy numer występuje dokładnie raz, więc nic z formularza nie ginie."""
+
+    ingredient_order: list[int]
+    ingredient_sections: list[str]
+    step_order: list[int]
+    step_sections: list[str]
 
 
 class RecipePatch(BaseModel):

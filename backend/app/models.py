@@ -119,6 +119,9 @@ class Step(Base):
     position: Mapped[int]
     text: Mapped[str] = mapped_column(Text)
     image: Mapped[str | None] = mapped_column(String(200))
+    # Sekcja, do której należy krok, np. "Kapusta" ('' = bez sekcji); nagłówek
+    # pokazujemy tam, gdzie sekcja zmienia się względem poprzedniego kroku
+    section: Mapped[str] = mapped_column(String(100), default="", server_default="")
 
     recipe: Mapped[Recipe] = relationship(back_populates="steps")
 
@@ -150,6 +153,8 @@ class RecipeIngredient(Base):
     unit: Mapped[str] = mapped_column(String(30), default="")
     # Linijka ze źródła przed tłumaczeniem, np. "1 1/2 cups all-purpose flour"
     original_text: Mapped[str] = mapped_column(String(500), default="")
+    # Sekcja składnika, np. "Krem do omleta" ('' = bez sekcji), jak przy krokach
+    section: Mapped[str] = mapped_column(String(100), default="", server_default="")
 
     recipe: Mapped[Recipe] = relationship(back_populates="ingredients")
     ingredient: Mapped[Ingredient] = relationship(lazy="joined")

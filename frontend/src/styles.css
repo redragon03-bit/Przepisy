@@ -589,6 +589,32 @@ span.drag-handle:not(.step-number) {
   margin-bottom: 8px;
 }
 
+/* Sekcje w składnikach i krokach (np. "Omlet", "Krem do omleta") */
+.section-title {
+  margin: calc(0.8rem * var(--s-space)) 0 calc(0.25rem * var(--s-space));
+  font-size: calc(1rem * var(--s-body));
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cooking-section {
+  margin-bottom: 0.25rem;
+}
+
+.section-row {
+  margin: 14px 0 6px;
+}
+
+.section-row input {
+  flex: 1;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.add-buttons {
+  flex-wrap: wrap;
+}
+
 /* Import */
 .jobs {
   list-style: none;

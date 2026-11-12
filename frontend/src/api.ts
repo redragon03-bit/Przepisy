@@ -185,6 +185,9 @@ export const api = {
   deleteCooked: (id: number, entryId: number) => request<Recipe>("DELETE", `/api/recipes/${id}/cooked/${entryId}`),
   substitute: (id: number, ingredient: string) =>
     request<{ text: string }>("POST", `/api/recipes/${id}/substitute`, { ingredient }),
+  // AI dzieli składniki i kroki z formularza na sekcje (nic nie zapisuje)
+  suggestSections: (data: { title: string; ingredients: string[]; steps: string[] }) =>
+    request<Api.SectionsOut>("POST", "/api/recipes/sections", data),
   createVariant: (id: number, wish: string) => request<Recipe>("POST", `/api/recipes/${id}/variant`, { wish }),
   uploadRecipeImage: (id: number, file: File) => {
     const form = new FormData();

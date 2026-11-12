@@ -521,3 +521,66 @@ test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", as
   await page.waitForTimeout(1000);
   await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
 });
+
+// Przeciągnięcie palcem (zdarzenia dotyku jak na iPhonie, nie myszą)
+async function touchDrag(page: Page, from: { x: number; y: number }, toY: number) {
+  const cdp = await page.context().newCDPSession(page);
+  const point = (y: number) => [{ x: from.x, y, id: 1 }];
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(from.y) });
+  const steps = 12;
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: point(from.y + ((toY - from.y) * i) / steps) });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+
+test("sekcje: kroki i składniki w sekcjach, przeciąganie kroku palcem", async ({ page }) => {
+  const { id } = await addRecipe("Ziemniaki z kapustą", ["1 kg ziemniaków", "500 g kapusty kiszonej"], [
+    "Odlej wodę i utłucz ziemniaki.",
+    "Ugotuj ziemniaki do miękkości.",
+    "Duś kapustę 30 min.",
+  ]);
+  await login(page);
+  await page.goto(`/przepis/${id}/edytuj`);
+  const stepFields = page.locator(".step-row textarea");
+  await expect(stepFields.first()).toHaveValue("Odlej wodę i utłucz ziemniaki.");
+
+  // Krok 1 przeciągnięty za numer pod krok 2
+  const handle = page.locator(".step-row .step-number").first();
+  await handle.scrollIntoViewIfNeeded();
+  const box = (await handle.boundingBox())!;
+  const second = (await page.locator(".step-row").nth(1).boundingBox())!;
+  await touchDrag(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 }, second.y + second.height * 0.8);
+  await expect(stepFields.first()).toHaveValue("Ugotuj ziemniaki do miękkości.");
+  await expect(stepFields.nth(1)).toHaveValue("Odlej wodę i utłucz ziemniaki.");
+
+  // Sekcja na końcu kroków, potem przeniesiona nad pierwszy krok
+  const addStepSection = page.locator(".add-buttons").nth(1).getByRole("button", { name: "+ Sekcja" });
+  await addStepSection.click();
+  await page.getByLabel("Nazwa sekcji").last().fill("Kapusta");
+  // Pusty krok dodany z sekcją usuwamy, a "Duś kapustę" (krok 3) przenosimy pod nagłówek
+  await page.locator(".step-row").last().getByRole("button", { name: "Usuń" }).click();
+  const third = page.locator(".step-row .step-number").nth(2);
+  await third.scrollIntoViewIfNeeded();
+  const thirdBox = (await third.boundingBox())!;
+  const heading = (await page.locator(".section-row").last().boundingBox())!;
+  await touchDrag(page, { x: thirdBox.x + thirdBox.width / 2, y: thirdBox.y + thirdBox.height / 2 }, heading.y + heading.height + 30);
+  await expect(page.locator(".step-row textarea").last()).toHaveValue("Duś kapustę 30 min.");
+
+  // Sekcja w składnikach
+  await page.locator(".add-buttons").first().getByRole("button", { name: "+ Sekcja" }).click();
+  await page.getByLabel("Nazwa sekcji").first().fill("Kapusta");
+  await page.getByPlaceholder("200 g mąki pszennej").last().fill("1 cebula");
+  await page.screenshot({ path: "test-results/sekcje-edycja.png", fullPage: true });
+
+  await page.getByRole("button", { name: "Zapisz" }).click();
+  await expect(page.getByRole("heading", { name: "Ziemniaki z kapustą" })).toBeVisible();
+  await expect(page.locator("h3.section-title", { hasText: "Kapusta" })).toHaveCount(2);
+  await expect(page.locator(".steps li p").first()).toHaveText("Ugotuj ziemniaki do miękkości.");
+  await page.screenshot({ path: "test-results/sekcje-przepis.png", fullPage: true });
+
+  // Po ponownym otwarciu edycji sekcje wracają jako nagłówki
+  await page.goto(`/przepis/${id}/edytuj`);
+  await expect(page.getByLabel("Nazwa sekcji")).toHaveCount(2);
+});

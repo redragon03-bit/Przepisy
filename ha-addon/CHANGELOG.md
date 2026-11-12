@@ -1,5 +1,18 @@
 # Zmiany
 
+## 0.14.0
+
+- Sekcje w składnikach i krokach, np. „Omlet” i „Krem do omleta”: w edycji przyciski
+  „+ Sekcja” pod składnikami i krokami, nagłówek sekcji przeciąga się za ⠿ jak składnik.
+  Przepis i tryb gotowania pokazują składniki i kroki pogrupowane, więc każdą część
+  można przygotować na blacie osobno.
+- Import przez AI sam dzieli przepis na części (gdy danie je ma).
+- Stare przepisy: w edycji „✨ Podziel składniki i kroki na sekcje (AI)” – AI grupuje
+  składniki i kroki i poprawia wyraźnie złą kolejność kroków. Nic się nie zapisuje
+  bez „Zapisz”.
+- Przeciąganie kroków i składników na iPhonie: strona nie przewija się w trakcie
+  przeciągania, a palec nie „gubi” wiersza przy przechodzeniu przez nagłówek sekcji.
+
 ## 0.13.2
 
 - „Edytuj przepis” nie wisi już na „Ładowanie…”: gdy telefon zgubi połączenie (np. po powrocie

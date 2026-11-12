@@ -57,11 +57,16 @@ class AiIngredient(BaseModel):
     amount: float | None = Field(description="Ilość jako liczba w jednostce `unit`, null gdy brak")
     unit: str = Field(description="g, kg, ml, l, szt., łyżka, łyżeczka, szczypta, ząbek, opakowanie albo ''")
     original_text: str = Field(description="Linijka dokładnie tak, jak w źródle")
+    section: str = Field(
+        default="",
+        description="Część dania, do której należy składnik, np. 'Ciasto', 'Krem', 'Sos'; '' gdy przepis nie ma części",
+    )
 
 
 class AiStep(BaseModel):
     text: str = Field(description="Treść kroku po polsku, temperatury w °C")
     image_index: int | None = Field(description="Numer obrazka (z listy obrazków) pokazującego ten krok, albo null")
+    section: str = Field(default="", description="Część dania, której dotyczy krok (jak przy składnikach), albo ''")
 
 
 class AiRecipe(BaseModel):
@@ -105,6 +110,10 @@ możesz zostawić, np. "Carbonara".
 - Kroki zapisz jako krótkie, jasne polecenia, jeden krok = jedna czynność lub etap. \
 Nie wymyślaj kroków, których nie ma w źródle.
 - Nie dodawaj składników, których nie ma w źródle.
+- Gdy danie ma kilka części (np. ciasto i krem, mięso i sos, ziemniaki i kapusta), podaj \
+w polu section krótką nazwę części (z dużej litery, np. "Krem do omleta") przy każdym jej \
+składniku i kroku, składniki i kroki tej samej części trzymaj razem, a kroki ułóż w kolejności \
+gotowania. Gdy źródło ma takie nagłówki, użyj ich. Proste danie bez części: section "".
 - Obrazki są ponumerowane od 0. Wskaż zdjęcie gotowego dania i - jeśli są - zdjęcia \
 pokazujące konkretne kroki. Gdy nie masz pewności, daj null.
 - Jeśli materiał zawiera kilka osobnych przepisów (np. "5 pomysłów na..."), zwróć każdy \
@@ -398,7 +407,8 @@ prośbę o wariant (np. "wersja wege", "na 8 osób", "bez laktozy"). Zwróć ca�
 przepis: zmień tylko to, czego wymaga prośba, resztę zostaw jak w oryginale. Po polsku, \
 miary metryczne, temperatury w °C, original_text jak text, original_language "pl", \
 obrazki null, kategorie jak w oryginale (chyba że prośba je zmienia). Tytuł jak oryginał \
-z dopiskiem wariantu, np. "Gulasz (wege)". Przelicz kalorie na porcję."""
+z dopiskiem wariantu, np. "Gulasz (wege)". Przelicz kalorie na porcję. Części dania \
+([nazwa] w przepisie) przepisz do pól section."""
 
 
 def variant(recipe_text: str, wish: str) -> AiVariant:
@@ -572,3 +582,32 @@ def promo_ideas(promotions: str, own_titles: list[str], wishes: str, categories:
     ideas = _ask_provider([text], PROMO_IDEAS_PROMPT, AiPromoIdeas)
     ideas.text = clean_text(ideas.text)
     return ideas
+
+
+class AiSectionItem(BaseModel):
+    index: int = Field(description="Numer składnika albo kroku z listy (od 0)")
+    section: str = Field(description="Nazwa części dania, np. 'Krem do omleta'; '' gdy bez części")
+
+
+class AiSections(BaseModel):
+    ingredients: list[AiSectionItem] = Field(description="Wszystkie składniki, pogrupowane częściami")
+    steps: list[AiSectionItem] = Field(description="Wszystkie kroki w kolejności gotowania, pogrupowane częściami")
+
+
+SECTIONS_PROMPT = """Jesteś asystentem kulinarnym. Dostajesz ponumerowane składniki i kroki \
+przepisu. Podziel je na części dania (np. "Ciasto" i "Krem", "Ziemniaki" i "Kapusta", \
+"Mięso" i "Sos"), żeby kucharz mógł przygotować na blacie składniki każdej części osobno. \
+Nazwy części: krótkie, po polsku, z dużej litery. Każdy składnik i każdy krok podaj dokładnie \
+raz, z jego numerem. Składniki tej samej części trzymaj razem. Kroki ułóż w kolejności \
+gotowania (popraw kolejność, jeśli jest wyraźnie błędna, np. tłuczenie ziemniaków przed \
+ich gotowaniem) i trzymaj razem kroki tej samej części, chyba że kolejność gotowania wymaga \
+przeplatania. Składnik lub krok wspólny dla całości (np. podanie) może mieć osobną część, \
+np. "Podanie". Gdy danie naprawdę nie ma części, daj wszędzie section ""."""
+
+
+def sections(title: str, ingredients: list[str], steps: list[str]) -> AiSections:
+    """Podział składników i kroków na części dania (formularz edycji, użytkownik czeka)."""
+    text = (f"Danie: {title}\nSkładniki:\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(ingredients))
+            + "\nKroki:\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(steps)))
+    with time_limit(CHAT_SECONDS):
+        return _ask_provider([text], SECTIONS_PROMPT, AiSections)
