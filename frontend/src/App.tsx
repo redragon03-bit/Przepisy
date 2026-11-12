@@ -2,6 +2,7 @@ import { MouseEvent, useEffect, useLayoutEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
 import { api, AuthStatus, savedAuth, saveAuth, setUnauthorizedHandler } from "./api";
 import BackToTop from "./components/BackToTop";
+import ServerDownScreen from "./components/ServerDownScreen";
 import Sheet from "./components/Sheet";
 import TimersBar from "./components/TimersBar";
 import { scrollToTop } from "./lib/navigation";
@@ -88,11 +89,24 @@ export default function App() {
     );
   }, []);
 
-  if (!auth) return <div className="center muted">{offline ? "Brak połączenia z serwerem." : "Ładowanie…"}</div>;
-  if (!auth.authenticated) return <LoginPage onLogin={refreshAuth} />;
+  if (!auth)
+    return (
+      <>
+        <div className="center muted">{offline ? "Brak połączenia z serwerem." : "Ładowanie…"}</div>
+        <ServerDownScreen />
+      </>
+    );
+  if (!auth.authenticated)
+    return (
+      <>
+        <LoginPage onLogin={refreshAuth} />
+        <ServerDownScreen />
+      </>
+    );
 
   return (
     <>
+      <ServerDownScreen />
       <main className="page">
         <Routes>
           <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />
