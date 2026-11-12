@@ -76,6 +76,9 @@ kategorii można je nadać przyciskiem „Przypisz kategorie automatycznie” na
 | Zamienniki składników (przytrzymaj składnik) | `POST .../substitute` | `components/recipe/SubstituteSheet.tsx` |
 | Spiżarnia z terminami (Zakupy → „W domu”): działy, „Zużyj najpierw”, „Zużyte” gestem; używana w „Co ugotuję?”, znacznikach „brak”, czacie i planie od AI | `routers/pantry.py`, `services/kitchen.py`, `services/matching.py` | `components/PantryView.tsx`, `components/ExpirySheet.tsx`, `pages/CookPage.tsx` |
 | Paragon → spiżarnia: zdjęcie (1–3 części) czyta AI w tle, użytkownik sprawdza listę; poprawione nazwy zapamiętane per sklep (`ReceiptAlias`). Domyślnie wyłączone, przełącznik per konto (`AppSetting receipts:<konto>`), limit 10 dziennie; zdjęć nie zapisujemy | `routers/receipts.py`, `services/receipts.py`, `ai.receipt_from_images` | `components/ReceiptSheet.tsx`, `pages/SettingsPage.tsx` |
+| Sekcje w składnikach i krokach („Ciasto”, „Krem”): w edycji „+ Sekcja” i „✨ Podziel na sekcje (AI)”, przegląd starych przepisów w Ustawieniach → Porządki | `routers/recipes.py` (`/sections`), `ai.sections` | `pages/EditRecipePage.tsx`, `pages/SectionsReviewPage.tsx` |
+| Zdjęcie przepisu: z telefonu albo z internetu; „Pokaż inne” szuka kolejnych, „Własne zdjęcie” wgrywa z telefonu | `GET .../image-candidates`, `POST .../image-from-url` | `components/recipe/ImageCandidates.tsx` |
+| Ekran „Trwa aktualizacja”, gdy serwer jest chwilowo niedostępny (sam sprawdza co kilka sekund) | – | `components/ServerDownScreen.tsx`, `lib/serverStatus.ts` |
 | Czytanie kroków na głos (🔊 w trybie gotowania, głos telefonu) | – | `lib/speech.ts` |
 | Udostępnianie jako obrazek (rysowany w telefonie) | – | `lib/shareImage.ts` |
 | Przeliczanie porcji | `services/shopping.py` (`scale_text`) | `lib/scale.ts` |
