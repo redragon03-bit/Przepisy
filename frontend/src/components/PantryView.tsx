@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, PantryItem } from "../api";
 import { sendChanges } from "../lib/offlineShopping";
+import { findSame } from "../lib/similar";
 import { useToast } from "../lib/toast";
 import { forgetPantry } from "../lib/usePantry";
 import ExpirySheet, { expiresLabel, inDays, USE_FIRST_DAYS } from "./ExpirySheet";
@@ -37,6 +38,9 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
     const name = text.trim();
     if (!name) return;
     setText("");
+    // Ten sam produkt pod inną nazwą ("kurczak piersi" przy "pierś z kurczaka") - nie dublujemy
+    const have = findSame(name, items ?? [], (i) => i.name);
+    if (have) return toast(`Już masz w domu: ${have.name}`);
     const list = await run(() => api.addToPantry([name]));
     if (list) setItems(list);
   };
@@ -88,6 +92,14 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Dopisz, co masz, np. jajka" enterKeyHint="done" autoCapitalize="none" />
         <button disabled={!text.trim()}>Dodaj</button>
       </form>
+      {(() => {
+        const have = findSame(text, items ?? [], (i) => i.name);
+        return have && (
+          <p className="similar-hint small">
+            Już masz w domu: <b>{have.name}</b>
+          </p>
+        );
+      })()}
       {receipts && (
         <>
           <button type="button" className="wide" onClick={() => fileInput.current?.click()}>

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser
 from ..models import Ingredient, MemberMark, MemberPantry, Recipe
-from .ingredients import get_or_create_ingredient
+from .ingredients import find_ingredient, get_or_create_ingredient
 
 OWNER = CurrentUser(None, "")
 
@@ -99,24 +99,28 @@ def set_pantry(db: Session, user: CurrentUser, names: set[str]) -> None:
         db.add(MemberPantry(user_id=user.id, ingredient=get_or_create_ingredient(db, name)))
 
 
-def add_to_pantry(db: Session, user: CurrentUser, names: list[str], create: bool = False) -> None:
+def add_to_pantry(db: Session, user: CurrentUser, names: list[str], create: bool = False) -> dict[str, str]:
     """Dopisuje składniki do spiżarni (kupione z listy zakupów, z paragonu).
 
-    Bez `create` tylko istniejące składniki; z `create` nowe nazwy też zakładamy.
+    Bez `create` tylko istniejące składniki; z `create` nowe nazwy też zakładamy, a podobna
+    nazwa ('pierś z kurczaka' przy 'kurczak piersi') trafia do istniejącego składnika.
+    Zwraca, pod jaką nazwą trafił każdy produkt.
     """
     if create:
-        ingredients = [get_or_create_ingredient(db, name) for name in dict.fromkeys(names)]
+        found = {name: find_ingredient(db, name) or get_or_create_ingredient(db, name) for name in dict.fromkeys(names)}
     else:
-        ingredients = db.query(Ingredient).filter(Ingredient.name.in_(names)).all()
+        found = {i.name: i for i in db.query(Ingredient).filter(Ingredient.name.in_(names))}
+    ingredients = list({i.id: i for i in found.values()}.values())
     if user.id is None:
         for ingredient in ingredients:
             ingredient.in_pantry = True
-        return
-    have = {p.ingredient_id for p in db.query(MemberPantry).filter_by(user_id=user.id)}
-    for ingredient in ingredients:
-        if ingredient.id not in have:
-            db.add(MemberPantry(user_id=user.id, ingredient_id=ingredient.id))
-            have.add(ingredient.id)
+    else:
+        have = {p.ingredient_id for p in db.query(MemberPantry).filter_by(user_id=user.id)}
+        for ingredient in ingredients:
+            if ingredient.id not in have:
+                db.add(MemberPantry(user_id=user.id, ingredient_id=ingredient.id))
+                have.add(ingredient.id)
+    return {name: ingredient.name for name, ingredient in found.items()}
 
 
 def remove_from_pantry(db: Session, user: CurrentUser, names: list[str]) -> list[str]:

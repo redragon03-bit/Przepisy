@@ -65,8 +65,9 @@ def find_ingredient(db: Session, name: str) -> Ingredient | None:
     exact = db.query(Ingredient).filter_by(name=name).one_or_none()
     if exact is not None:
         return exact
-    first = fold(name)[:3]
-    candidates = [i for i in db.query(Ingredient).all() if fold(i.name).startswith(first)]
+    # Wstępne sito: wspólny początek któregoś wyrazu (szyk bywa różny: 'kurczak piersi' i 'pierś z kurczaka')
+    starts = {w[:3] for w in _words(name)}
+    candidates = [i for i in db.query(Ingredient).all() if starts & {w[:3] for w in _words(i.name)}]
     return next((i for i in sorted(candidates, key=lambda i: i.id) if similar(name, i.name)), None)
 
 
@@ -80,10 +81,29 @@ def _similar_word(a: str, b: str) -> bool:
     return common >= 4 and common >= min(len(a), len(b)) - 1 and max(len(a), len(b)) - common <= 3
 
 
+# Krótkie wyrazy, które nie zmieniają produktu: "pierś z kurczaka" = "pierś kurczaka"
+_FILLER = {"z", "ze", "do", "w", "we", "na", "i", "o", "od", "dla", "bez"}
+
+
+def _words(name: str) -> list[str]:
+    return [w for w in re.split(r"[^a-z0-9]+", fold(name)) if w and w not in _FILLER]
+
+
 def similar(a: str, b: str) -> bool:
-    """Czy dwie nazwy składników to prawdopodobnie ten sam produkt (do potwierdzenia przez użytkownika)."""
-    words_a, words_b = fold(a).split(), fold(b).split()
-    return len(words_a) == len(words_b) and all(_similar_word(x, y) for x, y in zip(words_a, words_b, strict=True))
+    """Czy dwie nazwy składników to prawdopodobnie ten sam produkt (do potwierdzenia przez użytkownika).
+
+    Odmiana i szyk wyrazów się nie liczą: 'kurczak piersi' i 'pierś z kurczaka' to to samo.
+    """
+    words_a, words_b = _words(a), _words(b)
+    if not words_a or len(words_a) != len(words_b):
+        return False
+    left = list(words_b)
+    for word in words_a:
+        match = next((other for other in left if _similar_word(word, other)), None)
+        if match is None:
+            return False
+        left.remove(match)
+    return True
 
 
 def group_similar(names: list[str]) -> list[list[str]]:

@@ -6,6 +6,7 @@ import SwipeRow from "../components/SwipeRow";
 import { usePromoBadges } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { forgetPantry } from "../lib/usePantry";
+import { findSame, sameProduct } from "../lib/similar";
 import { applyChange, cachedItems, cacheItems, Change, pendingChanges, queueChange, sendChanges } from "../lib/offlineShopping";
 import { useToast } from "../lib/toast";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
@@ -21,6 +22,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
   const [savedView, setSavedView] = useRemembered<"list" | "pantry">("shopping-view", "list");
   const view = params.get("widok") === "dom" ? "pantry" : savedView;
   const [pantryCount, setPantryCount] = useState<number | null>(null);
+  const [pantryNames, setPantryNames] = useState<string[]>([]);
   const [receipts, setReceipts] = useRemembered<boolean>("receipts-enabled", false);
   const [items, setItemsState] = useState<ShoppingItem[] | null>(cachedItems);
   const [text, setText] = useState("");
@@ -48,8 +50,14 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
     }
   };
 
+  const loadPantry = () =>
+    api.getPantry().then((names) => {
+      setPantryNames(names);
+      setPantryCount(names.length);
+    }, () => undefined);
+
   useEffect(() => {
-    api.getPantry().then((names) => setPantryCount(names.length), () => undefined);
+    loadPantry();
     api.receiptSettings().then((r) => setReceipts(r.enabled && r.ai_enabled), () => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,7 +87,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       // Odhaczenie i dopisanie zmieniają spiżarnię - znaczniki "brak" liczymy od nowa
       if (sent) {
         forgetPantry();
-        api.getPantry().then((names) => setPantryCount(names.length), () => undefined);
+        loadPantry();
       }
       // Nowa pozycja dostaje od serwera numer i dział sklepu
       if (sent && c.op === "add") refresh();
@@ -94,11 +102,43 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
     }
   };
 
+  // Ten sam produkt już jest na liście ("Kurczak piersi" przy "Pierś z kurczaka") - nie dublujemy go
+  const same = findSame(text, items ?? [], (i) => i.text);
+  const inPantry = same ? undefined : findSame(text, pantryNames, (n) => n);
+
+  const addNew = () => {
+    change({ op: "add", id: -Date.now(), text: text.trim() });
+    setText("");
+  };
+
   const add = (e: FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
-    change({ op: "add", id: -Date.now(), text: text.trim() });
+    if (!same) return addNew();
     setText("");
+    if (same.checked) {
+      // Kupione wcześniej - wraca na listę (i znika ze spiżarni)
+      change({ op: "check", id: same.id, checked: false });
+      toast(`Z powrotem na liście: ${same.text}`);
+    } else {
+      toast(`Już jest na liście: ${same.text}`);
+    }
+  };
+
+  // Podobne pozycje, które już są na liście (np. jedna z przepisu, druga dopisana w HA)
+  const twins = (() => {
+    const open = (items ?? []).filter((i) => !i.checked && i.id > 0);
+    for (const [index, first] of open.entries()) {
+      const second = open.slice(index + 1).find((other) => sameProduct(first.text, other.text));
+      if (second) return [first, second];
+    }
+    return null;
+  })();
+
+  // Zostaje pozycja z przepisu (ma ilość i nazwę składnika), a jak obie są dopisane - starsza
+  const mergeTwins = ([first, second]: ShoppingItem[]) => {
+    const [keep, drop] = second.recipes && !first.recipes ? [second, first] : [first, second];
+    removeLater(`Połączono: zostaje „${keep.text}”`, [drop], [{ op: "delete", id: drop.id }]);
   };
 
   // Usunięcie z "Cofnij": pozycja znika od razu, a naprawdę usuwamy ją po kilku sekundach
@@ -206,6 +246,29 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Dopisz, np. papier do pieczenia" enterKeyHint="done" />
         <button disabled={!text.trim()}>Dodaj</button>
       </form>
+      {same ? (
+        <p className="similar-hint small">
+          {same.checked ? "Już kupione" : "Już jest na liście"}: <b>{same.text}</b>
+          {same.checked ? " - Dodaj przywróci to na listę." : " - Dodaj go nie zdubluje."}{" "}
+          <button type="button" className="link" onClick={addNew}>
+            Dodaj osobno
+          </button>
+        </p>
+      ) : (
+        inPantry && (
+          <p className="similar-hint small">
+            Masz w domu: <b>{inPantry}</b> - po dopisaniu zniknie ze spiżarni.
+          </p>
+        )
+      )}
+      {twins && !text.trim() && (
+        <p className="similar-hint small">
+          „{twins[0].text}” i „{twins[1].text}” to chyba to samo.{" "}
+          <button type="button" className="link" onClick={() => mergeTwins(twins)}>
+            Połącz
+          </button>
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p className="muted center">Lista jest pusta. W przepisie stuknij „⋯” → „Do zakupów”.</p>

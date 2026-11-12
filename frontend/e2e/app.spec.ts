@@ -133,6 +133,29 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
   await expect(page.getByText("2 pomidory")).toBeVisible();
 });
 
+test("lista zakupów: podobna pozycja nie dubluje się, a dwie podobne można połączyć", async ({ page }) => {
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  await server.post("/api/shopping", { data: { text: "Pierś z kurczaka" } });
+  await server.post("/api/shopping", { data: { text: "Kurczak piersi" } });
+  await login(page);
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  // Dwie podobne już na liście (np. jedna z HA) - podpowiedź „Połącz”
+  await expect(page.getByText("to chyba to samo")).toBeVisible();
+  await page.screenshot({ path: "test-results/podobne-polacz.png" });
+  await page.getByRole("button", { name: "Połącz" }).click();
+  await expect(page.getByText("Połączono: zostaje „Pierś z kurczaka”")).toBeVisible();
+  await expect(page.getByText("Kurczak piersi")).toHaveCount(0);
+
+  // Dopisanie tego samego produktu inaczej nazwanego nie tworzy duplikatu
+  const input = page.getByPlaceholder("Dopisz, np. papier do pieczenia");
+  await input.fill("kurczak piersi 1 kg");
+  await expect(page.getByText("Już jest na liście:")).toBeVisible();
+  await page.screenshot({ path: "test-results/podobne-podpowiedz.png" });
+  await page.getByRole("button", { name: "Dodaj", exact: true }).click();
+  await expect(page.getByText("Już jest na liście: Pierś z kurczaka")).toBeVisible();
+  await expect(page.locator(".checklist .item-text")).toHaveText(["Pierś z kurczaka"]);
+});
+
 test("lista zakupów działa bez internetu", async ({ page, context }) => {
   await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
   await login(page);
@@ -676,6 +699,6 @@ test("paragon: włączony w Ustawieniach, AI odczytuje, poprawiasz nazwę i doda
   await sheet.getByRole("button", { name: "Dodaj 2 do spiżarni" }).click();
   await expect(page.getByText("Dodano do spiżarni: 2")).toBeVisible();
   await expect(page.locator(".swipe-row", { hasText: "ser żółty" })).toBeVisible();
-  await expect(page.locator(".swipe-row", { hasText: "mleko" })).toContainText("za 5 dni");
+  await expect(page.locator(".swipe-row", { hasText: "mlek" })).toContainText("za 5 dni");
   await page.screenshot({ path: "test-results/w-domu.png" });
 });
