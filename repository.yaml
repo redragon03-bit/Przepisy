@@ -1,5 +1,5 @@
 # Dzięki temu plikowi to repozytorium można dodać w Home Assistant jako
 # "repozytorium dodatków" (Ustawienia -> Dodatki -> Sklep -> ⋮ -> Repozytoria).
-name: Przepisy
+name: Smocza strawa
 url: https://github.com/redragon03-bit/Przepisy
 maintainer: Dariusz

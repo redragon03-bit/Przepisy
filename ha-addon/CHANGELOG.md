@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.16.3
+
+- Nowa nazwa aplikacji: **Smocza strawa** (ikona na ekranie głównym, tytuł karty,
+  ekran logowania, obrazek „Udostępnij”, nazwa dodatku w Home Assistant). Zakładka
+  „Przepisy” zostaje, bo to lista przepisów. Adres, slug dodatku i dane się nie zmieniają.
+  Na iPhonie nazwa pod ikoną zmieni się dopiero po ponownym dodaniu do ekranu głównego.
+
 ## 0.16.2
 
 - Sekcje składników zawsze razem: gdy AI zostawi składniki przemieszane, aplikacja sama

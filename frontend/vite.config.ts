@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon.png"],
       manifest: {
-        name: "Przepisy",
-        short_name: "Przepisy",
+        name: "Smocza strawa",
+        short_name: "Smocza strawa",
         description: "Moje przepisy",
         lang: "pl",
         start_url: "/",

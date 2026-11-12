@@ -102,7 +102,7 @@ async function draw(card: Card): Promise<Blob> {
   }
   ctx.font = `24px ${FONT}`;
   ctx.fillStyle = COLORS.muted;
-  ctx.fillText("z aplikacji Przepisy", PADDING, canvas.height - PADDING / 2 - 24);
+  ctx.fillText("z aplikacji Smocza strawa", PADDING, canvas.height - PADDING / 2 - 24);
   return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Nie udało się zrobić obrazka"))), "image/png"));
 }
 

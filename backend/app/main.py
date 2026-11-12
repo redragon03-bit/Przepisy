@@ -50,7 +50,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Przepisy", lifespan=lifespan)
+app = FastAPI(title="Smocza strawa", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(recipes.router)
 app.include_router(ingredients.router)

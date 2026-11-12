@@ -18,7 +18,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <form className="page login" onSubmit={submit}>
-      <h1>🍲 Przepisy</h1>
+      <h1>🐉 Smocza strawa</h1>
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
