@@ -1,5 +1,14 @@
 # Zmiany
 
+## 0.16.2
+
+- Sekcje składników zawsze razem: gdy AI zostawi składniki przemieszane, aplikacja sama
+  je grupuje, więc np. „Sos” nie pojawia się dwa razy (przegląd sekcji, przycisk w edycji
+  i import). AI dostało też wyraźniejsze polecenie: każda część raz, bez części z jednym
+  drobnym składnikiem.
+- Przepisy już zapisane z rozbitą sekcją wracają do przeglądu w Ustawienia → Porządki →
+  „🧩 Podziel przepisy na sekcje”.
+
 ## 0.16.1
 
 - Ten sam produkt pod inną nazwą się nie dubluje: „Kurczak piersi” i „Pierś z kurczaka”,

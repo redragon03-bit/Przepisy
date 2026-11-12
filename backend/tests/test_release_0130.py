@@ -94,3 +94,36 @@ def test_sections_review_flow(client, monkeypatch):
     # Propozycja do innej liczby kroków (przepis zmieniony w międzyczasie) jest odrzucana
     bad = {**proposal, "step_order": [0, 1], "step_sections": ["", ""]}
     assert client.put(f"/api/recipes/{plain['id']}/sections", json=bad).status_code == 409
+
+
+def test_ingredient_sections_are_grouped(client, monkeypatch):
+    # AI zostawia przemieszane: Makaron, Sos, Dodatki, Sos, Dodatki - "Sos" ma wystąpić raz
+    names = ["Makaron", "Sos", "Dodatki", "Sos", "Sos", "Dodatki"]
+    monkeypatch.setattr(ai, "sections", lambda title, ingredients, steps: ai.AiSections(
+        ingredients=[ai.AiSectionItem(index=i, section=n) for i, n in enumerate(names)],
+        steps=[ai.AiSectionItem(index=0, section="Sos"), ai.AiSectionItem(index=1, section="Makaron"),
+               ai.AiSectionItem(index=2, section="Sos")],
+    ))
+    r = client.post("/api/recipes/sections", json={"ingredients": list("abcdef"), "steps": ["x", "y", "z"]}).json()
+    assert r["ingredient_sections"] == ["Makaron", "Sos", "Sos", "Sos", "Dodatki", "Dodatki"]
+    assert r["ingredient_order"] == [0, 1, 3, 4, 2, 5]
+    # Kroki mogą się przeplatać (kolejność gotowania), więc ich nie grupujemy
+    assert r["step_sections"] == ["Sos", "Makaron", "Sos"]
+
+
+def test_split_ingredient_section_comes_back_to_review(client):
+    form = _form()
+    form["ingredients"] = [
+        {"text": t, "name": "", "section": sec}
+        for t, sec in [("makaron", "Makaron"), ("oliwa", "Sos"), ("szynka", "Dodatki"), ("ser", "Sos")]
+    ]
+    form["title"] = "Makaron z sosem"
+    recipe = client.post("/api/recipes", json=form).json()
+    todo = [r["title"] for r in client.get("/api/recipes/sections/todo").json()]
+    assert "Makaron z sosem" in todo and "Omlet z kremem" not in todo
+    # Zapis propozycji i tak grupuje składniki
+    saved = client.put(f"/api/recipes/{recipe['id']}/sections", json={
+        "ingredient_order": [0, 1, 2, 3], "ingredient_sections": ["Makaron", "Sos", "Dodatki", "Sos"],
+        "step_order": [0, 1, 2], "step_sections": ["", "", ""],
+    }).json()
+    assert [i["text"] for i in saved["ingredients"]] == ["makaron", "oliwa", "ser", "szynka"]

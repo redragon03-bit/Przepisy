@@ -49,7 +49,12 @@ def save_ai_recipe(db: Session, data: ai.AiRecipe, source_type: str, source_url:
     )
     main = _pick(image_sources, data.main_image_index)
     recipe.image = load_image(main) if main is not None else None
-    for position, item in enumerate(data.ingredients):
+    # Składniki tej samej sekcji razem, nawet gdy AI je przemiesza (np. "Sos" tylko raz)
+    first: dict[str, int] = {}
+    for item in data.ingredients:
+        first.setdefault(item.section.strip(), len(first))
+    ingredients = sorted(data.ingredients, key=lambda item: first[item.section.strip()])
+    for position, item in enumerate(ingredients):
         recipe.ingredients.append(RecipeIngredient(
             position=position,
             text=item.text,
