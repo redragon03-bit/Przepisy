@@ -1,6 +1,7 @@
 """API spiżarni: produkty, które są teraz w domu, i do kiedy trzeba je zużyć.
 
-Spiżarnię widać w "Co ugotuję?", lista zakupów pomija te produkty,
+Spiżarnię widać w Zakupach (widok "W domu") i w "Co ugotuję?". Odhaczenie na liście
+zakupów dopisuje produkt do spiżarni, a dopisanie do listy - usuwa. Lista zakupów pomija te produkty,
 a czat i plan od AI biorą je pod uwagę (najpierw te, którym kończy się termin).
 """
 
@@ -9,16 +10,25 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser, current_user, require_auth
 from ..database import get_db
-from ..schemas import PantryExpiresIn, PantryIn, PantryItem
+from ..schemas import PantryExpiresIn, PantryIn, PantryItem, PantryNamesIn
 from ..services import kitchen
+from ..services.aisles import aisle, aisle_order
 from ..services.ingredients import normalize_name
 from ..services.shopping import pantry_names
 
 router = APIRouter(prefix="/api/pantry", tags=["spiżarnia"], dependencies=[Depends(require_auth)])
 
 
+AISLE_ORDER = {name: index for index, name in enumerate(aisle_order())}
+
+
+def pantry_item(name: str, expires) -> PantryItem:
+    shelf = aisle(name)
+    return PantryItem(name=name, expires=expires, aisle=shelf, aisle_order=AISLE_ORDER[shelf])
+
+
 def _items(db: Session, user: CurrentUser) -> list[PantryItem]:
-    return [PantryItem(name=name, expires=expires) for name, expires in kitchen.pantry(db, user)]
+    return [pantry_item(name, expires) for name, expires in kitchen.pantry(db, user)]
 
 
 @router.get("", response_model=list[str])
@@ -45,5 +55,21 @@ def set_expires(data: PantryExpiresIn, db: Session = Depends(get_db), user: Curr
     """Ustawia (albo usuwa, gdy null) termin zużycia produktu ze spiżarni."""
     if not kitchen.set_expires(db, user, normalize_name(data.name), data.expires):
         raise HTTPException(404, "Tego produktu nie ma w spiżarni")
+    db.commit()
+    return _items(db, user)
+
+
+@router.post("/add", response_model=list[PantryItem])
+def add_items(data: PantryNamesIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Dopisuje produkty do spiżarni (pozostałe zostają)."""
+    kitchen.add_to_pantry(db, user, [normalize_name(n) for n in data.names if n.strip()], create=True)
+    db.commit()
+    return _items(db, user)
+
+
+@router.post("/remove", response_model=list[PantryItem])
+def remove_items(data: PantryNamesIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Usuwa produkty ze spiżarni (zużyte)."""
+    kitchen.remove_from_pantry(db, user, [normalize_name(n) for n in data.names])
     db.commit()
     return _items(db, user)

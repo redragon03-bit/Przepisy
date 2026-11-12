@@ -161,13 +161,14 @@ def test_pantry_expiry_puts_recipes_using_it_first(client):
     client.put("/api/pantry", json={"names": ["jajko", "masło", "twaróg", "szczypiorek"]})
     soon = (date.today() + timedelta(days=1)).isoformat()
     items = client.put("/api/pantry/expires", json={"name": "twaróg", "expires": soon}).json()
-    assert {"name": "twaróg", "expires": soon} in items
+    assert {"name": "twaróg", "expires": soon} in [{"name": i["name"], "expires": i["expires"]} for i in items]
     matches = client.post("/api/cook", json={"ingredients": ["jajko", "masło", "twaróg", "szczypiorek"]}).json()
     assert matches[0]["recipe"]["title"] == "Twarożek" and matches[0]["use_first"] == ["twaróg"]
     # Produkt usunięty ze spiżarni traci termin
     client.put("/api/pantry", json={"names": ["jajko"]})
     client.put("/api/pantry", json={"names": ["jajko", "twaróg"]})
-    assert {"name": "twaróg", "expires": None} in client.get("/api/pantry/items").json()
+    items = client.get("/api/pantry/items").json()
+    assert {"name": "twaróg", "expires": None} in [{"name": i["name"], "expires": i["expires"]} for i in items]
     assert client.put("/api/pantry/expires", json={"name": "kawior", "expires": soon}).status_code == 404
 
 

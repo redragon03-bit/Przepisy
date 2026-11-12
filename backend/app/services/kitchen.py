@@ -99,9 +99,15 @@ def set_pantry(db: Session, user: CurrentUser, names: set[str]) -> None:
         db.add(MemberPantry(user_id=user.id, ingredient=get_or_create_ingredient(db, name)))
 
 
-def add_to_pantry(db: Session, user: CurrentUser, names: list[str]) -> None:
-    """Dopisuje istniejące składniki do spiżarni (kupione z listy zakupów)."""
-    ingredients = db.query(Ingredient).filter(Ingredient.name.in_(names)).all()
+def add_to_pantry(db: Session, user: CurrentUser, names: list[str], create: bool = False) -> None:
+    """Dopisuje składniki do spiżarni (kupione z listy zakupów, z paragonu).
+
+    Bez `create` tylko istniejące składniki; z `create` nowe nazwy też zakładamy.
+    """
+    if create:
+        ingredients = [get_or_create_ingredient(db, name) for name in dict.fromkeys(names)]
+    else:
+        ingredients = db.query(Ingredient).filter(Ingredient.name.in_(names)).all()
     if user.id is None:
         for ingredient in ingredients:
             ingredient.in_pantry = True
@@ -110,6 +116,28 @@ def add_to_pantry(db: Session, user: CurrentUser, names: list[str]) -> None:
     for ingredient in ingredients:
         if ingredient.id not in have:
             db.add(MemberPantry(user_id=user.id, ingredient_id=ingredient.id))
+            have.add(ingredient.id)
+
+
+def remove_from_pantry(db: Session, user: CurrentUser, names: list[str]) -> list[str]:
+    """Usuwa produkty ze spiżarni (np. dopisane do listy zakupów). Zwraca te, które tam były."""
+    if not names:
+        return []
+    if user.id is None:
+        rows = db.query(Ingredient).filter(Ingredient.name.in_(names), Ingredient.in_pantry.is_(True)).all()
+        for ingredient in rows:
+            ingredient.in_pantry, ingredient.pantry_expires = False, None
+        return sorted(i.name for i in rows)
+    rows = (
+        db.query(MemberPantry)
+        .join(Ingredient, MemberPantry.ingredient_id == Ingredient.id)
+        .filter(MemberPantry.user_id == user.id, Ingredient.name.in_(names))
+        .all()
+    )
+    removed = sorted(r.ingredient.name for r in rows)
+    for row in rows:
+        db.delete(row)
+    return removed
 
 
 def set_expires(db: Session, user: CurrentUser, name: str, expires: date | None) -> bool:

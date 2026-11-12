@@ -206,25 +206,34 @@ test("ugotowane z oceną i notatką trafia do dziennika", async ({ page }) => {
   await expect(page.getByLabel("Ocena 4 na 5").first()).toBeVisible();
 });
 
-test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
+test("spiżarnia w Zakupach: odhaczone trafia do „W domu”, termin stawia przepis wyżej", async ({ page }) => {
   // Nazwy składników jak od AI (mianownik), żeby pasowały do spiżarni
   const ingredients = [{ text: "4 pomidory", name: "pomidor" }, { text: "1 cebula", name: "cebula" }];
   if (!(await (await server.get("/api/recipes", { params: { q: "Szakszuka" } })).json()).length)
     await server.post("/api/recipes", { data: { title: "Szakszuka", ingredients, steps: [{ text: "Duś." }] } });
-  await server.put("/api/pantry", { data: { names: ["jajka", "mleko", "pomidor"] } });
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  await server.put("/api/pantry", { data: { names: ["jajka", "pomidor"] } });
+  await server.post("/api/shopping", { data: { text: "masło 200 g" } });
   await login(page);
-  await page.goto("/co-ugotowac");
-  await page.locator(".chip", { hasText: "pomidor" }).click();
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  // Odhaczenie na liście = produkt jest w domu
+  await page.getByText("masło 200 g").click();
+  await expect(page.getByText("Kupione: masło 200 g")).toBeVisible();
+  await page.screenshot({ path: "test-results/zakupy.png" });
+  await page.getByRole("button", { name: /W domu/ }).click();
+  const row = (name: string) => page.locator(".swipe-row", { hasText: name });
+  await expect(row("masło")).toBeVisible();
+
+  // Termin zużycia: stuknięcie w produkt
+  await row("pomidor").click();
   await page.getByRole("dialog").getByRole("button", { name: "Jutro" }).click();
-  await expect(page.locator(".chip", { hasText: "⏰ pomidor" })).toBeVisible();
-  await expect(page.getByText("Zużyj najpierw: pomidor (jutro)")).toBeVisible();
-  await expect(page.locator(".grid .card").first()).toContainText("Szakszuka");
-  await expect(page.locator(".grid .card").first()).toContainText("zużyje: pomidor");
+  await expect(page.getByRole("heading", { name: "⏰ Zużyj najpierw" })).toBeVisible();
+  await expect(row("pomidor")).toContainText("jutro");
 
   // "Inna data": okno zostaje otwarte przy wyborze dnia, termin zapisuje się po zamknięciu kalendarza
   const inTwoDays = new Date(Date.now() + 2 * 86_400_000);
   const day = `${inTwoDays.getFullYear()}-${String(inTwoDays.getMonth() + 1).padStart(2, "0")}-${String(inTwoDays.getDate()).padStart(2, "0")}`;
-  await page.locator(".chip", { hasText: "pomidor" }).click();
+  await row("pomidor").click();
   const dateInput = page.getByRole("dialog").locator('input[type="date"]');
   await dateInput.focus(); // jak na iPhonie: kalendarz otwarty, pole ma fokus
   await dateInput.fill(day);
@@ -234,7 +243,21 @@ test("spiżarnia: termin zużycia stawia przepis wyżej", async ({ page }) => {
   // fokusu, więc wysyłamy je sami.
   await dateInput.dispatchEvent("focusout");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row("pomidor")).toContainText("za 2 dni");
+
+  // „Co ugotuję?” szuka w spiżarni i stawia wyżej przepis, który zużyje pomidor
+  await page.goto("/co-ugotowac");
   await expect(page.getByText("Zużyj najpierw: pomidor (za 2 dni)")).toBeVisible();
+  await expect(page.locator(".grid .card").first()).toContainText("Szakszuka");
+  await expect(page.locator(".grid .card").first()).toContainText("zużyje: pomidor");
+
+  // Dopisanie do zakupów zabiera produkt ze spiżarni
+  await page.getByRole("link", { name: "Zmień" }).click();
+  await row("jajka").click();
+  await page.getByRole("dialog").getByRole("button", { name: /dopisz do zakupów/ }).click();
+  await expect(row("jajka")).toHaveCount(0);
+  await page.getByRole("button", { name: /Do kupienia/ }).click();
+  await expect(page.locator(".swipe-row", { hasText: "jajka" })).toBeVisible();
 });
 
 test("tryb gotowania: składniki przy kroku i ten sam krok po ponownym otwarciu", async ({ page }) => {
@@ -617,4 +640,42 @@ test("przegląd sekcji: obok siebie teraz i propozycja AI, Akceptuj zapisuje, Po
   await page.getByRole("button", { name: "✕ Pomiń" }).click();
   await expect(page.getByText("Wszystkie przejrzane")).toBeVisible();
   await expect(page.getByRole("button", { name: /Przejrzyj jeszcze raz pominięte \(1\)/ })).toBeVisible();
+});
+
+test("paragon: włączony w Ustawieniach, AI odczytuje, poprawiasz nazwę i dodajesz do spiżarni", async ({ page }) => {
+  await server.put("/api/pantry", { data: { names: [] } });
+  // Serwer testowy nie ma klucza AI - odpowiedzi z odczytu paragonu podstawiamy
+  await page.route("**/api/receipts/settings", (route) =>
+    route.fulfill({ json: { enabled: true, used_today: 0, daily_limit: 10, ai_enabled: true } }),
+  );
+  await page.route("**/api/receipts", (route) =>
+    route.fulfill({ status: 202, json: { id: 7, status: "running", error: "", store: "", items: [] } }),
+  );
+  await page.route("**/api/receipts/7", (route) =>
+    route.fulfill({
+      json: {
+        id: 7, status: "done", error: "", store: "Biedronka",
+        items: [
+          { raw: "SER GOUDA PLAST 150G", name: "ser gouda", amount: 150, unit: "g", food: true, days: 14, known: false },
+          { raw: "MLEKO UHT 3,2% 1L", name: "mleko", amount: 1, unit: "l", food: true, days: 5, known: true },
+          { raw: "PLYN DO NACZYN", name: "płyn do naczyń", amount: null, unit: "", food: false, days: null, known: false },
+          { raw: "WARZYWA LUZ", name: "", amount: null, unit: "", food: true, days: null, known: false },
+        ],
+      },
+    }),
+  );
+  await login(page);
+  await page.goto("/zakupy?widok=dom");
+  await page.locator('input[type="file"]').setInputFiles({ name: "paragon.jpg", mimeType: "image/jpeg", buffer: Buffer.from("jpeg") });
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText("Z paragonu · Biedronka")).toBeVisible({ timeout: 10_000 });
+  // Zaznaczone jest jedzenie z nazwą; chemia i nieznane - nie
+  await expect(sheet.getByRole("button", { name: "Dodaj 2 do spiżarni" })).toBeVisible();
+  await sheet.locator(".receipt-name").first().fill("ser żółty");
+  await page.screenshot({ path: "test-results/paragon.png" });
+  await sheet.getByRole("button", { name: "Dodaj 2 do spiżarni" }).click();
+  await expect(page.getByText("Dodano do spiżarni: 2")).toBeVisible();
+  await expect(page.locator(".swipe-row", { hasText: "ser żółty" })).toBeVisible();
+  await expect(page.locator(".swipe-row", { hasText: "mleko" })).toContainText("za 5 dni");
+  await page.screenshot({ path: "test-results/w-domu.png" });
 });

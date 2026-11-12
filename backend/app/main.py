@@ -26,6 +26,7 @@ from .routers import (
     pantry,
     plan,
     promotions,
+    receipts,
     recipes,
     shopping,
     timers,
@@ -64,6 +65,7 @@ app.include_router(timers.router)
 app.include_router(calendar.router)
 app.include_router(promotions.router)
 app.include_router(appearance.router)
+app.include_router(receipts.router)
 
 
 @app.get("/api/health")

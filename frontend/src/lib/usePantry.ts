@@ -1,4 +1,4 @@
-// Co jest w domu: spiżarnia (ekran "Co ugotuję?") + "zawsze w domu" (sól, olej...).
+// Co jest w domu: spiżarnia (Zakupy → W domu) + "zawsze w domu" (sól, olej...).
 // Pobierane raz na kilka minut dla wszystkich ekranów, jak promocje.
 import { useEffect, useState } from "react";
 import { api } from "../api";
@@ -26,6 +26,11 @@ function load(): Promise<Pantry> {
     cache = { at: Date.now(), names };
   }
   return cache.names;
+}
+
+// Po zmianie spiżarni (odhaczenie w zakupach, paragon) - znaczniki "brak" liczymy od nowa
+export function forgetPantry() {
+  cache = null;
 }
 
 export function usePantry(): Pantry {

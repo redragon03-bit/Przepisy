@@ -21,7 +21,7 @@ from ..schemas import (
     PromotionOut,
     ShoppingItemOut,
 )
-from ..services import ai, promotions
+from ..services import ai, promotions, shopping
 from ..services.aisles import OTHER, aisle, aisle_order
 from ..services.categories import category_names
 from ..services.kitchen import Marks
@@ -197,6 +197,8 @@ def add_to_shopping(promo_id: int, db: Session = Depends(get_db), user: CurrentU
     name = promo.ingredient or promo.name.lower()[:200]
     item = ShoppingItem(name=name, text=f"{promo.name} ({promotions.label(promo)})"[:500], user_id=user.id)
     db.add(item)
+    # Dopisane do listy = nie ma tego w domu
+    shopping.not_bought(db, [item], user)
     db.commit()
     return shopping_out(item, [promo])
 

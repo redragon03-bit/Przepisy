@@ -16,6 +16,8 @@ from ..auth import CurrentUser, owned
 from ..config import get_settings
 from ..models import MealPlanEntry, Recipe, ShoppingItem
 from . import kitchen
+from .aisles import OTHER, aisle
+from .ingredients import find_ingredient, product_name
 from .kitchen import OWNER
 from .matching import covers
 
@@ -122,11 +124,37 @@ def plan_factor(entry: MealPlanEntry) -> float:
     return entry.servings / base if entry.servings and base else 1
 
 
-def move_to_pantry(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) -> list[str]:
-    """Kupione produkty z przepisów trafiają do spiżarni. Zwraca ich nazwy."""
-    names = sorted({i.name for i in items if i.name})
-    kitchen.add_to_pantry(db, user, names)
+def pantry_name(db: Session, item: ShoppingItem) -> str | None:
+    """Pod jaką nazwą pozycja listy zakupów trafia do spiżarni; None = to nie jedzenie.
+
+    Pozycje z przepisów mają nazwę składnika. Dopisane ręcznie ("mleko 2 l") sprowadzamy do
+    nazwy produktu i do istniejącego składnika ("2 l mleka" -> "mleko"). Rzeczy z działu
+    "Chemia i dom" pomijamy, a nieznane z działu "Inne" - też (to może być np. baterie).
+    """
+    if item.name and item.recipes:
+        return item.name
+    # Z promocji nazwa to składnik albo nazwa produktu (np. pieluchy) - sprawdzamy jak wpisane ręcznie
+    name = item.name or product_name(item.text)
+    known = find_ingredient(db, name)
+    if known is not None:
+        name = known.name
+    shelf = aisle(name)
+    if shelf == "Chemia i dom" or (shelf == OTHER and known is None):
+        return None
+    return name
+
+
+def bought(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) -> list[str]:
+    """Odhaczone na liście = kupione: produkty trafiają do spiżarni. Zwraca ich nazwy."""
+    names = sorted({n for n in (pantry_name(db, i) for i in items) if n})
+    kitchen.add_to_pantry(db, user, names, create=True)
     return names
+
+
+def not_bought(db: Session, items: list[ShoppingItem], user: CurrentUser = OWNER) -> list[str]:
+    """Odznaczone albo dopisane do listy = nie ma tego w domu: znika ze spiżarni."""
+    names = sorted({n for n in (pantry_name(db, i) for i in items) if n})
+    return kitchen.remove_from_pantry(db, user, names)
 
 
 def pantry_names(db: Session, user: CurrentUser = OWNER) -> list[str]:
@@ -256,13 +284,22 @@ def sync_with_home_assistant(db: Session) -> None:
             status[ha_item["summary"]] = ha_item["status"]
     # Lista w HA to lista właściciela
     items = db.query(ShoppingItem).filter(ShoppingItem.user_id.is_(None)).all()
+    checked, unchecked = [], []
     for item in items:
         if item.ha_text and item.ha_text in status:
-            item.checked = status[item.ha_text] == "completed"
+            done = status[item.ha_text] == "completed"
+            if done != item.checked:
+                (checked if done else unchecked).append(item)
+            item.checked = done
     known = {item.ha_text for item in items if item.ha_text}
     for summary, state in status.items():
         if state == "needs_action" and summary not in known:
-            db.add(ShoppingItem(text=summary, ha_text=summary))
+            new = ShoppingItem(text=summary, ha_text=summary)
+            db.add(new)
+            unchecked.append(new)
+    # Odhaczone w HA jest w domu, dopisane w HA - nie
+    bought(db, checked)
+    not_bought(db, unchecked)
 
 
 def update_in_home_assistant(changes: list[tuple[str, str]]) -> None:

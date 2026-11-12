@@ -27,6 +27,10 @@ export type CalendarLink = Api.CalendarLink;
 export type RecipeStats = Api.RecipeStats;
 export type CookLogEntry = Api.CookLogOut;
 export type PantryItem = Api.PantryItem;
+export type ReceiptScan = Api.ReceiptScanOut;
+export type ReceiptLine = Api.ReceiptLineOut;
+export type ReceiptSettings = Api.ReceiptSettingsOut;
+export type ReceiptApplyLine = Api.ReceiptApplyLine;
 export type PlanSuggestion = Api.PlanSuggestionOut;
 export type DuplicateGroup = Api.DuplicateGroup;
 export type Promotion = Api.PromotionOut;
@@ -234,6 +238,19 @@ export const api = {
   // null = bez terminu
   setPantryExpires: (name: string, expires: string | null) =>
     request<PantryItem[]>("PUT", "/api/pantry/expires", { name, expires }),
+  addToPantry: (names: string[]) => request<PantryItem[]>("POST", "/api/pantry/add", { names }),
+  removeFromPantry: (names: string[]) => request<PantryItem[]>("POST", "/api/pantry/remove", { names }),
+
+  receiptSettings: () => request<ReceiptSettings>("GET", "/api/receipts/settings"),
+  setReceiptsEnabled: (enabled: boolean) => request<ReceiptSettings>("PUT", "/api/receipts/settings", { enabled }),
+  scanReceipt: (files: File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append("files", file);
+    return request<ReceiptScan>("POST", "/api/receipts", form);
+  },
+  receiptScan: (id: number) => request<ReceiptScan>("GET", `/api/receipts/${id}`),
+  applyReceipt: (store: string, items: ReceiptApplyLine[]) =>
+    request<PantryItem[]>("POST", "/api/receipts/apply", { store, items }),
 
   // Backend nie pamięta rozmowy - wysyłamy całą historię (bez list polecanych przepisów)
   chat: (messages: ChatMessage[], signal?: AbortSignal) =>

@@ -611,3 +611,58 @@ def sections(title: str, ingredients: list[str], steps: list[str]) -> AiSections
             + "\nKroki:\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(steps)))
     with time_limit(CHAT_SECONDS):
         return _ask_provider([text], SECTIONS_PROMPT, AiSections)
+
+
+# --- Paragon -> spiżarnia ---
+
+
+class AiReceiptLine(BaseModel):
+    raw: str = Field(description="Linijka z paragonu dokładnie tak, jak jest wydrukowana, np. 'SER GOUDA PLAST 150G'")
+    name: str = Field(
+        description="Nazwa kanoniczna składnika do przepisów, po polsku, małymi literami, mianownik liczby "
+        "pojedynczej, bez marki i gramatury, np. 'ser gouda', 'mleko', 'pomidor', 'pierś z kurczaka'. "
+        "Gdy nie da się odgadnąć produktu (np. 'ART.SPOZ.'), ''"
+    )
+    amount: float | None = Field(
+        description="Ilość albo waga z paragonu lub nazwy, np. 0.512 dla '0,512 kg', "
+        "150 dla '150G', 2 dla '2 x 3,49'; null, gdy nie ma"
+    )
+    unit: str = Field(description="Jednostka ilości: 'g', 'kg', 'ml', 'l', 'szt' albo ''")
+    food: bool = Field(
+        description="true dla jedzenia i napojów; false dla chemii, kosmetyków, torby, kaucji, rzeczy dla domu"
+    )
+    days: int | None = Field(
+        description="Ile dni zwykle można trzymać ten produkt w domu po zakupie "
+        "(np. mleko świeże 5, pieczywo 2, mięso 2, jogurt 10, makaron null). "
+        "null dla produktów trwałych"
+    )
+
+
+class AiReceipt(BaseModel):
+    store: str = Field(description="Nazwa sklepu z nagłówka paragonu, np. 'Biedronka', 'Lidl'; '' gdy nie widać")
+    items: list[AiReceiptLine] = Field(description="Kupione produkty w kolejności z paragonu")
+
+
+RECEIPT_PROMPT = """Dostajesz zdjęcie (albo kilka zdjęć kolejnych części) polskiego paragonu ze sklepu. \
+Odczytaj kupione produkty, żeby dopisać je do domowej spiżarni.
+
+Zasady:
+- Nazwy na paragonach są skrócone ('MLEKO UHT 3,2% 1L', 'SER GOUD.PL.', 'KAJZ.', 'POMIDOR LUZ') - rozwiń je \
+do zwykłej nazwy produktu w polu name.
+- Towar na wagę ma wagę w osobnej linijce pod nazwą (np. '0,512 kg x 6,99') - połącz ją z produktem nad nią.
+- Pomiń rabaty ('RABAT', 'OBNIŻKA'), sumy, podatki (PTU), płatności, reszty i kaucje za opakowania.
+- Ten sam produkt kupiony kilka razy wpisz raz, z łączną ilością.
+- Gdy paragon jest na kilku zdjęciach, nie powtarzaj produktów z miejsca, w którym zdjęcia się nakładają.
+- Nie zgaduj produktów, których nie widać. Zdjęcie, które nie jest paragonem - zwróć pustą listę."""
+
+
+def receipt_from_images(jpegs: list[bytes], hints: str = "") -> AiReceipt:
+    """Produkty z paragonu (zdjęcia JPEG). Działa w tle. `hints` - znane skróty z wcześniejszych paragonów."""
+    content: Content = []
+    for i, jpeg in enumerate(jpegs):
+        content += [f"Zdjęcie {i + 1}:", jpeg]
+    if hints:
+        content.append("Tak użytkownik nazwał produkty z wcześniejszych paragonów (linijka -> nazwa):\n" + hints)
+    content.append("Odczytaj produkty z tego paragonu.")
+    # Bez bulk(): paragonów jest mało, a skróty lepiej rozwija pełny model
+    return _ask_provider(content, RECEIPT_PROMPT, AiReceipt)  # type: ignore[return-value]

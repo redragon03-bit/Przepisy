@@ -1,5 +1,24 @@
 # Zmiany
 
+## 0.16.0
+
+- Spiżarnia osobno od listy zakupów: w Zakupach przełącznik „Do kupienia | W domu”.
+  „W domu” pokazuje, co masz, w działach jak w sklepie, z „⏰ Zużyj najpierw” na górze.
+  Stuknięcie produktu: termin zużycia albo „Kończy się – dopisz do zakupów”; przesunięcie
+  w lewo: „Zużyte” (z „Cofnij”).
+- Odhaczenie na liście zakupów od razu dopisuje produkt do spiżarni (też wpisany ręcznie
+  i odhaczony w Home Assistant). Trafia tam tylko jedzenie – chemia i rzeczy dla domu nie.
+  „Cofnij” albo odznaczenie zabiera produkt ze spiżarni.
+- Dopisanie do listy zakupów (ręcznie, z promocji, w Home Assistant) znaczy „nie mam” –
+  produkt znika ze spiżarni.
+- „📷 Dodaj z paragonu” (Ustawienia → Spiżarnia, domyślnie wyłączone, osobno dla każdego
+  konta): AI odczytuje zdjęcie paragonu (1–3 części) – produkty, wagę, sugerowany termin.
+  Przed dodaniem sprawdzasz listę; poprawione nazwy aplikacja zapamiętuje na następny paragon
+  z tego sklepu. Do 10 paragonów dziennie, zdjęcia nie są zapisywane.
+- „Co ugotuję?” szuka przepisów w spiżarni (link „Zmień” prowadzi do Zakupy → W domu).
+- „Jak używać” i README opisują spiżarnię, paragony, sekcje, wybór zdjęcia i ekran
+  „Trwa aktualizacja”.
+
 ## 0.15.0
 
 - Ustawienia → Porządki → „🧩 Podziel przepisy na sekcje”: przegląd wszystkich przepisów

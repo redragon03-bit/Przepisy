@@ -280,6 +280,13 @@ export interface PantryIn {
 export interface PantryItem {
   name: string;
   expires: string | null;
+  aisle: string;
+  aisle_order: number;
+}
+
+export interface PantryNamesIn {
+  // Produkty do dopisania albo usunięcia ze spiżarni
+  names: string[];
 }
 
 export interface PlanSuggestionDay {
@@ -364,6 +371,47 @@ export interface PromotionOut {
   leaflet: string;
   valid_from: string | null;
   valid_to: string | null;
+}
+
+export interface ReceiptApplyIn {
+  store?: string;
+  items: ReceiptApplyLine[];
+}
+
+export interface ReceiptApplyLine {
+  raw?: string;
+  name: string;
+  expires?: string | null;
+}
+
+// Produkt odczytany z paragonu, do sprawdzenia przed dodaniem do spiżarni.
+export interface ReceiptLineOut {
+  raw: string;
+  name: string;
+  amount: number | null;
+  unit: string;
+  food: boolean;
+  days: number | null;
+  known: boolean;
+}
+
+export interface ReceiptScanOut {
+  id: number;
+  status: "running" | "done" | "failed";
+  error: string;
+  store: string;
+  items: ReceiptLineOut[];
+}
+
+export interface ReceiptSettingsIn {
+  enabled: boolean;
+}
+
+export interface ReceiptSettingsOut {
+  enabled: boolean;
+  used_today: number;
+  daily_limit: number;
+  ai_enabled: boolean;
 }
 
 export interface RecipeIn {

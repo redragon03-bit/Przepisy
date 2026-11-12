@@ -220,6 +220,60 @@ class PantryItem(BaseModel):
     name: str
     # Do kiedy trzeba zużyć; None = bez terminu
     expires: date | None
+    # Dział sklepu, jak na liście zakupów (spiżarnia jest pogrupowana tak samo)
+    aisle: str = ""
+    aisle_order: int = 0
+
+
+class PantryNamesIn(BaseModel):
+    names: list[str] = Field(description="Produkty do dopisania albo usunięcia ze spiżarni")
+
+
+class ReceiptLineOut(BaseModel):
+    """Produkt odczytany z paragonu, do sprawdzenia przed dodaniem do spiżarni."""
+
+    # Linijka z paragonu, np. "SER GOUDA PLAST 150G"
+    raw: str
+    # Proponowana nazwa w spiżarni; "" = nie wiadomo, użytkownik wybiera sam
+    name: str
+    amount: float | None
+    unit: str
+    # Jedzenie - domyślnie zaznaczone; reszta (chemia, torba) domyślnie odznaczona
+    food: bool
+    # Sugerowany termin: tyle dni od dziś; None = produkt trwały
+    days: int | None
+    # Nazwa zapamiętana z wcześniejszego paragonu albo istniejący składnik
+    known: bool
+
+
+class ReceiptScanOut(BaseModel):
+    id: int
+    status: Literal["running", "done", "failed"]
+    error: str
+    store: str
+    items: list[ReceiptLineOut]
+
+
+class ReceiptSettingsOut(BaseModel):
+    enabled: bool
+    used_today: int
+    daily_limit: int
+    ai_enabled: bool
+
+
+class ReceiptSettingsIn(BaseModel):
+    enabled: bool
+
+
+class ReceiptApplyLine(BaseModel):
+    raw: str = ""
+    name: str
+    expires: date | None = None
+
+
+class ReceiptApplyIn(BaseModel):
+    store: str = ""
+    items: list[ReceiptApplyLine]
 
 
 class PantryExpiresIn(BaseModel):
@@ -412,6 +466,7 @@ class TimerIn(BaseModel):
 
 class AppearanceIn(BaseModel):
     """Skala wyglądu z telefonu (Ustawienia → Wygląd): grupa -> procent, np. {"title": 95}."""
+
     scales: dict[str, int] = Field(description="Procent dla każdej grupy, 50-200")
     device: str = Field(default="", max_length=200, description="Ekran, np. 'iPhone 428×926 @3'")
 

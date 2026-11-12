@@ -30,6 +30,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
       "W przepisie: +/− zmienia liczbę porcji, stuknięcie w składnik go odhacza, a przytrzymanie podpowiada zamiennik.",
       "❤️ dodaje przepis do ulubionych, a ⋯ obok niego to edycja, zaplanowanie, dodanie do zakupów, udostępnienie (tekst albo obrazek), wariant od AI (np. wege), zdjęcie, kalorie.",
       "„✅ Ugotowane” zapisuje gotowanie w dzienniku – z oceną, notatką i zdjęciem.",
+      "⋯ → Zdjęcie: zdjęcie z telefonu albo „🔍 Znajdź w internecie”. Gdy żadne z propozycji nie pasuje, „🔄 Pokaż inne” szuka kolejnych, a „📷 Własne zdjęcie” wgrywa Twoje.",
       "W edycji „+ Sekcja” dzieli składniki i kroki na części (np. „Omlet”, „Krem”), a „✨ Podziel na sekcje (AI)” robi to za Ciebie. Kolejność zmienisz, przeciągając za numer kroku albo ⠿.",
       "Ustawienia → Porządki → „🧩 Podziel przepisy na sekcje” przechodzi po kolei przez stare przepisy: obok siebie jest przepis teraz i propozycja AI, do wyboru Pomiń albo Akceptuj.",
     ],
@@ -56,10 +57,23 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "🛒",
     title: "Zakupy",
     items: [
-      "Lista jest ułożona według działów w sklepie i działa bez internetu.",
-      "Stuknij, żeby odhaczyć; przesuń w lewo, żeby usunąć (z możliwością cofnięcia).",
-      "Produkty, które zawsze masz w domu, są pomijane. Kupione rzeczy z przepisów trafiają do spiżarni.",
-      "Listę można wysłać do Home Assistant.",
+      "Na górze przełącznik: „Do kupienia” to lista zakupów, „W domu” to spiżarnia – to, co masz teraz w domu.",
+      "Lista jest ułożona według działów w sklepie i działa bez internetu. Przesuń pozycję w lewo, żeby ją usunąć (z możliwością cofnięcia).",
+      "Stuknięcie odhacza pozycję: kupione jedzenie od razu trafia do spiżarni (chemia i rzeczy dla domu – nie). „Cofnij” albo ponowne stuknięcie zabiera je ze spiżarni.",
+      "Dopisanie czegoś do listy (ręcznie, z promocji albo w Home Assistant) znaczy, że tego nie masz – produkt znika ze spiżarni. Z przepisu do listy trafia tylko to, czego w spiżarni nie ma, a „zawsze w domu” (sól, olej…) jest pomijane.",
+      "Listę można wysłać do Home Assistant; odhaczone tam też trafia do spiżarni.",
+    ],
+  },
+  {
+    icon: "🏠",
+    title: "Spiżarnia (Zakupy → W domu)",
+    items: [
+      "Produkty są w działach jak w sklepie, a te z bliskim terminem – na górze w „⏰ Zużyj najpierw”.",
+      "Stuknij produkt, żeby ustawić, do kiedy go zużyć, albo „Kończy się – dopisz do zakupów”. Przesuń w lewo, gdy się skończy („Zużyte”, z możliwością cofnięcia).",
+      "Coś kupione bez listy dopiszesz w polu na górze.",
+      "Spiżarnia działa w całej aplikacji: składnik, którego nie masz, ma w przepisie znacznik „brak”, „Co ugotuję?” szuka przepisów z tego, co masz, a czat i plan od AI biorą ją pod uwagę.",
+      "📷 Dodaj z paragonu (włączasz w Ustawieniach → Spiżarnia): zrób zdjęcie paragonu (długi – w 2–3 częściach). AI odczyta produkty, wagę i podpowie termin. Przed dodaniem sprawdzasz listę: odznacz zbędne, popraw nazwy – aplikacja zapamięta poprawki na następny paragon z tego sklepu. Zdjęcie nie jest zapisywane.",
+      "Każde konto ma swoją spiżarnię, a paragony włącza się osobno na każdym koncie.",
     ],
   },
   {
@@ -75,7 +89,8 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "🥕",
     title: "Co ugotuję? (pod „Więcej”)",
     items: [
-      "Wpisz, co masz w domu (z terminem ważności) – zobaczysz, co z tego ugotujesz. Produkty z krótkim terminem są na górze („Zużyj najpierw”).",
+      "Przepisy z tego, co masz w spiżarni. „Może brakować” pozwala dopuścić 1–3 brakujące składniki.",
+      "Przepisy, które zużyją produkty z krótkim terminem, są na górze („Zużyj najpierw”). Spiżarnię zmienisz linkiem „Zmień” (Zakupy → W domu).",
     ],
   },
   {
@@ -84,6 +99,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     items: [
       "Wygląd: wielkość tytułów, tekstu, składników i zakupów, małych napisów, trybu gotowania, minutnika, kółek i odstępów – każda osobno, co 5% (przycisk „Przywróć 100%” cofa wszystko).",
       "Promocje: przełącznik „Ceny z gazetek przy składnikach” chowa plakietki 🏷️ w przepisach i na liście zakupów.",
+      "Spiżarnia: przełącznik „Dodawanie z paragonu” (domyślnie wyłączony, osobno dla każdego konta; do 10 paragonów dziennie).",
       "„Zawsze w domu” (sól, olej…), kopia zapasowa i przywracanie, porządki w składnikach i kategoriach.",
       "Adres kalendarza z planem posiłków – do Home Assistant, Google albo iPhone'a.",
     ],
@@ -101,6 +117,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     items: [
       "Ikona z ekranu początkowego otwiera się także bez sieci – z przepisami, które ostatnio oglądałeś, i z planem na tydzień.",
       "Żeby dodawać i zapisywać zmiany, potrzebny jest internet i włączony Tailscale.",
+      "Podczas aktualizacji dodatku albo restartu Home Assistanta zobaczysz ekran „Trwa aktualizacja” – aplikacja sama się odświeży, gdy serwer wróci. „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.",
     ],
   },
 ];
