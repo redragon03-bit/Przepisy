@@ -598,7 +598,11 @@ SECTIONS_PROMPT = """Jesteś asystentem kulinarnym. Dostajesz ponumerowane skła
 przepisu. Podziel je na części dania (np. "Ciasto" i "Krem", "Ziemniaki" i "Kapusta", \
 "Mięso" i "Sos"), żeby kucharz mógł przygotować na blacie składniki każdej części osobno. \
 Nazwy części: krótkie, po polsku, z dużej litery. Każdy składnik i każdy krok podaj dokładnie \
-raz, z jego numerem. Składniki tej samej części trzymaj razem. Kroki ułóż w kolejności \
+raz, z jego numerem. Każda część ma jedną nazwę i występuje w składnikach tylko raz: \
+wszystkie składniki tej części podaj jeden po drugim (zmień ich kolejność, jeśli trzeba), \
+np. nie "Sos, Dodatki, Sos". Gdy składnik pasuje do kilku części, wybierz tę, w której \
+jest go najwięcej. Nie twórz części z jednym drobnym składnikiem (np. oliwa) – dołącz go \
+do części, w której jest używany. Kroki ułóż w kolejności \
 gotowania (popraw kolejność, jeśli jest wyraźnie błędna, np. tłuczenie ziemniaków przed \
 ich gotowaniem) i trzymaj razem kroki tej samej części, chyba że kolejność gotowania wymaga \
 przeplatania. Składnik lub krok wspólny dla całości (np. podanie) może mieć osobną część, \

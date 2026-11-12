@@ -202,16 +202,20 @@ def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db
 
 @router.get("/sections/todo", response_model=list[RecipeSummary])
 def sections_todo(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
-    """Przepisy do przeglądu sekcji: bez żadnej sekcji, z co najmniej 3 składnikami
-    i 2 krokami (krótszych nie ma co dzielić) i takie, które ta osoba może zmienić."""
+    """Przepisy do przeglądu sekcji: bez żadnej sekcji (co najmniej 3 składniki i 2 kroki -
+    krótszych nie ma co dzielić) albo z rozbitą sekcją składników (np. "Sos" dwa razy,
+    z wersji 0.15.0), i takie, które ta osoba może zmienić."""
     marks = Marks(db, user)
-    recipes = (
-        db.query(Recipe)
-        .filter(~Recipe.ingredients.any(RecipeIngredient.section != ""), ~Recipe.steps.any(Step.section != ""))
-        .order_by(Recipe.created_at.desc(), Recipe.id.desc())
-    )
-    return [to_summary(r, marks) for r in recipes
-            if can_edit(r, user) and len(r.ingredients) >= 3 and len(r.steps) >= 2]
+    recipes = db.query(Recipe).order_by(Recipe.created_at.desc(), Recipe.id.desc())
+
+    def needs_review(recipe: Recipe) -> bool:
+        names = [ri.section for ri in recipe.ingredients]
+        if not any(names) and not any(s.section for s in recipe.steps):
+            return len(names) >= 3 and len(recipe.steps) >= 2
+        runs = [n for i, n in enumerate(names) if i == 0 or n != names[i - 1]]
+        return len(runs) != len(set(runs))
+
+    return [to_summary(r, marks) for r in recipes if can_edit(r, user) and needs_review(r)]
 
 
 @router.get("/{recipe_id}", response_model=RecipeOut)
@@ -366,6 +370,16 @@ def _arrange(items: list[ai.AiSectionItem], count: int) -> tuple[list[int], list
     return order, names
 
 
+def _group(order: list[int], names: list[str]) -> tuple[list[int], list[str]]:
+    """Składniki tej samej sekcji razem (w kolejności pierwszego pojawienia się sekcji),
+    żeby np. "Sos" nie wystąpił dwa razy, gdy AI zostawi składniki przemieszane."""
+    first: dict[str, int] = {}
+    for name in names:
+        first.setdefault(name, len(first))
+    pairs = sorted(zip(order, names, strict=True), key=lambda pair: first[pair[1]])  # sort stabilny
+    return [i for i, _ in pairs], [n for _, n in pairs]
+
+
 @router.post("/sections", response_model=SectionsOut)
 def suggest_sections(data: SectionsIn):
     """AI dzieli składniki i kroki z formularza na sekcje (np. "Omlet", "Krem"). Nic nie zapisuje."""
@@ -373,7 +387,7 @@ def suggest_sections(data: SectionsIn):
         answer = ai.sections(data.title, data.ingredients, data.steps)
     except ai.AiError as exc:
         raise HTTPException(502, str(exc)) from exc
-    ingredient_order, ingredient_sections = _arrange(answer.ingredients, len(data.ingredients))
+    ingredient_order, ingredient_sections = _group(*_arrange(answer.ingredients, len(data.ingredients)))
     step_order, step_sections = _arrange(answer.steps, len(data.steps))
     return SectionsOut(ingredient_order=ingredient_order, ingredient_sections=ingredient_sections,
                        step_order=step_order, step_sections=step_sections)
@@ -403,7 +417,7 @@ def apply_sections(recipe_id: int, data: SectionsOut, db: Session = Depends(get_
             rows[index].position = position
             rows[index].section = name.strip()[:100]
 
-    arrange(list(recipe.ingredients), data.ingredient_order, data.ingredient_sections)
+    arrange(list(recipe.ingredients), *_group(data.ingredient_order, data.ingredient_sections))
     arrange(list(recipe.steps), data.step_order, data.step_sections)
     db.commit()
     db.expire(recipe, ["ingredients", "steps"])
