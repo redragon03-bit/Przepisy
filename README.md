@@ -171,8 +171,12 @@ Aplikacja: http://localhost:8000. Dane są w folderze `./data`.
 | Zmienna             | Co robi                                                           | Domyślnie         |
 |---------------------|-------------------------------------------------------------------|-------------------|
 | `APP_PASSWORD`      | Hasło do aplikacji. Puste = brak logowania (tylko do testów!)     | puste             |
-| `AI_PROVIDER`       | Które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral`, `anthropic`; gdy zawiedzie, pytane są kolejne z kluczem | `auto`            |
-| `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit)               | puste             |
+| `AI_PROVIDER`       | Które AI pytać najpierw: `auto` (kolejność z `AI_ORDER`) albo AI, które ma być pierwsze: `gemini`, `xai`, `groq`, `mistral`, `anthropic` | `auto`            |
+| `AI_ORDER`          | Kolejność AI po przecinku (`gemini`, `grok`, `groq`, `mistral`, `claude`); AI bez klucza są pomijane | `anthropic,gemini,xai,groq,mistral` |
+| `GEMINI_API_KEY`    | Klucz z https://aistudio.google.com (darmowy limit); kilka - po przecinku | puste             |
+| `GEMINI_API_KEY_2`, `GEMINI_API_KEY_3` | Kolejne klucze Gemini, używane, gdy poprzedni wyczerpie limit | puste |
+| `XAI_API_KEY`       | Klucz Grok z https://console.x.ai                                 | puste             |
+| `XAI_MODEL`         | Model Grok (wycofany zastępujemy aktualnym z listy xAI)           | `grok-4-1-fast-non-reasoning` |
 | `GEMINI_MODEL`      | Model Gemini                                                      | `gemini-flash-latest` |
 | `GEMINI_FALLBACK_MODEL` | Model próbowany, gdy główny jest przeciążony                  | `gemini-flash-lite-latest` |
 | `GROQ_API_KEY`      | Darmowy klucz z https://console.groq.com (zapasowe AI)            | puste             |

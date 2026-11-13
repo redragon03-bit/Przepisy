@@ -94,6 +94,7 @@ export interface AuthStatus {
   ai_enabled: boolean;
   ai_provider: string | null;
   ai_providers: string[];
+  gemini_keys: number;
   ha_enabled: boolean;
   notify_enabled: boolean;
   user_name: string;

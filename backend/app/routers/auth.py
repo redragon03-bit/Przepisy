@@ -53,6 +53,7 @@ def status(request: Request):
         ai_enabled=settings.ai_enabled,
         ai_provider=settings.active_ai_provider,
         ai_providers=settings.ai_providers,
+        gemini_keys=len(settings.gemini_keys),
         # Lista w HA i powiadomienia to sprawy właściciela - domownik ich nie ma
         ha_enabled=settings.home_assistant is not None and owner,
         notify_enabled=timer_notify.enabled() and owner,

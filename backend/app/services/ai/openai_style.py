@@ -1,4 +1,4 @@
-"""Groq i Mistral - API w stylu OpenAI, wspólna obsługa."""
+"""Groq, Mistral i Grok (xAI) - API w stylu OpenAI, wspólna obsługa."""
 
 import base64
 import json
@@ -8,7 +8,7 @@ import re
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from ...config import DEFAULT_GROQ_MODEL, DEFAULT_MISTRAL_MODEL, get_settings
+from ...config import DEFAULT_GROQ_MODEL, DEFAULT_MISTRAL_MODEL, DEFAULT_XAI_MODEL, get_settings
 from .base import AiError, Content, _limit, _timeout
 
 log = logging.getLogger(__name__)
@@ -61,6 +61,11 @@ def _ask_openai_style(name: str, url: str, api_key: str, model: str, default_mod
         if model != default_model:
             log.warning("%s: model %s niedostępny - używam %s", name, model, default_model)
             return _ask_openai_style(name, url, api_key, default_model, default_model, content, system, schema)
+        # xAI często wycofuje modele - bierzemy aktualny model Grok z ich listy
+        replacement = _current_model(url, api_key, model) if name == "Grok" else None
+        if replacement:
+            log.warning("%s: model %s niedostępny - używam %s", name, model, replacement)
+            return _ask_openai_style(name, url, api_key, replacement, replacement, content, system, schema)
         raise AiError(f"{name} nie ma już modelu {model} - zmień model w ustawieniach dodatku.")
     if response.status_code == 413:
         raise AiError(f"Zapytanie jest za duże dla darmowego limitu {name}.")
@@ -94,3 +99,25 @@ def _ask_mistral(content: Content, system: str, schema: type[BaseModel]) -> Base
                              settings.mistral_api_key, settings.mistral_model, DEFAULT_MISTRAL_MODEL,
                              content, system, schema)
 
+
+
+def _current_model(chat_url: str, api_key: str, missing: str) -> str | None:
+    """Aktualny model z listy dostawcy: najchętniej szybki Grok bez "myślenia"."""
+    try:
+        response = httpx.get(chat_url.replace("/chat/completions", "/models"), timeout=15,
+                             headers={"Authorization": f"Bearer {api_key}"})
+        ids = [item["id"] for item in response.json().get("data", [])]
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return None
+    ids = [i for i in ids if i.startswith("grok") and i != missing and "image" not in i and "code" not in i]
+
+    def preference(model_id: str) -> tuple:
+        return ("fast" not in model_id, "non-reasoning" not in model_id, model_id)
+
+    return sorted(ids, key=preference)[0] if ids else None
+
+
+def _ask_xai(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
+    settings = get_settings()
+    return _ask_openai_style("Grok", "https://api.x.ai/v1/chat/completions",
+                             settings.xai_api_key, settings.xai_model, DEFAULT_XAI_MODEL, content, system, schema)

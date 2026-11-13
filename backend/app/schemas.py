@@ -447,10 +447,12 @@ class AuthStatus(BaseModel):
     authenticated: bool
     auth_required: bool
     ai_enabled: bool
-    # Pierwszy pytany AI: "anthropic", "gemini", "groq", "mistral" albo None (AI wyłączone)
+    # Pierwszy pytany AI: "anthropic", "gemini", "xai", "groq", "mistral" albo None (AI wyłączone)
     ai_provider: str | None
     # Wszystkie AI z kluczem, w kolejności pytania (kolejne są zapasem)
     ai_providers: list[str]
+    # Ile kluczy Gemini podano (kolejne są używane, gdy poprzedni wyczerpie limit)
+    gemini_keys: int = 0
     # Czy lista zakupów może być wysłana do Home Assistant
     ha_enabled: bool
     # Czy koniec minutnika przychodzi jako powiadomienie z Home Assistant (opcja ha_notify)

@@ -8,8 +8,8 @@ Odpowiedź ma ściśle określony format (klasa AiResult z listą AiRecipe) - SD
 pilnuje, żeby AI zwróciło poprawny JSON, i zamienia go na obiekt Pythona.
 
 Treść wysyłana do AI to lista elementów: tekst (str) albo obrazek JPEG (bytes).
-Funkcje _ask_claude, _ask_gemini, _ask_groq i _ask_mistral zamieniają ją na format
-danego dostawcy. Groq i Mistral mają API w tym samym stylu (OpenAI), więc obsługuje je
+Funkcje _ask_claude, _ask_gemini, _ask_xai, _ask_groq i _ask_mistral zamieniają ją na format
+danego dostawcy. Grok, Groq i Mistral mają API w tym samym stylu (OpenAI), więc obsługuje je
 wspólna funkcja _ask_openai_style.
 
 Kod jest podzielony na pliki: base.py (błąd i limit czasu), claude.py, gemini.py
@@ -43,7 +43,7 @@ from .base import (  # noqa: F401
 )
 from .claude import _ask_claude, _search_claude
 from .gemini import _ask_gemini, _search_gemini
-from .openai_style import _ask_groq, _ask_mistral
+from .openai_style import _ask_groq, _ask_mistral, _ask_xai
 
 log = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ gdy żadna nie pasuje. Nie twórz kategorii będących synonimami istniejących.
 _failed_until: dict[str, float] = {}
 
 
-PROVIDER_NAMES = {"anthropic": "Claude", "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral"}
+PROVIDER_NAMES = {"anthropic": "Claude", "gemini": "Gemini", "xai": "Grok", "groq": "Groq", "mistral": "Mistral"}
 
 
 def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> BaseModel:
@@ -152,10 +152,11 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
     Pytamy po kolei wszystkie AI z kluczem (kolejność: config.ai_providers),
     aż któryś odpowie. Gdy zawiodą wszystkie, pokazujemy błąd każdego.
     """
-    ask = {"anthropic": _ask_claude, "gemini": _ask_gemini, "groq": _ask_groq, "mistral": _ask_mistral}
+    ask = {"anthropic": _ask_claude, "gemini": _ask_gemini, "xai": _ask_xai, "groq": _ask_groq,
+           "mistral": _ask_mistral}
     providers = get_settings().ai_providers
     if not providers:
-        raise AiError("Brak klucza API do AI - ustaw klucz Gemini, Groq, Mistral albo Anthropic.")
+        raise AiError("Brak klucza API do AI - ustaw klucz Gemini, Grok, Groq, Mistral albo Anthropic.")
     errors = []
     # Gdy użytkownik czeka (time_limit), AI, które niedawno zawiodło, pytamy na końcu
     chat_deadline = _limit.get()
@@ -170,7 +171,10 @@ def _ask_provider(content: Content, system: str, schema: type[BaseModel]) -> Bas
             # W tle też każde AI ma swój kawałek czasu, żeby przeciążone nie blokowało następnych
             background = _background_deadline.set(time.monotonic() + BACKGROUND_PROVIDER_SECONDS)
         try:
-            return ask[provider](content, system, schema)
+            result = ask[provider](content, system, schema)
+            if errors:
+                log.info("Odpowiedział %s (po błędach: %s)", PROVIDER_NAMES[provider], "; ".join(errors))
+            return result
         except AiError as exc:
             log.warning("%s zawiódł: %s - próbuję następnego AI", PROVIDER_NAMES[provider], exc)
             errors.append(f"{PROVIDER_NAMES[provider]}: {exc}")
