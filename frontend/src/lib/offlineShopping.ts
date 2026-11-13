@@ -77,7 +77,7 @@ async function send(): Promise<boolean> {
 export function applyChange(items: ShoppingItem[], change: Change): ShoppingItem[] {
   switch (change.op) {
     case "add":
-      return [...items, { id: change.id, text: change.text, recipes: "", checked: false, aisle: "Inne", aisle_order: 99, in_ha: false, promo: "" }];
+      return [...items, { id: change.id, text: change.text, recipes: "", checked: false, aisle: "Inne", aisle_order: 99, in_ha: false, promo: "", promos: [] }];
     case "check":
       return items.map((i) => (i.id === change.id ? { ...i, checked: change.checked } : i));
     case "delete":

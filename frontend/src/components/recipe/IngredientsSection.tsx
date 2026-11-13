@@ -3,7 +3,7 @@ import { Recipe } from "../../api";
 import { useCheckedSet } from "../../lib/progress";
 import { promoLabel } from "../../lib/promo";
 import { usePantry } from "../../lib/usePantry";
-import { usePromoBadges } from "../../lib/promoBadges";
+import { useHiddenPromoStores, usePromoBadges } from "../../lib/promoBadges";
 import { usePromotions } from "../../lib/usePromotions";
 import { formatAmount, scaleText } from "../../lib/scale";
 import { groupBySection } from "../../lib/sections";
@@ -39,6 +39,7 @@ export default function IngredientsSection({
   // (można je wyłączyć w Ustawieniach)
   const promos = usePromotions();
   const [showPromos] = usePromoBadges();
+  const [hiddenStores] = useHiddenPromoStores();
   // "brak" przy składnikach, których nie ma w spiżarni (tylko gdy spiżarnia jest uzupełniona)
   const pantry = usePantry();
   const hasOriginal = recipe.ingredients.some((i) => i.original_text && i.original_text !== i.text);
@@ -76,7 +77,7 @@ export default function IngredientsSection({
                 key={i}
                 text={scaleText(ing.text, ing.amount, scale)}
                 original={showOriginal && ing.original_text && ing.original_text !== ing.text ? ing.original_text : ""}
-                promo={showPromos ? promoLabel(ing.name, promos) : ""}
+                promo={showPromos ? promoLabel(ing.name, promos, hiddenStores) : ""}
                 missing={pantry.known && !pantry.has(ing.name)}
                 done={checked.has(i)}
                 onToggle={() => toggle(i)}

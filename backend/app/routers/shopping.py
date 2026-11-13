@@ -7,6 +7,7 @@ from ..auth import CurrentUser, current_user, owned, require_auth, require_owner
 from ..database import get_db
 from ..models import MealPlanEntry, Promotion, Recipe, ShoppingItem
 from ..schemas import (
+    PromoHit,
     ShoppingFromPlan,
     ShoppingFromRecipe,
     ShoppingItemIn,
@@ -27,12 +28,13 @@ router = APIRouter(prefix="/api/shopping", tags=["zakupy"], dependencies=[Depend
 def to_out(item: ShoppingItem, promos: list[Promotion] | None = None) -> ShoppingItemOut:
     """`promos` - aktualne promocje (patrz services/promotions.py); None = nie sprawdzamy."""
     name = aisle(item.name or item.text)
-    promo = None
+    found: list[Promotion] = []
     if promos and not item.checked:
-        promo = promotions.find_for(item.name or guess_ingredient_name(item.text), promos)
+        found = promotions.find_per_store(item.name or guess_ingredient_name(item.text), promos)
+    hits = [PromoHit(ingredient=p.ingredient, store=p.leaflet.store, label=promotions.label(p)) for p in found]
     return ShoppingItemOut(id=item.id, text=item.text, recipes=item.recipes, checked=item.checked,
                            aisle=name, aisle_order=AISLE_ORDER[name], in_ha=bool(item.ha_text),
-                           promo=promotions.label(promo) if promo else "")
+                           promo=hits[0].label if hits else "", promos=hits)
 
 
 def _mine(db: Session, user: CurrentUser):

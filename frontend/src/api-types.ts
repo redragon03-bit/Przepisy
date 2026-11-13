@@ -538,6 +538,7 @@ export interface ShoppingItemOut {
   aisle_order: number;
   in_ha: boolean;
   promo: string;
+  promos: PromoHit[];
 }
 
 export interface ShoppingItemPatch {

@@ -179,6 +179,8 @@ class ShoppingItemOut(BaseModel):
     in_ha: bool
     # Promocja na ten produkt, np. "Lidl 2,49 zł"; pusta = brak
     promo: str = ""
+    # Najlepsza promocja w każdym sklepie - aplikacja pokazuje pierwszą z wybranych sklepów
+    promos: list["PromoHit"] = []
 
 
 class ShoppingItemIn(BaseModel):
@@ -538,6 +540,9 @@ class PromoHit(BaseModel):
     ingredient: str
     store: str
     label: str = Field(description="Np. 'Lidl 2,49 zł'")
+
+
+ShoppingItemOut.model_rebuild()  # lista promocji (PromoHit) jest zdefiniowana niżej
 
 
 class PromoRecipe(BaseModel):

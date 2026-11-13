@@ -457,6 +457,28 @@ test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", asyn
   await expect(page.locator(".tag-promo")).toHaveCount(0);
 });
 
+test("zakupy: promocje z każdego sklepu, bez sklepów odznaczonych w Promocjach", async ({ page }) => {
+  const hit = (store: string, label: string) => ({ ingredient: "masło", store, label });
+  await page.route("**/api/shopping", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: 1, text: "masło", recipes: "", checked: false, aisle: "Nabiał i jajka", aisle_order: 4, in_ha: false,
+          promo: "Biedronka 2,49 zł", promos: [hit("Biedronka", "Biedronka 2,49 zł"), hit("Kaufland", "Kaufland 4,99 zł"), hit("Lidl", "Lidl 5,99 zł")],
+        },
+      ],
+    }),
+  );
+  await login(page);
+  await page.goto("/zakupy");
+  const badges = page.locator(".item-text", { hasText: "masło" }).locator("..").locator(".tag-promo");
+  await expect(badges).toHaveText(["🏷️ Biedronka 2,49 zł", "🏷️ Kaufland 4,99 zł", "🏷️ Lidl 5,99 zł"]);
+  // Biedronka i Lidl odznaczone w Promocjach (zapamiętane w telefonie)
+  await page.evaluate(() => localStorage.setItem("promo-hidden-stores", JSON.stringify(["Biedronka", "Lidl"])));
+  await page.reload();
+  await expect(badges).toHaveText(["🏷️ Kaufland 4,99 zł"]);
+});
+
 test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia tylko swoje", async ({ page }) => {
   await login(page);
   await page.goto("/ustawienia");

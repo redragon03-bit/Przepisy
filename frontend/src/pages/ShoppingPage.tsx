@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, ShoppingItem } from "../api";
 import PantryView from "../components/PantryView";
 import SwipeRow from "../components/SwipeRow";
-import { usePromoBadges } from "../lib/promoBadges";
+import { useHiddenPromoStores, usePromoBadges } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { forgetPantry } from "../lib/usePantry";
 import { findSame, sameProduct } from "../lib/similar";
@@ -30,6 +30,8 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
   const [busy, setBusy] = useState(false);
   const { toast, undoable, run } = useToast();
   const [showPromos] = usePromoBadges();
+  // Tylko sklepy zaznaczone w Promocjach
+  const [hiddenStores] = useHiddenPromoStores();
 
   const setItems = (list: ShoppingItem[]) => {
     setItemsState(list);
@@ -219,7 +221,12 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       <span className="grow">
         <span className="item-text">{item.text}</span>
         {item.recipes && <span className="muted small"> · {item.recipes}</span>}
-        {showPromos && item.promo && !item.text.includes(item.promo) && <span className="tag tag-promo">🏷️ {item.promo}</span>}
+        {showPromos &&
+          itemPromos(item, hiddenStores).map((label) => (
+            <span key={label} className="tag tag-promo">
+              🏷️ {label}
+            </span>
+          ))}
       </span>
     </SwipeRow>
   );
@@ -301,4 +308,11 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       )}
     </>
   );
+}
+
+// Plakietki promocji pozycji: po jednej z każdego sklepu zaznaczonego w Promocjach.
+// Lista zapisana w telefonie przed 0.17.0 ma tylko jedną promocję (`promo`).
+function itemPromos(item: ShoppingItem, hidden: Set<string>): string[] {
+  const all = item.promos ?? (item.promo ? [{ store: item.promo.split(" ")[0], label: item.promo }] : []);
+  return all.filter((p) => !hidden.has(p.store) && !item.text.includes(p.label)).map((p) => p.label);
 }
