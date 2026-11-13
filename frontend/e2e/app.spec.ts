@@ -724,3 +724,45 @@ test("paragon: włączony w Ustawieniach, AI odczytuje, poprawiasz nazwę i doda
   await expect(page.locator(".swipe-row", { hasText: "mlek" })).toContainText("za 5 dni");
   await page.screenshot({ path: "test-results/w-domu.png" });
 });
+
+// Przytrzymanie palcem (pół sekundy) - jak na iPhonie
+async function touchHold(page: Page, target: { x: number; y: number }) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...target, id: 1 }] });
+  await page.waitForTimeout(700);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+}
+
+test("zmiana tekstu pozycji na liście zakupów i nazwy w spiżarni (przytrzymanie)", async ({ page }) => {
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  await server.put("/api/pantry", { data: { names: ["mlekoo"] } });
+  await server.post("/api/shopping", { data: { text: "Sok z cytryny" } });
+  await login(page);
+  await page.goto("/zakupy");
+  const row = page.locator(".swipe-row", { hasText: "Sok z cytryny" });
+  await expect(row).toBeVisible();
+  const box = (await row.boundingBox())!;
+  await touchHold(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  // Przytrzymanie nie odhacza, tylko otwiera panel z tekstem pozycji
+  const sheet = page.getByRole("dialog", { name: "Zmień pozycję" });
+  await expect(sheet.getByRole("textbox")).toHaveValue("Sok z cytryny");
+  await expect(page.getByText("Kupione: Sok z cytryny")).toHaveCount(0);
+  await sheet.getByRole("textbox").fill("Sok z pomarańczy 1 l");
+  await page.screenshot({ path: "test-results/zmien-pozycje.png" });
+  await sheet.getByRole("button", { name: "Zapisz" }).click();
+  await expect(page.locator(".swipe-row", { hasText: "Sok z pomarańczy 1 l" })).toBeVisible();
+  await expect(page.locator(".swipe-row", { hasText: "Sok z cytryny" })).toHaveCount(0);
+  await expect(page.locator(".swipe-row", { hasText: "Sok z pomarańczy 1 l" })).not.toHaveClass(/done/);
+  const items = (await (await server.get("/api/shopping")).json()) as { text: string }[];
+  expect(items.map((i) => i.text)).toEqual(["Sok z pomarańczy 1 l"]);
+
+  // Spiżarnia: „Zmień nazwę” w panelu terminu
+  await page.getByRole("button", { name: /W domu/ }).click();
+  await page.locator(".swipe-row", { hasText: "mlekoo" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /Zmień nazwę/ }).click();
+  const rename = page.getByRole("dialog", { name: "Zmień nazwę" });
+  await rename.getByRole("textbox").fill("mleko");
+  await rename.getByRole("button", { name: "Zapisz" }).click();
+  await expect(page.locator(".swipe-row .item-text", { hasText: /^mleko$/ })).toBeVisible();
+  await expect(page.locator(".swipe-row", { hasText: "mlekoo" })).toHaveCount(0);
+});

@@ -6,6 +6,7 @@ import { useToast } from "../lib/toast";
 import { forgetPantry } from "../lib/usePantry";
 import ExpirySheet, { expiresLabel, inDays, USE_FIRST_DAYS } from "./ExpirySheet";
 import ReceiptSheet from "./ReceiptSheet";
+import RenameSheet from "./RenameSheet";
 import SwipeRow from "./SwipeRow";
 
 // Spiżarnia: co jest w domu. Trafia tu to, co odhaczysz na liście zakupów, to, co dopiszesz
@@ -15,6 +16,8 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
   const [items, setItemsState] = useState<PantryItem[] | null>(null);
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<PantryItem | null>(null);
+  // Produkt, któremu zmieniamy nazwę (przytrzymanie albo „Zmień nazwę” w panelu terminu)
+  const [renaming, setRenaming] = useState<PantryItem | null>(null);
   const [files, setFiles] = useState<File[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { toast, undoable, run } = useToast();
@@ -63,6 +66,12 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
     if (list) setItems(list);
   };
 
+  const rename = async (item: PantryItem, name: string) => {
+    setRenaming(null);
+    const list = await run(() => api.renamePantryItem(item.name, name));
+    if (list) setItems(list);
+  };
+
   // Dopisanie do zakupów zabiera produkt ze spiżarni (serwer robi to sam)
   const toShopping = async (item: PantryItem) => {
     setEditing(null);
@@ -80,7 +89,7 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
   const aisles = [...new Map(rest.map((i) => [i.aisle, i.aisle_order])).entries()].sort((a, b) => a[1] - b[1]).map(([name]) => name);
 
   const row = (item: PantryItem) => (
-    <SwipeRow key={item.name} onClick={() => setEditing(item)} onDelete={() => used(item)} deleteLabel="Zużyte">
+    <SwipeRow key={item.name} onClick={() => setEditing(item)} onLongPress={() => setRenaming(item)} onDelete={() => used(item)} deleteLabel="Zużyte">
       <span className="grow item-text">{item.name}</span>
       {item.expires && <span className={`pantry-term ${item.expires <= soon ? "soon" : ""}`}>{expiresLabel(item.expires)}</span>}
     </SwipeRow>
@@ -138,7 +147,7 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
               <ul className="checklist shopping">{rest.filter((i) => i.aisle === name).map(row)}</ul>
             </section>
           ))}
-          <p className="muted small center">Stuknij produkt, żeby ustawić termin. Przesuń w lewo, gdy się skończy.</p>
+          <p className="muted small center">Stuknij produkt, żeby ustawić termin, przytrzymaj, żeby zmienić nazwę. Przesuń w lewo, gdy się skończy.</p>
         </>
       )}
 
@@ -149,8 +158,15 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
           onTerm={(day) => setTerm(editing, day)}
           onRemove={() => used(editing)}
           onToShopping={() => toShopping(editing)}
+          onRename={() => {
+            setEditing(null);
+            setRenaming(editing);
+          }}
           onClose={() => setEditing(null)}
         />
+      )}
+      {renaming && (
+        <RenameSheet title="Zmień nazwę" text={renaming.name} onClose={() => setRenaming(null)} onSave={(name) => rename(renaming, name)} />
       )}
       {files && (
         <ReceiptSheet

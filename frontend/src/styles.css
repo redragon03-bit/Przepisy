@@ -1828,6 +1828,10 @@ body:has(.timers) .cooking-body {
   padding: calc(5px * var(--s-space)) 4px;
   background: var(--bg);
   transition: transform 0.2s var(--ease);
+  /* Przytrzymanie zmienia tekst pozycji - bez systemowego zaznaczania tekstu iPhone'a */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* --- Pływający przycisk akcji (FAB) "Gotuj" na przepisie --- */
