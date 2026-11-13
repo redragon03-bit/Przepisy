@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.20.0
+
+- Ustawienia → Wygląd: podgląd przykładowego przepisu (tytuł, kcal, składniki z kółkami, krok
+  z minutnikiem, tekst trybu gotowania i pastylka minutnika). Każda zmiana −/+ od razu widać w podglądzie.
+- Stuknięcie elementu w podglądzie wybiera jego grupę (obwódka) i pokazuje pod podglądem jej −/+.
+  Stuknięcie tła podglądu = Odstępy.
+
 ## 0.18.0
 
 - Kilka kluczy Gemini: nowe pola `gemini_api_key_2` i `gemini_api_key_3` w konfiguracji dodatku.

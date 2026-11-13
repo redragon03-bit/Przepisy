@@ -532,6 +532,29 @@ test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async
   expect(await h1Size()).toBe("24px");
 });
 
+test("wygląd: podgląd przepisu, stuknięty element zmienia się od razu", async ({ page }) => {
+  await login(page);
+  await page.goto("/ustawienia");
+  const preview = page.getByLabel("Podgląd wyglądu");
+  await preview.scrollIntoViewIfNeeded();
+  const title = preview.getByRole("heading", { name: "Placki ziemniaczane" });
+  const size = () => title.evaluate((e) => getComputedStyle(e).fontSize);
+  expect(await size()).toBe("24px");
+  // Stuknięcie tytułu w podglądzie wybiera grupę "Tytuły" i pokazuje jej przyciski pod podglądem
+  await title.click();
+  await expect(page.locator(".scale-preview-bar")).toContainText("Tytuły");
+  await page.getByRole("button", { name: "Podgląd: większe" }).click();
+  await expect(page.getByLabel("Podgląd: wielkość")).toHaveText("105%");
+  await expect(page.getByLabel("Tytuły: wielkość")).toHaveText("105%");
+  expect(await size()).toBe("25.2px");
+  await page.screenshot({ path: "test-results/wyglad-podglad.png" });
+  // Minutnik w podglądzie to osobna grupa
+  await preview.locator(".timer-time").click();
+  await expect(page.locator(".scale-preview-bar")).toContainText("Minutnik");
+  await page.getByRole("button", { name: "Przywróć 100%" }).click();
+  expect(await size()).toBe("24px");
+});
+
 test("zdjęcie przepisu: gdy żadne nie pasuje, pokazuje inne albo bierze własne", async ({ page }) => {
   const recipe = await addRecipe("Sernik bez zdjęcia", ["1 kg twarogu"], ["Upiecz."]);
   const svg = (label: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><text y="20">${label}</text></svg>`)}`;
