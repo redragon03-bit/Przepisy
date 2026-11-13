@@ -588,15 +588,23 @@ def _stem(word: str) -> str:
     return word[:3] if len(word) >= 4 else word[:2]
 
 
+def _long_words(text: str) -> list[str]:
+    return [w for w in re.split(r"[^\w%]+", text.lower()) if len(w) >= 3]
+
+
 def details_fit(product: str, promo: str, needed: str) -> bool:
     """Gdy potrzebny składnik jest dokładniejszy niż ten z promocji ("sok z cytryny" a promocja na "sok"),
-    każde dodatkowe słowo musi być w nazwie produktu: "Sok pomarańczowy" nie jest sokiem z cytryny,
-    a "Filet z piersi kurczaka" jest "kurczak piersi". Tak samo w aplikacji (promo.ts: detailsFit)."""
+    nazwa produktu musi zawierać całą nazwę składnika, słowo po słowie (krótkie jak "z" pomijamy):
+    "Sok z cytryn 100%" pasuje, a "Sok pomarańczowy" ani "Sok NFC imbir z cytryną" nie.
+    Tak samo w aplikacji (promo.ts: detailsFit)."""
     if not product or not needed.startswith(promo + " "):
         return True
-    name = product.lower()
-    extra = [w for w in needed[len(promo):].split() if len(w) >= 3]
-    return all(_stem(w) in name for w in extra)
+    stems = [_stem(w) for w in _long_words(needed)]
+    words = _long_words(product)
+    return any(
+        all(words[i + k].startswith(stem) for k, stem in enumerate(stems))
+        for i in range(len(words) - len(stems) + 1)
+    )
 
 
 def fits(promo: Promotion, name: str) -> bool:

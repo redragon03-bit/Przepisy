@@ -26,17 +26,20 @@ export function nameFits(product: string | undefined, ingredient: string): boole
   return stems.some((stem) => name.includes(stem));
 }
 
+const longWords = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}%]+/u).filter((w) => w.length >= 3);
+
 // Gdy potrzebny składnik jest dokładniejszy niż ten z promocji ("sok z cytryny" a promocja na "sok"),
-// każde dodatkowe słowo musi być w nazwie produktu: "Sok pomarańczowy" nie jest sokiem z cytryny.
+// nazwa produktu musi zawierać całą nazwę składnika, słowo po słowie (krótkie jak "z" pomijamy):
+// "Sok z cytryn 100%" pasuje, a "Sok pomarańczowy" ani "Sok NFC imbir z cytryną" nie.
 // Tak samo na serwerze (services/promotions.py: details_fit).
 export function detailsFit(product: string | undefined, promo: string, needed: string): boolean {
   if (!product || !needed.startsWith(`${promo} `)) return true;
-  const name = product.toLowerCase();
-  return needed
-    .slice(promo.length)
-    .split(/\s+/)
-    .filter((w) => w.length >= 3)
-    .every((w) => name.includes(stem(w)));
+  const stems = longWords(needed).map(stem);
+  const words = longWords(product);
+  for (let i = 0; i + stems.length <= words.length; i++) {
+    if (stems.every((s, k) => words[i + k].startsWith(s))) return true;
+  }
+  return false;
 }
 
 function fits(p: PromoLike, name: string): boolean {

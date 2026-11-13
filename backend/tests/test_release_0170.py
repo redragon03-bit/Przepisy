@@ -13,7 +13,9 @@ def _promo(ingredient, name, store="Biedronka"):
 def test_details_must_be_in_product_name():
     assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok pomarańczowy Tymbark 1 l")]) is None
     assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok z cytryn 100% 200 ml")]) is not None
-    assert promotions.find_for("kurczak piersi", [_promo("kurczak", "Filet z piersi kurczaka")]) is not None
+    # 0.17.1: cała nazwa po kolei - sok imbirowy z cytryną to nie sok z cytryny
+    assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok NFC imbir z cytryną Premium Rosa 100%")]) is None
+    assert promotions.find_for("mąka pszenna", [_promo("mąka", "Mąka pszenna typ 450")]) is not None
     assert promotions.find_for("kurczak piersi", [_promo("kurczak", "Kurczak cały")]) is None
     assert promotions.find_for("masło klarowane", [_promo("masło", "Masło ekstra Polmlek")]) is None
     # promocja dokładniejsza niż potrzebny produkt dalej pasuje

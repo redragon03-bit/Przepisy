@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.17.1
+
+- Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
+  z cytryną” nie trafia już do „soku z cytryny”, choć AI opisało go jako zwykły „sok”.
+
 ## 0.18.0
 
 - Kilka kluczy Gemini: nowe pola `gemini_api_key_2` i `gemini_api_key_3` w konfiguracji dodatku.
