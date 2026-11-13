@@ -435,7 +435,9 @@ DUPLICATES_PROMPT = """Dostajesz listę nazw składników z przepisów użytkown
 które oznaczają DOKŁADNIE ten sam produkt w zakupach, zapisany inaczej: inna forma \
 gramatyczna ("pomidory" i "pomidor"), synonim ("ziemniak" i "kartofel"), literówka albo \
 nazwa po angielsku. Nie łącz różnych produktów: "ser" i "ser żółty", "masło" i "masło \
-klarowane", "mąka pszenna" i "mąka" to RÓŻNE produkty. Gdy nie masz pewności, nie łącz. \
+klarowane", "mąka pszenna" i "mąka", "twaróg chudy" i "twaróg półtłusty", "twaróg" i \
+"twaróg sernikowy" to RÓŻNE produkty - dopisek o rodzaju, tłustości czy przeznaczeniu \
+oznacza inny produkt. Gdy nie masz pewności, nie łącz. \
 Przepisuj nazwy dokładnie tak, jak są na liście."""
 
 

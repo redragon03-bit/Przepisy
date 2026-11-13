@@ -118,6 +118,31 @@ def group_similar(names: list[str]) -> list[list[str]]:
     return [g for g in groups if len(g) > 1]
 
 
+def same_product(a: str, b: str) -> bool:
+    """Czy wolno zaproponować połączenie dwóch nazw (np. z podpowiedzi AI).
+
+    Ta sama nazwa w innej formie albo szyku - tak. Synonim bez wspólnego wyrazu
+    ('ziemniak' i 'kartofel') - tak. Wspólny wyraz z innym dopiskiem ('twaróg' i
+    'twaróg chudy', 'twaróg chudy' i 'twaróg półtłusty') - nie, to różne produkty.
+    """
+    if similar(a, b):
+        return True
+    words_a, words_b = _words(a), _words(b)
+    return not any(_similar_word(x, y) for x in words_a for y in words_b)
+
+
+def split_different(group: list[str]) -> list[list[str]]:
+    """Dzieli grupę na podgrupy, w których każda para to ten sam produkt; jednoelementowe pomijamy."""
+    parts: list[list[str]] = []
+    for name in group:
+        part = next((p for p in parts if all(same_product(name, other) for other in p)), None)
+        if part is None:
+            parts.append([name])
+        else:
+            part.append(name)
+    return [p for p in parts if len(p) > 1]
+
+
 def merge_ingredients(db: Session, keep: Ingredient, others: list[Ingredient]) -> None:
     """Łączy składniki: przepisy, lista zakupów i spiżarnia używają odtąd tylko `keep`."""
     for other in others:
