@@ -2,7 +2,6 @@
 
 from app.services import ai
 from app.services.ingredients import same_product, split_different
-
 from tests.test_api import make_recipe
 
 
