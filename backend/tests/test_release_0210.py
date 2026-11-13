@@ -1,4 +1,4 @@
-"""Wydanie 0.20.0: podwójne składniki nie łączą odmian ("twaróg chudy" i "twaróg półtłusty")."""
+"""Wydanie 0.21.0: podwójne składniki nie łączą odmian ("twaróg chudy" i "twaróg półtłusty")."""
 
 from app.services import ai
 from app.services.ingredients import same_product, split_different

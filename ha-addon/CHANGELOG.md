@@ -1,6 +1,6 @@
 # Zmiany
 
-## 0.20.0
+## 0.21.0
 
 - Ustawienia → Porządki → „Znajdź podwójne składniki” nie proponuje już łączenia odmian
   jednego produktu: „twaróg”, „twaróg chudy”, „twaróg półtłusty” i „twaróg sernikowy” zostają osobno.
