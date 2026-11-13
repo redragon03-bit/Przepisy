@@ -4,11 +4,19 @@
 
 - **app_password** - hasło do aplikacji (konto właściciela). Ustaw koniecznie, jeśli aplikacja będzie dostępna spoza domu.
   Konta dla domowników (wspólne przepisy, własny plan, zakupy i spiżarnia) dodasz w aplikacji: Ustawienia → Konta.
-- **ai_provider** - które AI pytać najpierw: `auto`, `gemini`, `groq`, `mistral` albo `anthropic`. Gdy ono zawiedzie
-  (np. skończy się darmowy limit), aplikacja sama pyta kolejnych AI, do których podasz klucz.
-- **gemini_api_key** - klucz z https://aistudio.google.com (ma darmowy limit).
+- **ai_order** - kolejność AI, po przecinku. Domyślnie `gemini,grok,groq,mistral,anthropic`. Gdy AI zawiedzie
+  (skończy się limit, przeciążenie, brak odpowiedzi na czas), aplikacja pyta następnego, do którego podasz klucz.
+  AI bez klucza są pomijane. Nazwy: `gemini`, `grok`, `groq`, `mistral`, `claude`. W logu dodatku widać,
+  które AI odpowiedziało, gdy pierwsze zawiodło.
+- **ai_provider** - `auto` (kolejność z `ai_order`) albo AI, które ma być zawsze pierwsze (przed `ai_order`).
+- **gemini_api_key**, **gemini_api_key_2**, **gemini_api_key_3** - klucze z https://aistudio.google.com
+  (ma darmowy limit). Gdy pierwszy klucz wyczerpie limit, aplikacja od razu pyta drugim, potem trzecim;
+  wyczerpany klucz jest odkładany na koniec (na godzinę przy limicie dziennym, na minutę przy minutowym).
+  W jednym polu możesz też wpisać kilka kluczy po przecinku.
 - **gemini_model** - model Gemini. Domyślny `gemini-flash-latest`.
 - **gemini_fallback_model** - model próbowany, gdy główny jest przeciążony. Domyślny `gemini-flash-lite-latest`.
+- **xai_api_key** - klucz Grok z https://console.x.ai → API Keys (xAI nalicza opłaty za użycie, czasem daje darmowe kredyty).
+- **xai_model** - model Grok. Domyślny `grok-4-1-fast-non-reasoning`. Gdy xAI wycofa ustawiony model, aplikacja sama wybierze aktualny szybki model Grok.
 - **groq_api_key** - darmowy klucz z https://console.groq.com (logowanie kontem Google, bez karty) → API Keys.
 - **groq_model** - model Groq. Domyślny `openai/gpt-oss-120b`. Gdy Groq wycofa ustawiony model, aplikacja sama użyje domyślnego. Darmowe modele Groq nie czytają zdjęć - zdjęcia przepisów obsługują Gemini i Mistral.
 - **mistral_api_key** - darmowy klucz z https://console.mistral.ai (plan „Experiment”, weryfikacja numerem telefonu) → API Keys.

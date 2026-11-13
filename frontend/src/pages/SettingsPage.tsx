@@ -6,7 +6,7 @@ import AppearanceSection from "../components/AppearanceSection";
 import { usePromoBadges } from "../lib/promoBadges";
 import { useToast } from "../lib/toast";
 
-const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", groq: "Groq", mistral: "Mistral" };
+const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", xai: "Grok", groq: "Groq", mistral: "Mistral" };
 
 export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onLogout: () => void }) {
   const [staples, setStaples] = useState<Ingredient[]>([]);
@@ -285,7 +285,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         <h2>Informacje</h2>
         <p>
           AI (pytane po kolei):{" "}
-          {auth.ai_providers.length ? auth.ai_providers.map((p) => AI_NAMES[p] ?? p).join(" → ") + " ✅" : "wyłączone (brak klucza API)"}
+          {auth.ai_providers.length ? auth.ai_providers.map((p) => (p === "gemini" && auth.gemini_keys > 1 ? `Gemini (${auth.gemini_keys} klucze)` : AI_NAMES[p] ?? p)).join(" → ") + " ✅" : "wyłączone (brak klucza API)"}
         </p>
         {owner && <p>Home Assistant: {auth.ha_enabled ? "wysyłanie listy zakupów działa ✅" : "nie skonfigurowane"}</p>}
         {owner && (

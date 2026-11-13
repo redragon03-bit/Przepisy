@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.18.0
+
+- Kilka kluczy Gemini: nowe pola `gemini_api_key_2` i `gemini_api_key_3` w konfiguracji dodatku.
+  Gdy klucz wyczerpie darmowy limit (albo jest nieprawidłowy), aplikacja od razu pyta następnym.
+- Nowe AI: Grok (xAI) - pola `xai_api_key` i `xai_model`.
+- Kolejność AI do ustawienia w opcji `ai_order` (domyślnie Gemini → Grok → Groq → Mistral → Claude).
+  Ustawienia → Informacje pokazuje tę kolejność i liczbę kluczy Gemini. W logu dodatku widać, które AI odpowiedziało po błędzie poprzedniego.
+
 ## 0.17.0
 
 - Sklepy odznaczone w Promocjach nie pokazują się już nigdzie: ani w plakietkach w Zakupach,

@@ -20,10 +20,15 @@ HA_OPTION_TO_ENV = {
     "claude_model": "CLAUDE_MODEL",
     "ai_provider": "AI_PROVIDER",
     "gemini_api_key": "GEMINI_API_KEY",
+    "gemini_api_key_2": "GEMINI_API_KEY_2",
+    "gemini_api_key_3": "GEMINI_API_KEY_3",
     "gemini_model": "GEMINI_MODEL",
     "gemini_fallback_model": "GEMINI_FALLBACK_MODEL",
     "groq_api_key": "GROQ_API_KEY",
     "groq_model": "GROQ_MODEL",
+    "xai_api_key": "XAI_API_KEY",
+    "xai_model": "XAI_MODEL",
+    "ai_order": "AI_ORDER",
     "mistral_api_key": "MISTRAL_API_KEY",
     "mistral_model": "MISTRAL_MODEL",
     "ha_todo_entity": "HA_TODO_ENTITY",
@@ -51,13 +56,22 @@ def _load_home_assistant_options() -> None:
             os.environ[env_name] = f"/ssl/{value}"
 
 
-# Kolejność AI przy AI_PROVIDER=auto. Claude jest płatny - skoro podano do niego klucz,
-# to celowo, więc idzie pierwszy; darmowe są kolejnymi zapasami.
-AI_ORDER = ["anthropic", "gemini", "groq", "mistral"]
+# Domyślna kolejność AI (gdy w ustawieniu AI_ORDER nie podano własnej). Claude jest płatny -
+# skoro podano do niego klucz, to celowo, więc idzie pierwszy; darmowe są kolejnymi zapasami.
+AI_ORDER = ["anthropic", "gemini", "xai", "groq", "mistral"]
+# Nazwy, które można wpisać w AI_ORDER (np. "grok" zamiast "xai", "claude" zamiast "anthropic")
+AI_ALIASES = {"claude": "anthropic", "grok": "xai", "google": "gemini"}
 
 # Modele używane, gdy ten z ustawień zostanie wycofany przez dostawcę
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 DEFAULT_MISTRAL_MODEL = "mistral-small-latest"
+DEFAULT_XAI_MODEL = "grok-4-1-fast-non-reasoning"
+
+
+def split_keys(*values: str) -> list[str]:
+    """Klucze API z kilku pól; w jednym polu można też wpisać kilka po przecinku. Bez powtórzeń."""
+    keys = [key.strip() for value in values for key in (value or "").replace("\n", ",").split(",")]
+    return list(dict.fromkeys(key for key in keys if key and key != "-"))
 
 
 class Settings(BaseSettings):
@@ -69,8 +83,8 @@ class Settings(BaseSettings):
     app_password: str = ""
     # Klucz do podpisywania ciasteczka sesji. Puste = wygeneruj i zapisz w data_dir.
     secret_key: str = ""
-    # Który AI pytać najpierw: "anthropic" (Claude), "gemini" (Google), "groq",
-    # "mistral" albo "auto" (kolejność z AI_ORDER). Gdy pierwszy AI zawiedzie
+    # Który AI pytać najpierw: "anthropic" (Claude), "gemini" (Google), "xai" (Grok), "groq",
+    # "mistral" albo "auto" (kolejność z ai_order). Gdy pierwszy AI zawiedzie
     # (np. wyczerpany darmowy limit), próbujemy kolejnych, do których podano klucz.
     # Bez żadnego klucza import działa bez AI (bez tłumaczenia i screenów).
     ai_provider: str = "auto"
@@ -78,6 +92,9 @@ class Settings(BaseSettings):
     claude_model: str = "claude-sonnet-5-5"
     # Klucz z https://aistudio.google.com (ma darmowy limit zapytań)
     gemini_api_key: str = ""
+    # Klucze z kolejnych kont Google - gdy limit pierwszego się wyczerpie, pytamy następnym
+    gemini_api_key_2: str = ""
+    gemini_api_key_3: str = ""
     # "-latest" = zawsze aktualny model Flash, nie trzeba zmieniać po premierach
     gemini_model: str = "gemini-flash-latest"
     # Model próbowany, gdy główny jest przeciążony. Puste = bez zapasowego.
@@ -86,6 +103,13 @@ class Settings(BaseSettings):
     # obrazków, więc zdjęcia przepisów obsługują Gemini i Mistral.
     groq_api_key: str = ""
     groq_model: str = DEFAULT_GROQ_MODEL
+    # Grok (xAI) - klucz z https://console.x.ai. Model wycofany przez xAI zastępujemy
+    # aktualnym modelem Grok z listy xAI (patrz openai_style.py).
+    xai_api_key: str = ""
+    xai_model: str = DEFAULT_XAI_MODEL
+    # Własna kolejność AI, po przecinku, np. "gemini,grok,mistral". AI spoza listy (z kluczem)
+    # pytamy na końcu, w kolejności domyślnej. Puste = kolejność domyślna (AI_ORDER).
+    ai_order: str = ""
     # Mistral - darmowy plan "Experiment" z https://console.mistral.ai
     mistral_api_key: str = ""
     mistral_model: str = DEFAULT_MISTRAL_MODEL
@@ -137,16 +161,30 @@ class Settings(BaseSettings):
         return self.data_dir / "uploads"
 
     @property
+    def gemini_keys(self) -> list[str]:
+        """Wszystkie klucze Gemini, w kolejności używania."""
+        return split_keys(self.gemini_api_key, self.gemini_api_key_2, self.gemini_api_key_3)
+
+    @property
+    def ai_order_list(self) -> list[str]:
+        """Kolejność AI: wybrany w AI_PROVIDER, potem z AI_ORDER (ustawienie), potem reszta domyślnie."""
+        custom = [AI_ALIASES.get(name, name) for name in split_keys(self.ai_order.lower())]
+        order = [name for name in custom if name in AI_ORDER] + AI_ORDER
+        if self.ai_provider in AI_ORDER:
+            order.insert(0, self.ai_provider)
+        return list(dict.fromkeys(order))
+
+    @property
     def ai_providers(self) -> list[str]:
-        """AI z kluczem, w kolejności pytania: wybrany w AI_PROVIDER, potem reszta wg AI_ORDER."""
+        """AI z kluczem, w kolejności pytania (patrz ai_order_list)."""
         keys = {
             "anthropic": self.anthropic_api_key,
-            "gemini": self.gemini_api_key,
+            "gemini": self.gemini_keys,
+            "xai": self.xai_api_key,
             "groq": self.groq_api_key,
             "mistral": self.mistral_api_key,
         }
-        order = sorted(AI_ORDER, key=lambda name: name != self.ai_provider)
-        return [name for name in order if keys[name]]
+        return [name for name in self.ai_order_list if keys[name]]
 
     @property
     def active_ai_provider(self) -> str | None:
