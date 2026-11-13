@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.17.0
+
+- Sklepy odznaczone w Promocjach nie pokazują się już nigdzie: ani w plakietkach w Zakupach,
+  ani przy składnikach przepisu, ani w „Z promocji” w Co ugotuję? To jeden wspólny wybór sklepów.
+- Zakupy: gdy produkt jest w promocji w kilku wybranych sklepach, widać plakietkę z każdego sklepu.
+- Mniej złych cen: promocja na ogólny produkt („sok”) nie trafia do dokładniejszego
+  („sok z cytryny”), jeśli nazwa z gazetki nie mówi o cytrynie.
+
 ## 0.16.4
 
 - Logo: nowy obrazek z większym smokiem przy kociołku.

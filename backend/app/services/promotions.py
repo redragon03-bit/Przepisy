@@ -561,7 +561,7 @@ def name_fits(product: str, ingredient: str) -> bool:
     """Czy nazwa z gazetki mówi o tym składniku: początek któregoś słowa ("sól" -> "só", "jajko" -> "jaj",
     "ser żółty" -> "ser"/"żół") musi być w nazwie produktu. Chroni przed złym przypisaniem przez AI
     (cena schabu przy soli i pieprzu). Tak samo w aplikacji (frontend/src/lib/promo.ts: nameFits)."""
-    stems = [w[:3] if len(w) >= 4 else w[:2] for w in ingredient.lower().split() if len(w) >= 3]
+    stems = [_stem(w) for w in ingredient.lower().split() if len(w) >= 3]
     if not product or not stems:
         return True
     name = product.lower()
@@ -584,8 +584,38 @@ def label(promo: Promotion) -> str:
     return f"{promo.leaflet.store} {promo.price}".strip()
 
 
+def _stem(word: str) -> str:
+    return word[:3] if len(word) >= 4 else word[:2]
+
+
+def details_fit(product: str, promo: str, needed: str) -> bool:
+    """Gdy potrzebny składnik jest dokładniejszy niż ten z promocji ("sok z cytryny" a promocja na "sok"),
+    każde dodatkowe słowo musi być w nazwie produktu: "Sok pomarańczowy" nie jest sokiem z cytryny,
+    a "Filet z piersi kurczaka" jest "kurczak piersi". Tak samo w aplikacji (promo.ts: detailsFit)."""
+    if not product or not needed.startswith(promo + " "):
+        return True
+    name = product.lower()
+    extra = [w for w in needed[len(promo):].split() if len(w) >= 3]
+    return all(_stem(w) in name for w in extra)
+
+
+def fits(promo: Promotion, name: str) -> bool:
+    """Czy ta promocja naprawdę jest na ten składnik / produkt z listy zakupów."""
+    return (matches(promo.ingredient, name) and name_fits(promo.name, promo.ingredient)
+            and details_fit(promo.name, promo.ingredient, name))
+
+
 def find_for(name: str, promos: list[Promotion]) -> Promotion | None:
     """Promocja na ten składnik (najpierw dokładnie ta sama nazwa)."""
-    hits = [p for p in promos if matches(p.ingredient, name) and name_fits(p.name, p.ingredient)]
+    hits = [p for p in promos if fits(p, name)]
     hits.sort(key=lambda p: p.ingredient != name)
     return hits[0] if hits else None
+
+
+def find_per_store(name: str, promos: list[Promotion]) -> list[Promotion]:
+    """Najlepsza promocja na ten składnik w każdym sklepie - aplikacja pokaże tylko wybrane sklepy."""
+    stores: dict[str, list[Promotion]] = {}
+    for promo in promos:
+        stores.setdefault(promo.leaflet.store, []).append(promo)
+    found = [find_for(name, store_promos) for store_promos in stores.values()]
+    return [p for p in found if p is not None]

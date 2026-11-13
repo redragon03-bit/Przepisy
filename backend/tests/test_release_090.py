@@ -172,7 +172,7 @@ def with_promos(client, monkeypatch):
 def test_recipes_with_promoted_ingredients(client, monkeypatch):
     with_promos(client, monkeypatch)
     make_recipe(client, "Udka pieczone", ["udo z kurczaka", "masło", "sól"])
-    make_recipe(client, "Ciasto", ["masło klarowane", "mąka"])
+    make_recipe(client, "Ciasto", ["masło ekstra", "mąka"])
     make_recipe(client, "Sałatka", ["pomidor"])
     found = client.get("/api/promotions/recipes").json()
     assert [m["recipe"]["title"] for m in found] == ["Udka pieczone", "Ciasto"]

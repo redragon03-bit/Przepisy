@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, Promotion, PromoStatus } from "../api";
 import Sheet from "../components/Sheet";
 import { validLabel } from "../lib/promo";
+import { useHiddenPromoStores } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { fold } from "../lib/stepIngredients";
 import { useToast } from "../lib/toast";
@@ -104,14 +105,13 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [status, setStatus] = useState<PromoStatus | null>(null);
   const [q, setQ] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
-  // Sklepy i grupy ukryte na liście (stuknięcie chowa/pokazuje) - zapamiętane w telefonie
-  const [hiddenList, setHiddenList] = useRemembered<string[]>("promo-hidden-stores", []);
+  // Sklepy i grupy ukryte na liście (stuknięcie chowa/pokazuje) - zapamiętane w telefonie.
+  // Odznaczone sklepy znikają też z plakietek w Zakupach, przy składnikach i w "Z promocji".
+  const [hidden, setHidden] = useHiddenPromoStores();
   const [hiddenCatList, setHiddenCatList] = useRemembered<string[]>("promo-hidden-groups", []);
   // Tylko jeden dział, np. "Mięso i ryby" ("" = wszystkie)
   const [onlyAisle, setOnlyAisle] = useRemembered<string>("promo-aisle", "");
-  const hidden = new Set(hiddenList);
   const hiddenCats = new Set(hiddenCatList);
-  const setHidden = (next: Set<string>) => setHiddenList([...next]);
   const setHiddenCats = (next: Set<string>) => setHiddenCatList([...next]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [chosen, setChosen] = useState<Promotion | null>(null);

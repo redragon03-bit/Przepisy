@@ -4,7 +4,7 @@ import { api, CookMatch, PantryItem, PromoRecipe } from "../api";
 import { expiresLabel, inDays, USE_FIRST_DAYS } from "../components/ExpirySheet";
 import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
-import { useRemembered } from "../lib/remember";
+import { useHiddenPromoStores } from "../lib/promoBadges";
 import { usePromotions } from "../lib/usePromotions";
 
 // "Co mogę ugotować?" - przepisy z produktów ze spiżarni (Zakupy → W domu).
@@ -31,10 +31,8 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
   const [recipes, setRecipes] = useState<PromoRecipe[] | null>(null);
   const [all, setAll] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
-  // Sklepy schowane w tej sekcji (stuknięcie w sklep go chowa/pokazuje) - zapamiętane w telefonie
-  const [hiddenList, setHiddenList] = useRemembered<string[]>("promo-cook-hidden-stores", []);
-  const hidden = new Set(hiddenList);
-  const setHidden = (next: Set<string>) => setHiddenList([...next]);
+  // Sklepy odznaczone (tutaj albo w Promocjach - to ten sam wybór), zapamiętane w telefonie
+  const [hidden, setHidden] = useHiddenPromoStores();
 
   useEffect(() => {
     api.promoRecipes().then(setRecipes, () => setRecipes([]));
