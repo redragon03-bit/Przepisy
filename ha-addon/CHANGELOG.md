@@ -1,6 +1,6 @@
 # Zmiany
 
-## 0.17.1
+## 0.18.1
 
 - Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
   z cytryną” nie trafia już do „soku z cytryny”, choć AI opisało go jako zwykły „sok”.
