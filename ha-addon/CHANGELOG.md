@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.23.0
+
+- Ustawienia → Wygląd: podgląd przykładowego przepisu (tytuł, kcal, składniki z kółkami, krok
+  z minutnikiem, tekst trybu gotowania i pastylka minutnika). Każda zmiana −/+ od razu widać w podglądzie.
+- Stuknięcie elementu w podglądzie wybiera jego grupę (obwódka) i pokazuje pod podglądem jej −/+.
+  Stuknięcie tła podglądu = Odstępy.
+
 ## 0.22.1
 
 - Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
