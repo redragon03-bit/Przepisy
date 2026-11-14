@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.22.1
+
+- Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
+  z cytryną” nie trafia już do „soku z cytryny”, choć AI opisało go jako zwykły „sok”.
+- Promocje: bez cen „0,01 zł”. Blix przy części ofert Kauflandu podaje grosz zamiast prawdziwej
+  ceny (np. cukier puder, sok, śmietanka) - takie oferty nie trafiają już na listę ani do plakietek.
+
 ## 0.22.0
 
 - Zakupy: przytrzymaj pozycję na liście „Do kupienia”, żeby zmienić jej tekst (nazwę, ilość).
