@@ -121,10 +121,32 @@ def update_item(item_id: int, data: ShoppingItemPatch, db: Session = Depends(get
             shopping.not_bought(db, [item], user)
         if item.ha_text:
             shopping.update_in_home_assistant([(item.ha_text, "completed" if item.checked else "needs_action")])
-    if data.text is not None and data.text.strip():
-        item.text = data.text.strip()
+    if data.text is not None and data.text.strip() and data.text.strip() != item.text:
+        rename(item, data.text.strip())
     db.commit()
-    return to_out(item)
+    # Po zmianie nazwy promocje dobieramy od nowa
+    return to_out(item, [p for p in promotions.current(db) if p.ingredient])
+
+
+def _same_ingredient(name: str, text: str) -> bool:
+    """Czy nowy tekst to wciąż ten składnik: każde słowo nazwy (bez końcówki) jest w tekście."""
+    words = [w[:-1] if len(w) > 3 else w for w in name.lower().split() if len(w) > 1]
+    return bool(words) and all(w in text.lower() for w in words)
+
+
+def rename(item: ShoppingItem, text: str) -> None:
+    """Nowy tekst pozycji wpisany ręcznie, np. "Sok z cytryny" -> "Sok z pomarańczy".
+
+    Kolejne przepisy nie dosumowują już do niej ilości (mogłaby wyjść bzdura). Gdy to wciąż ten
+    sam składnik ("200 g mąki" -> "1 kg mąki"), zostaje jego nazwa (spiżarnia, "brak" w przepisach);
+    inny produkt staje się jak dopisany ręcznie: dział, promocje i nazwa liczą się od nowa z tekstu.
+    """
+    item.text = text
+    item.amount, item.unit = None, ""
+    if not _same_ingredient(item.name, text):
+        item.name = ""
+    if item.ha_text and shopping.rename_in_home_assistant(item.ha_text, text):
+        item.ha_text = text
 
 
 @router.delete("/{item_id}", status_code=204)

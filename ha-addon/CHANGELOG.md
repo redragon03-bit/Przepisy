@@ -1,11 +1,19 @@
 # Zmiany
 
-## 0.21.1
+## 0.22.1
 
 - Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
   z cytryną” nie trafia już do „soku z cytryny”, choć AI opisało go jako zwykły „sok”.
 - Promocje: bez cen „0,01 zł”. Blix przy części ofert Kauflandu podaje grosz zamiast prawdziwej
   ceny (np. cukier puder, sok, śmietanka) - takie oferty nie trafiają już na listę ani do plakietek.
+
+## 0.22.0
+
+- Zakupy: przytrzymaj pozycję na liście „Do kupienia”, żeby zmienić jej tekst (nazwę, ilość).
+  Stuknięcie dalej odhacza, przesunięcie w lewo dalej usuwa. Po zmianie dział sklepu i plakietki
+  promocji dobierają się od nowa, a pozycja wysłana do Home Assistant zmienia się też tam.
+- W domu: nazwę produktu zmienisz przytrzymaniem albo „✏️ Zmień nazwę” w panelu terminu
+  (np. literówka z paragonu). Termin zużycia zostaje.
 
 ## 0.21.0
 

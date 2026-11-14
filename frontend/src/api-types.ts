@@ -292,6 +292,11 @@ export interface PantryNamesIn {
   names: string[];
 }
 
+export interface PantryRenameIn {
+  name: string;
+  new_name: string;
+}
+
 export interface PlanSuggestionDay {
   day: string;
   recipe: RecipeSummary;

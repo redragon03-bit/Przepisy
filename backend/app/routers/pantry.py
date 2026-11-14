@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser, current_user, require_auth
 from ..database import get_db
-from ..schemas import PantryExpiresIn, PantryIn, PantryItem, PantryNamesIn
+from ..schemas import PantryExpiresIn, PantryIn, PantryItem, PantryNamesIn, PantryRenameIn
 from ..services import kitchen
 from ..services.aisles import aisle, aisle_order
-from ..services.ingredients import normalize_name
+from ..services.ingredients import get_or_create_ingredient, normalize_name
 from ..services.shopping import pantry_names
 
 router = APIRouter(prefix="/api/pantry", tags=["spiżarnia"], dependencies=[Depends(require_auth)])
@@ -71,5 +71,26 @@ def add_items(data: PantryNamesIn, db: Session = Depends(get_db), user: CurrentU
 def remove_items(data: PantryNamesIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Usuwa produkty ze spiżarni (zużyte)."""
     kitchen.remove_from_pantry(db, user, [normalize_name(n) for n in data.names])
+    db.commit()
+    return _items(db, user)
+
+
+@router.post("/rename", response_model=list[PantryItem])
+def rename_item(data: PantryRenameIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
+    """Zmienia nazwę produktu w spiżarni (np. literówka z paragonu); termin zostaje."""
+    old, new = normalize_name(data.name), normalize_name(data.new_name)
+    expires = dict(kitchen.pantry(db, user)).get(old)
+    if not new:
+        raise HTTPException(422, "Podaj nazwę")
+    if not kitchen.remove_from_pantry(db, user, [old]):
+        raise HTTPException(404, "Tego produktu nie ma w spiżarni")
+    db.flush()
+    # Dokładnie ta nazwa (bez szukania podobnej - poprawiamy np. literówkę "mlekoo" -> "mleko")
+    get_or_create_ingredient(db, new)
+    db.flush()
+    kitchen.add_to_pantry(db, user, [new])
+    db.flush()
+    if expires:
+        kitchen.set_expires(db, user, new, expires)
     db.commit()
     return _items(db, user)
