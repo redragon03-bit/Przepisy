@@ -747,3 +747,27 @@ test("paragon: włączony w Ustawieniach, AI odczytuje, poprawiasz nazwę i doda
   await expect(page.locator(".swipe-row", { hasText: "mlek" })).toContainText("za 5 dni");
   await page.screenshot({ path: "test-results/w-domu.png" });
 });
+
+test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, która zostaje", async ({ page }) => {
+  await addRecipe("Kompot rabarbarowy", ["rabarbar"], ["Gotuj."]);
+  await addRecipe("Ciasto z rabarbarem", ["rabarbary"], ["Piecz."]);
+  await addRecipe("Konfitura z rabarbaru", ["rabarbaru"], ["Smaż."]);
+  await login(page);
+  await page.goto("/ustawienia");
+  await page.getByRole("button", { name: "🧹 Znajdź podwójne składniki" }).click();
+  const card = page.locator(".duplicate-card", { hasText: "rabarbar" });
+  await expect(card.locator(".chip")).toHaveCount(3);
+  // Karta mieści się w szerokości ekranu (tekst się zawija)
+  const box = await card.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await card.locator(".chip", { hasText: "rabarbaru" }).click();
+  await card.getByLabel("Zostaje nazwa").selectOption("rabarbary");
+  await card.getByRole("button", { name: "Połącz (2)" }).click();
+  await expect(page.getByText("Połączono w „rabarbary”.")).toBeVisible();
+  // "rabarbaru" nie zostało połączone - dalej jest osobno
+  await page.getByRole("button", { name: "🧹 Znajdź podwójne składniki" }).click();
+  const again = page.locator(".duplicate-card", { hasText: "rabarbar" });
+  await expect(again.locator(".chip")).toHaveText([/rabarbary/, /rabarbaru/]);
+  await again.getByRole("button", { name: "To różne produkty" }).click();
+  await expect(page.locator(".duplicate-card", { hasText: "rabarbar" })).toHaveCount(0);
+});

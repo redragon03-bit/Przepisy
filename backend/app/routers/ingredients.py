@@ -10,7 +10,14 @@ from ..database import get_db
 from ..models import Ingredient, RecipeIngredient
 from ..schemas import CookMatch, CookRequest, DuplicateGroup, IngredientOut, IngredientUpdate, MergeIn, StapleIn
 from ..services import ai
-from ..services.ingredients import get_or_create_ingredient, group_similar, merge_ingredients, normalize_name
+from ..services.ingredients import (
+    get_or_create_ingredient,
+    group_similar,
+    merge_ingredients,
+    normalize_name,
+    same_product,
+    split_different,
+)
 from ..services.kitchen import Marks
 from ..services.matching import find_recipes
 from ..services.shopping import expiring_names
@@ -81,16 +88,19 @@ def find_duplicates(db: Session = Depends(get_db)):
     groups = group_similar(list(counts))
     if get_settings().ai_enabled:
         try:
-            for group in ai.find_duplicate_ingredients(list(counts)):
-                group = [n for n in group if n in counts]  # tylko nazwy z bazy
-                if len(group) < 2:
-                    continue
-                # Grupę AI łączymy z naszą, jeśli mają wspólną nazwę
-                same = next((g for g in groups if set(g) & set(group)), None)
-                if same is None:
-                    groups.append(group)
-                else:
-                    same.extend(n for n in group if n not in same)
+            for ai_group in ai.find_duplicate_ingredients(list(counts)):
+                # Tylko nazwy z bazy; AI bywa zbyt chętne ("twaróg" i "twaróg chudy"),
+                # więc nazwy z innym dopiskiem rozdzielamy
+                for group in split_different([n for n in dict.fromkeys(ai_group) if n in counts]):
+                    taken = {n for g in groups for n in g}
+                    # Grupę AI łączymy z naszą, jeśli mają wspólną nazwę
+                    same = next((g for g in groups if set(g) & set(group)), None)
+                    if same is None:
+                        new = [n for n in group if n not in taken]
+                        if len(new) > 1:
+                            groups.append(new)
+                    else:
+                        same.extend(n for n in group if n not in taken and all(same_product(n, o) for o in same))
         except ai.AiError:
             pass  # bez AI zostają podobne formy wyrazu
     result = []
@@ -98,7 +108,8 @@ def find_duplicates(db: Session = Depends(get_db)):
         # Zostaje nazwa z największą liczbą przepisów, przy remisie krótsza
         keep = min(group, key=lambda n: (-counts[n], len(n), n))
         result.append(DuplicateGroup(keep=keep, others=[n for n in group if n != keep],
-                                     recipe_count=sum(counts[n] for n in group)))
+                                     recipe_count=sum(counts[n] for n in group),
+                                     counts={n: counts[n] for n in group}))
     return result
 
 

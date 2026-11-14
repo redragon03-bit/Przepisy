@@ -1,11 +1,20 @@
 # Zmiany
 
-## 0.20.0
+## 0.23.0
 
 - Ustawienia → Wygląd: podgląd przykładowego przepisu (tytuł, kcal, składniki z kółkami, krok
   z minutnikiem, tekst trybu gotowania i pastylka minutnika). Każda zmiana −/+ od razu widać w podglądzie.
 - Stuknięcie elementu w podglądzie wybiera jego grupę (obwódka) i pokazuje pod podglądem jej −/+.
   Stuknięcie tła podglądu = Odstępy.
+
+## 0.21.0
+
+- Ustawienia → Porządki → „Znajdź podwójne składniki” nie proponuje już łączenia odmian
+  jednego produktu: „twaróg”, „twaróg chudy”, „twaróg półtłusty” i „twaróg sernikowy” zostają osobno.
+  Łączone są tylko te same nazwy w innej formie lub szyku („pierś z kurczaka” = „kurczak piersi”) i synonimy.
+- Każda propozycja to karta: odznaczasz nazwy, które są innym produktem, wybierasz nazwę, która zostanie,
+  i stukasz „Połącz”. „To różne produkty” chowa propozycję.
+- Długie propozycje zawijają się na iPhonie zamiast wychodzić poza przycisk.
 
 ## 0.18.0
 

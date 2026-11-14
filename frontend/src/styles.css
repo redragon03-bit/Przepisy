@@ -1128,6 +1128,8 @@ body:has(.chat-input) .back-to-top {
 
 .sheet-row {
   width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2414,4 +2416,35 @@ body:has(.fab) .back-to-top {
   min-height: 0;
   padding: 4px 2px;
   font-weight: 600;
+}
+
+/* Ustawienia → Porządki: grupa podwójnych składników */
+.duplicate-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.duplicate-card .chips {
+  margin-bottom: 0;
+}
+
+.duplicate-card .chip {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.duplicate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.duplicate-actions button {
+  flex: 1 1 auto;
 }
