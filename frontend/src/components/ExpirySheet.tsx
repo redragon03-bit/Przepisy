@@ -22,12 +22,13 @@ export function expiresLabel(expires: string): string {
 }
 
 // Panel produktu ze spiżarni: do kiedy zużyć, dopisz do zakupów, usuń.
-export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopping, onClose }: {
+export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopping, onRename, onClose }: {
   name: string;
   expires?: string;
   onTerm: (day: string | null) => void;
   onRemove: () => void;
   onToShopping?: () => void;
+  onRename?: () => void;
   onClose: () => void;
 }) {
   // Data wybierana w kalendarzu "Inna data" (zapisywana po jego zamknięciu)
@@ -70,6 +71,11 @@ export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopp
       {onToShopping && (
         <button type="button" className="sheet-row" onClick={onToShopping}>
           🛒 Kończy się - dopisz do zakupów
+        </button>
+      )}
+      {onRename && (
+        <button type="button" className="sheet-row" onClick={onRename}>
+          ✏️ Zmień nazwę
         </button>
       )}
       <button type="button" className="sheet-row danger-tile" onClick={onRemove}>

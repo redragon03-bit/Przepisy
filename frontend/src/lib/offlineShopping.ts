@@ -10,6 +10,7 @@ const QUEUE_KEY = "shopping-queue";
 export type Change =
   | { op: "add"; id: number; text: string } // id ujemne = pozycja jeszcze nie zapisana na serwerze
   | { op: "check"; id: number; checked: boolean }
+  | { op: "rename"; id: number; text: string }
   | { op: "delete"; id: number }
   | { op: "clear"; onlyChecked: boolean };
 
@@ -61,6 +62,7 @@ async function send(): Promise<boolean> {
         // Ujemny numer = pozycja, której dodanie się nie udało - nie ma czego zmieniać
         if (id > 0 && change.op === "check") await api.setShoppingChecked(id, change.checked);
         if (id > 0 && change.op === "delete") await api.deleteShoppingItem(id);
+        if (id > 0 && change.op === "rename") await api.renameShoppingItem(id, change.text);
       } else {
         await api.clearShopping(change.onlyChecked);
       }
@@ -80,6 +82,9 @@ export function applyChange(items: ShoppingItem[], change: Change): ShoppingItem
       return [...items, { id: change.id, text: change.text, recipes: "", checked: false, aisle: "Inne", aisle_order: 99, in_ha: false, promo: "", promos: [] }];
     case "check":
       return items.map((i) => (i.id === change.id ? { ...i, checked: change.checked } : i));
+    case "rename":
+      // Promocje i dział dobierze serwer od nowa (po odświeżeniu listy)
+      return items.map((i) => (i.id === change.id ? { ...i, text: change.text, promo: "", promos: [] } : i));
     case "delete":
       return items.filter((i) => i.id !== change.id);
     case "clear":

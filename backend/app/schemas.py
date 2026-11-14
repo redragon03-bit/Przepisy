@@ -278,6 +278,11 @@ class ReceiptApplyIn(BaseModel):
     items: list[ReceiptApplyLine]
 
 
+class PantryRenameIn(BaseModel):
+    name: str
+    new_name: str = Field(min_length=1)
+
+
 class PantryExpiresIn(BaseModel):
     name: str
     expires: date | None

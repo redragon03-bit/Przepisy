@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, ShoppingItem } from "../api";
 import PantryView from "../components/PantryView";
+import RenameSheet from "../components/RenameSheet";
 import SwipeRow from "../components/SwipeRow";
 import { useHiddenPromoStores, usePromoBadges } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
@@ -28,6 +29,8 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
   const [text, setText] = useState("");
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Pozycja, której tekst zmieniamy (przytrzymanie wiersza)
+  const [editing, setEditing] = useState<ShoppingItem | null>(null);
   const { toast, undoable, run } = useToast();
   const [showPromos] = usePromoBadges();
   // Tylko sklepy zaznaczone w Promocjach
@@ -91,8 +94,8 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
         forgetPantry();
         loadPantry();
       }
-      // Nowa pozycja dostaje od serwera numer i dział sklepu
-      if (sent && c.op === "add") refresh();
+      // Nowa albo przemianowana pozycja dostaje od serwera numer, dział sklepu i promocje
+      if (sent && (c.op === "add" || c.op === "rename")) refresh();
     });
   };
 
@@ -215,6 +218,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       className={item.checked ? "done" : ""}
       checked={item.checked}
       onClick={() => check(item)}
+      onLongPress={() => setEditing(item)}
       onDelete={() => removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }])}
     >
       <span className="check" aria-hidden="true" />
@@ -293,7 +297,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
               <ul className="checklist shopping">{done.map(row)}</ul>
             </>
           )}
-          <p className="muted small center">Przesuń pozycję w lewo, żeby ją usunąć.</p>
+          <p className="muted small center">Przytrzymaj pozycję, żeby ją zmienić. Przesuń w lewo, żeby usunąć.</p>
           <div className="actions">
             {done.length > 0 && (
               <button type="button" onClick={() => removeLater("Usunięto kupione z listy (zostają w spiżarni)", done, [{ op: "clear", onlyChecked: true }])}>
@@ -305,6 +309,17 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
             </button>
           </div>
         </>
+      )}
+      {editing && (
+        <RenameSheet
+          title="Zmień pozycję"
+          text={editing.text}
+          onClose={() => setEditing(null)}
+          onSave={(newText) => {
+            setEditing(null);
+            change({ op: "rename", id: editing.id, text: newText });
+          }}
+        />
       )}
     </>
   );

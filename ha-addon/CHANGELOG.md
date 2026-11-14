@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.22.0
+
+- Zakupy: przytrzymaj pozycję na liście „Do kupienia”, żeby zmienić jej tekst (nazwę, ilość).
+  Stuknięcie dalej odhacza, przesunięcie w lewo dalej usuwa. Po zmianie dział sklepu i plakietki
+  promocji dobierają się od nowa, a pozycja wysłana do Home Assistant zmienia się też tam.
+- W domu: nazwę produktu zmienisz przytrzymaniem albo „✏️ Zmień nazwę” w panelu terminu
+  (np. literówka z paragonu). Termin zużycia zostaje.
+
 ## 0.21.0
 
 - Ustawienia → Porządki → „Znajdź podwójne składniki” nie proponuje już łączenia odmian

@@ -225,6 +225,8 @@ export const api = {
     request<ShoppingResult>("POST", "/api/shopping/from-plan", { start, end }),
   setShoppingChecked: (id: number, checked: boolean) =>
     request<ShoppingItem>("PATCH", `/api/shopping/${id}`, { checked }),
+  renameShoppingItem: (id: number, text: string) =>
+    request<ShoppingItem>("PATCH", `/api/shopping/${id}`, { text }),
   deleteShoppingItem: (id: number) => request<void>("DELETE", `/api/shopping/${id}`),
   clearShopping: (onlyChecked: boolean) =>
     request<void>("POST", `/api/shopping/clear${query({ only_checked: onlyChecked ? "true" : "false" })}`),
@@ -240,6 +242,8 @@ export const api = {
     request<PantryItem[]>("PUT", "/api/pantry/expires", { name, expires }),
   addToPantry: (names: string[]) => request<PantryItem[]>("POST", "/api/pantry/add", { names }),
   removeFromPantry: (names: string[]) => request<PantryItem[]>("POST", "/api/pantry/remove", { names }),
+  renamePantryItem: (name: string, newName: string) =>
+    request<PantryItem[]>("POST", "/api/pantry/rename", { name, new_name: newName }),
 
   receiptSettings: () => request<ReceiptSettings>("GET", "/api/receipts/settings"),
   setReceiptsEnabled: (enabled: boolean) => request<ReceiptSettings>("PUT", "/api/receipts/settings", { enabled }),

@@ -1,13 +1,16 @@
 import { ReactNode, TouchEvent, useRef, useState } from "react";
+import { useLongPress } from "../lib/useLongPress";
 
 const DELETE_AT = 90; // tyle pikseli w lewo usuwa pozycję
 
 // Wiersz listy, który przesunięty palcem w lewo się usuwa (jak w aplikacjach iPhone'a).
-export default function SwipeRow({ className, checked, onClick, onDelete, deleteLabel = "Usuń", children }: {
+export default function SwipeRow({ className, checked, onClick, onLongPress, onDelete, deleteLabel = "Usuń", children }: {
   className?: string;
   // Wiersz do odhaczania (lista zakupów) - czytnik ekranu ogłasza go jako pole wyboru
   checked?: boolean;
   onClick: () => void;
+  // Przytrzymanie palcem, np. zmiana tekstu pozycji
+  onLongPress?: () => void;
   onDelete: () => void;
   // Napis pod przesuwanym wierszem, np. "Zużyte" w spiżarni
   deleteLabel?: string;
@@ -17,12 +20,15 @@ export default function SwipeRow({ className, checked, onClick, onDelete, delete
   const start = useRef<{ x: number; y: number; swiping: boolean } | null>(null);
   // Czy ostatni dotyk był przesunięciem - wtedy "kliknięcie" na jego końcu nie odhacza pozycji
   const moved = useRef(false);
+  const { wasLongPress, ...press } = useLongPress(() => onLongPress?.());
 
   const onTouchStart = (e: TouchEvent) => {
+    if (onLongPress) press.onTouchStart(e);
     start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, swiping: false };
     moved.current = false;
   };
   const onTouchMove = (e: TouchEvent) => {
+    press.onTouchMove(e);
     const from = start.current;
     if (!from) return;
     const moveX = e.touches[0].clientX - from.x;
@@ -36,7 +42,10 @@ export default function SwipeRow({ className, checked, onClick, onDelete, delete
     moved.current = from.swiping;
     setDx(Math.min(0, moveX));
   };
-  const onTouchEnd = () => {
+  const onTouchEnd = (e: TouchEvent) => {
+    press.onTouchEnd();
+    // Po przytrzymaniu otwiera się panel - kliknięcie z puszczenia palca trafiłoby w jego tło i go zamknęło
+    if (wasLongPress()) e.preventDefault();
     const swiped = dx <= -DELETE_AT;
     start.current = null;
     setDx(0);
@@ -57,9 +66,10 @@ export default function SwipeRow({ className, checked, onClick, onDelete, delete
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onContextMenu={onLongPress ? press.onContextMenu : undefined}
         onClick={() => {
-          // Kliknięcie po przesunięciu to koniec gestu, nie odhaczenie
-          if (!moved.current) onClick();
+          // Kliknięcie po przesunięciu albo przytrzymaniu to koniec gestu, nie odhaczenie
+          if (!wasLongPress() && !moved.current) onClick();
         }}
       >
         {children}
