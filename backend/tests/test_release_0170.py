@@ -13,7 +13,9 @@ def _promo(ingredient, name, store="Biedronka"):
 def test_details_must_be_in_product_name():
     assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok pomarańczowy Tymbark 1 l")]) is None
     assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok z cytryn 100% 200 ml")]) is not None
-    assert promotions.find_for("kurczak piersi", [_promo("kurczak", "Filet z piersi kurczaka")]) is not None
+    # 0.17.1: cała nazwa po kolei - sok imbirowy z cytryną to nie sok z cytryny
+    assert promotions.find_for("sok z cytryny", [_promo("sok", "Sok NFC imbir z cytryną Premium Rosa 100%")]) is None
+    assert promotions.find_for("mąka pszenna", [_promo("mąka", "Mąka pszenna typ 450")]) is not None
     assert promotions.find_for("kurczak piersi", [_promo("kurczak", "Kurczak cały")]) is None
     assert promotions.find_for("masło klarowane", [_promo("masło", "Masło ekstra Polmlek")]) is None
     # promocja dokładniejsza niż potrzebny produkt dalej pasuje
@@ -35,3 +37,13 @@ def test_shopping_lists_promo_from_each_store(client, monkeypatch):
     assert items["masło"]["promos"] == [{"ingredient": "masło", "store": "Biedronka", "label": "Biedronka 2,49 zł"}]
     assert items["masło"]["promo"] == "Biedronka 2,49 zł"
     assert [p["store"] for p in items["udo z kurczaka"]["promos"]] == ["Lidl"]
+
+
+def test_placeholder_price_is_dropped():
+    # Blix podaje "0,01 zł" zamiast ceny części ofert Kauflandu (cukier puder za grosz)
+    assert not promotions.real_price("0,01 zł")
+    assert promotions.real_price("0,66 zł")
+    assert promotions.real_price("14,99 zł/kg")
+    assert promotions.real_price("2 za 1")
+    lines = ["Cukier puder Diamant", "0,01 zł", "Masło ekstra", "2,49 zł", "Sok Tymbark 0,01 zł"]
+    assert promotions.priced_offers(lines) == ["Masło ekstra 2,49 zł"]

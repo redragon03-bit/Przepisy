@@ -47,7 +47,9 @@ test("sok to nie sok z cytryny; dokładniejsze słowa muszą być w nazwie produ
   assert.equal(promoLabel("sok z cytryny", promos), "");
   const lemon = [promo("Lidl", "sok", "3,49 zł", "Sok z cytryn 100% 200 ml")];
   assert.equal(promoLabel("sok z cytryny", lemon), "Lidl 3,49 zł");
-  assert.equal(promoLabel("kurczak piersi", [promo("Lidl", "kurczak", "12,49 zł", "Filet z piersi kurczaka")]), "Lidl 12,49 zł");
+  const ginger = [promo("Kaufland", "sok", "19,99 zł", "Sok NFC imbir z cytryną Premium Rosa 100%")];
+  assert.equal(promoLabel("sok z cytryny", ginger), "");
+  assert.equal(promoLabel("mąka pszenna", [promo("Lidl", "mąka", "1,79 zł", "Mąka pszenna typ 450")]), "Lidl 1,79 zł");
 });
 
 test("po jednej promocji z każdego sklepu, bez odznaczonych sklepów", () => {

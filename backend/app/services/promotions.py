@@ -234,6 +234,23 @@ _ONLY_PERCENT = re.compile(r"\s*[-–]\s*\d{1,2}\s*%\s*")
 _NAME_PRICE = re.compile(r"\s+\d+[,.]\d{2}\s*zł.*$", re.IGNORECASE)
 
 
+# Najniższa sensowna cena. Blix przy części ofert Kauflandu podaje "0,01 zł" zamiast prawdziwej ceny
+# (cukier puder, sok, śmietanka...) - taka promocja nic nie mówi i myli plakietki w Zakupach.
+MIN_PRICE = 0.10
+
+
+def price_value(price: str) -> float | None:
+    """Pierwsza kwota z ceny: "2,49 zł/kg" -> 2.49; None, gdy nie ma liczby."""
+    match = re.search(r"\d+(?:[,.]\d{1,2})?", price or "")
+    return float(match.group().replace(",", ".")) if match else None
+
+
+def real_price(price: str) -> bool:
+    """Czy to prawdziwa cena (nie zaślepka "0,01 zł")."""
+    value = price_value(price)
+    return value is None or value >= MIN_PRICE
+
+
 def priced_offers(lines: list[str]) -> list[str]:
     """Tylko oferty z ceną: "Masło ekstra 2,49 zł". Cena w osobnej linii dołącza do nazwy przed nią.
 
@@ -247,11 +264,12 @@ def priced_offers(lines: list[str]) -> list[str]:
                 offers[-1] += f" {line.strip()}"
             continue
         if _ONLY_PRICE.fullmatch(line):
-            if previous:
+            if previous and real_price(line):
                 offers.append(f"{previous} {line}")
             previous = ""
         elif _PRICE.search(line):
-            offers.append(line)
+            if real_price(_PRICE.search(line).group()):
+                offers.append(line)
             previous = ""
         else:
             previous = line
@@ -576,6 +594,8 @@ def current(db: Session) -> list[Promotion]:
         .filter((PromoLeaflet.valid_to.is_(None)) | (PromoLeaflet.valid_to >= today))
         .all()
     )
+    # Zaślepki "0,01 zł" zapisane przed 0.18.1 też pomijamy
+    rows = [p for p in rows if real_price(p.price)]
     return sorted(rows, key=lambda p: (p.leaflet.store, p.ingredient, p.price))
 
 
@@ -588,15 +608,23 @@ def _stem(word: str) -> str:
     return word[:3] if len(word) >= 4 else word[:2]
 
 
+def _long_words(text: str) -> list[str]:
+    return [w for w in re.split(r"[^\w%]+", text.lower()) if len(w) >= 3]
+
+
 def details_fit(product: str, promo: str, needed: str) -> bool:
     """Gdy potrzebny składnik jest dokładniejszy niż ten z promocji ("sok z cytryny" a promocja na "sok"),
-    każde dodatkowe słowo musi być w nazwie produktu: "Sok pomarańczowy" nie jest sokiem z cytryny,
-    a "Filet z piersi kurczaka" jest "kurczak piersi". Tak samo w aplikacji (promo.ts: detailsFit)."""
+    nazwa produktu musi zawierać całą nazwę składnika, słowo po słowie (krótkie jak "z" pomijamy):
+    "Sok z cytryn 100%" pasuje, a "Sok pomarańczowy" ani "Sok NFC imbir z cytryną" nie.
+    Tak samo w aplikacji (promo.ts: detailsFit)."""
     if not product or not needed.startswith(promo + " "):
         return True
-    name = product.lower()
-    extra = [w for w in needed[len(promo):].split() if len(w) >= 3]
-    return all(_stem(w) in name for w in extra)
+    stems = [_stem(w) for w in _long_words(needed)]
+    words = _long_words(product)
+    return any(
+        all(words[i + k].startswith(stem) for k, stem in enumerate(stems))
+        for i in range(len(words) - len(stems) + 1)
+    )
 
 
 def fits(promo: Promotion, name: str) -> bool:
