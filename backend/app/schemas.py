@@ -489,6 +489,7 @@ class DuplicateGroup(BaseModel):
     keep: str = Field(description="Nazwa, która zostanie (najczęściej używana)")
     others: list[str] = Field(description="Nazwy do połączenia z `keep`")
     recipe_count: int = Field(description="W ilu przepisach występują wszystkie razem")
+    counts: dict[str, int] = Field(default_factory=dict, description="W ilu przepisach jest każda z nazw")
 
 
 class MergeIn(BaseModel):

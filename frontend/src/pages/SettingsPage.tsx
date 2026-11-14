@@ -68,13 +68,15 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
     }
   };
 
-  const merge = async (group: DuplicateGroup) => {
+  const merge = async (group: DuplicateGroup, keep: string, others: string[]) => {
     // run() zwraca undefined także po błędzie, więc odpowiedź bez treści zamieniamy na true
-    if (await run(() => api.mergeIngredients(group.keep, group.others).then(() => true))) {
+    if (await run(() => api.mergeIngredients(keep, others).then(() => true))) {
       setDuplicates((list) => list && list.filter((g) => g !== group));
-      toast(`Połączono w „${group.keep}”.`);
+      toast(`Połączono w „${keep}”.`);
     }
   };
+
+  const skip = (group: DuplicateGroup) => setDuplicates((list) => list && list.filter((g) => g !== group));
 
   const findImages = async () => {
     const status = await run(() => api.startImageSearch());
@@ -270,11 +272,12 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           </button>
           {duplicates && duplicates.length > 0 && (
             <>
-              <p className="muted small">Ten sam produkt zapisany inaczej psuje wyszukiwanie i „Co ugotuję?”. Stuknij, żeby połączyć.</p>
+              <p className="muted small">
+                Ten sam produkt zapisany inaczej psuje wyszukiwanie i „Co ugotuję?”. Odznacz nazwy, które są innym produktem,
+                wybierz nazwę, która zostanie, i stuknij „Połącz”.
+              </p>
               {duplicates.map((g) => (
-                <button key={g.keep} type="button" className="sheet-row" onClick={() => merge(g)}>
-                  {g.others.join(", ")} → <b>{g.keep}</b> <span className="muted small">({g.recipe_count} przepisów)</span>
-                </button>
+                <DuplicateCard key={g.keep} group={g} onMerge={(keep, others) => merge(g, keep, others)} onSkip={() => skip(g)} />
               ))}
             </>
           )}
@@ -312,5 +315,63 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         </button>
       )}
     </>
+  );
+}
+
+/** Jedna grupa podobnych nazw: które połączyć i która nazwa zostaje. */
+function DuplicateCard({
+  group,
+  onMerge,
+  onSkip,
+}: {
+  group: DuplicateGroup;
+  onMerge: (keep: string, others: string[]) => void;
+  onSkip: () => void;
+}) {
+  const names = [group.keep, ...group.others];
+  const [picked, setPicked] = useState(() => new Set(names));
+  const [keep, setKeep] = useState(group.keep);
+  const chosen = names.filter((n) => picked.has(n));
+  const target = picked.has(keep) ? keep : chosen[0];
+  const toggle = (name: string) =>
+    setPicked((old) => {
+      const next = new Set(old);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  return (
+    <div className="duplicate-card">
+      <div className="chips">
+        {names.map((n) => (
+          <button key={n} type="button" className={`chip ${picked.has(n) ? "selected" : ""}`} aria-pressed={picked.has(n)} onClick={() => toggle(n)}>
+            {picked.has(n) ? "✓ " : ""}
+            {n} <span className="muted small">({group.counts[n] ?? 0})</span>
+          </button>
+        ))}
+      </div>
+      {chosen.length >= 2 ? (
+        <label className="small">
+          Zostaje nazwa
+          <select value={target} onChange={(e) => setKeep(e.target.value)}>
+            {chosen.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <p className="muted small">Zaznacz co najmniej dwie nazwy tego samego produktu.</p>
+      )}
+      <div className="duplicate-actions">
+        <button type="button" disabled={chosen.length < 2} onClick={() => onMerge(target, chosen.filter((n) => n !== target))}>
+          Połącz {chosen.length >= 2 ? `(${chosen.length})` : ""}
+        </button>
+        <button type="button" onClick={onSkip}>
+          To różne produkty
+        </button>
+      </div>
+    </div>
   );
 }
