@@ -322,3 +322,17 @@ def update_in_home_assistant(changes: list[tuple[str, str]]) -> None:
                     _post(client, url, "update_item", {"item": text, "status": change})
             except (httpx.HTTPError, ShoppingError) as exc:
                 log.warning("Nie udało się zmienić %r na liście w Home Assistant: %s", text, exc)
+
+
+def rename_in_home_assistant(old: str, new: str) -> bool:
+    """Zmiana tekstu pozycji w HA. False = HA nie odpowiedział albo nie ma tam tej pozycji."""
+    if get_settings().home_assistant is None:
+        return False
+    client, url = _ha_client()
+    with client:
+        try:
+            _post(client, url, "update_item", {"item": old, "rename": new})
+        except (httpx.HTTPError, ShoppingError) as exc:
+            log.warning("Nie udało się zmienić nazwy %r na liście w Home Assistant: %s", old, exc)
+            return False
+    return True
