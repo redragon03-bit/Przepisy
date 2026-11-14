@@ -170,6 +170,8 @@ export interface DuplicateGroup {
   others: string[];
   // W ilu przepisach występują wszystkie razem
   recipe_count: number;
+  // W ilu przepisach jest każda z nazw
+  counts: Record<string, number>;
 }
 
 export interface ImageFromUrl {

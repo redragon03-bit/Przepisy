@@ -1,11 +1,20 @@
 # Zmiany
 
-## 0.18.1
+## 0.21.1
 
 - Promocje: dokładniejszy produkt musi mieć całą nazwę w gazetce, słowo po słowie. „Sok NFC imbir
   z cytryną” nie trafia już do „soku z cytryny”, choć AI opisało go jako zwykły „sok”.
 - Promocje: bez cen „0,01 zł”. Blix przy części ofert Kauflandu podaje grosz zamiast prawdziwej
   ceny (np. cukier puder, sok, śmietanka) - takie oferty nie trafiają już na listę ani do plakietek.
+
+## 0.21.0
+
+- Ustawienia → Porządki → „Znajdź podwójne składniki” nie proponuje już łączenia odmian
+  jednego produktu: „twaróg”, „twaróg chudy”, „twaróg półtłusty” i „twaróg sernikowy” zostają osobno.
+  Łączone są tylko te same nazwy w innej formie lub szyku („pierś z kurczaka” = „kurczak piersi”) i synonimy.
+- Każda propozycja to karta: odznaczasz nazwy, które są innym produktem, wybierasz nazwę, która zostanie,
+  i stukasz „Połącz”. „To różne produkty” chowa propozycję.
+- Długie propozycje zawijają się na iPhonie zamiast wychodzić poza przycisk.
 
 ## 0.18.0
 
