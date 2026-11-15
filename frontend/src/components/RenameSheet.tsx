@@ -22,7 +22,7 @@ export default function RenameSheet({ title, text, onSave, onClose, children }: 
   return (
     <Sheet title={title} onClose={onClose} list>
       <form className="row" onSubmit={submit}>
-        <input value={value} onChange={(e) => setValue(e.target.value)} aria-label="Nowy tekst" enterKeyHint="done" autoFocus />
+        <input value={value} onChange={(e) => setValue(e.target.value)} aria-label="Nowy tekst" enterKeyHint="done" autoFocus data-edit-field />
         <button type="submit" className="primary" disabled={!changed}>
           Zapisz
         </button>

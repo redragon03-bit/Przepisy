@@ -769,6 +769,8 @@ test("zmiana tekstu pozycji na liście zakupów i nazwy w spiżarni (przytrzyman
   // Przytrzymanie nie odhacza, tylko otwiera panel z tekstem pozycji
   const sheet = page.getByRole("dialog", { name: "Zmień pozycję" });
   await expect(sheet.getByRole("textbox")).toHaveValue("Sok z cytryny");
+  // Pole ma fokus od razu (na iPhonie: klawiatura wysuwa się bez stuknięcia w pole)
+  await expect(sheet.getByRole("textbox")).toBeFocused();
   await expect(page.getByText("Kupione: Sok z cytryny")).toHaveCount(0);
   await sheet.getByRole("textbox").fill("Sok z pomarańczy 1 l");
   await page.screenshot({ path: "test-results/zmien-pozycje.png" });
@@ -784,6 +786,7 @@ test("zmiana tekstu pozycji na liście zakupów i nazwy w spiżarni (przytrzyman
   await page.locator(".swipe-row", { hasText: "mlekoo" }).click();
   await page.getByRole("dialog").getByRole("button", { name: /Zmień nazwę/ }).click();
   const rename = page.getByRole("dialog", { name: "Zmień nazwę" });
+  await expect(rename.getByRole("textbox")).toBeFocused();
   await rename.getByRole("textbox").fill("mleko");
   await rename.getByRole("button", { name: "Zapisz" }).click();
   await expect(page.locator(".swipe-row .item-text", { hasText: /^mleko$/ })).toBeVisible();

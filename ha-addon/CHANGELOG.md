@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.23.1
+
+- Zmiana pozycji w Zakupach i nazwy w spiżarni: klawiatura wysuwa się od razu, bez stukania w pole.
+
 ## 0.23.0
 
 - Ustawienia → Wygląd: podgląd przykładowego przepisu (tytuł, kcal, składniki z kółkami, krok

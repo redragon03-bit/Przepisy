@@ -1,4 +1,5 @@
 import { ReactNode, TouchEvent, useRef, useState } from "react";
+import { focusEditField } from "../lib/focusField";
 import { useLongPress } from "../lib/useLongPress";
 
 const DELETE_AT = 90; // tyle pikseli w lewo usuwa pozycję
@@ -45,7 +46,11 @@ export default function SwipeRow({ className, checked, onClick, onLongPress, onD
   const onTouchEnd = (e: TouchEvent) => {
     press.onTouchEnd();
     // Po przytrzymaniu otwiera się panel - kliknięcie z puszczenia palca trafiłoby w jego tło i go zamknęło
-    if (wasLongPress()) e.preventDefault();
+    // Puszczenie palca to gest, w którym iPhone pozwala wysunąć klawiaturę
+    if (wasLongPress()) {
+      e.preventDefault();
+      focusEditField();
+    }
     const swiped = dx <= -DELETE_AT;
     start.current = null;
     setDx(0);
