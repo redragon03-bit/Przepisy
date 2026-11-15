@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { focusEditField } from "../lib/focusField";
 import { api, PantryItem } from "../api";
 import { sendChanges } from "../lib/offlineShopping";
 import { findSame } from "../lib/similar";
@@ -159,8 +161,12 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
           onRemove={() => used(editing)}
           onToShopping={() => toShopping(editing)}
           onRename={() => {
-            setEditing(null);
-            setRenaming(editing);
+            // Panel rysujemy od razu, żeby fokus (i klawiatura) przyszedł jeszcze w stuknięciu
+            flushSync(() => {
+              setEditing(null);
+              setRenaming(editing);
+            });
+            focusEditField();
           }}
           onClose={() => setEditing(null)}
         />

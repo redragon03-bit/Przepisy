@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.24.1
+
+- Zmiana pozycji w Zakupach i nazwy w spiżarni: klawiatura wysuwa się od razu, bez stukania w pole.
+
 ## 0.24.0
 
 - Zakupy: lepsze działy sklepu. Liczy się słowo-produkt, a nie przymiotnik: „Bagiety czosnkowe”
