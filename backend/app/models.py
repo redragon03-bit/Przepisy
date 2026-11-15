@@ -379,3 +379,15 @@ class ReceiptAlias(Base):
     raw: Mapped[str] = mapped_column(String(200))
     name: Mapped[str] = mapped_column(String(200))
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class AisleGuess(Base):
+    """Dział sklepu, który AI odgadło dla produktu spoza słownika (services/aisle_guess.py).
+
+    Klucz to aisles.guess_key(nazwa), np. "pomelo zolte"; wspólne dla całego domu.
+    """
+
+    __tablename__ = "aisle_guesses"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    aisle: Mapped[str] = mapped_column(String(50))

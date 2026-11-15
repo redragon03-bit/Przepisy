@@ -112,6 +112,7 @@ def _add_missing_columns() -> None:
 def init_db() -> None:
     """Tworzy tabele (jeśli ich nie ma) i dodaje podstawowe składniki."""
     from . import models  # noqa: F401  - rejestruje tabele w Base.metadata
+    from .services import aisle_guess
     from .services.categories import DEFAULT_CATEGORIES, add_new_categories, get_or_create_category
     from .services.ingredients import get_or_create_ingredient
 
@@ -125,6 +126,7 @@ def init_db() -> None:
             for name in DEFAULT_CATEGORIES:
                 get_or_create_category(db, name)
         add_new_categories(db)
+        aisle_guess.load(db)
         # Zadania importu przerwane restartem serwera oznaczamy jako nieudane
         db.query(models.ImportJob).filter(
             models.ImportJob.status.in_(["pending", "running"])
