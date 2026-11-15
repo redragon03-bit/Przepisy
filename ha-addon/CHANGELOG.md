@@ -1,8 +1,17 @@
 # Zmiany
 
-## 0.23.1
+## 0.24.1
 
 - Zmiana pozycji w Zakupach i nazwy w spiżarni: klawiatura wysuwa się od razu, bez stukania w pole.
+
+## 0.24.0
+
+- Zakupy: lepsze działy sklepu. Liczy się słowo-produkt, a nie przymiotnik: „Bagiety czosnkowe”
+  są w Pieczywie (nie przy czosnku), „mielony pieprz” w Przyprawach. Słownik zna więcej produktów
+  (mozzarella też z jednym „z”, gorgonzola i inne sery, pomelo i inne owoce, pasztet i wędliny,
+  wafle, cukierki, chipsy, pieczywo).
+- Zakupy: gdy słownik nie zna produktu („Inne”), AI w tle podpowiada dział i aplikacja go zapamiętuje.
+  Po odświeżeniu listy pozycja jest już w swoim dziale. Dotyczy też pozycji, które już są na liście.
 
 ## 0.23.0
 

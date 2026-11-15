@@ -1,6 +1,6 @@
 """API listy zakupów: pozycje z przepisów albo dopisane ręcznie, odhaczanie, wysyłka do HA."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser, current_user, owned, require_auth, require_owner
@@ -15,7 +15,7 @@ from ..schemas import (
     ShoppingItemPatch,
     ShoppingResult,
 )
-from ..services import promotions, shopping
+from ..services import aisle_guess, promotions, shopping
 from ..services.aisles import aisle, aisle_order
 from ..services.ingredients import guess_ingredient_name
 from ..services.kitchen import OWNER
@@ -54,9 +54,17 @@ def _get(db: Session, item_id: int, user: CurrentUser) -> ShoppingItem:
 
 
 @router.get("", response_model=list[ShoppingItemOut])
-def list_items(db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
-    """Najpierw nieodhaczone, potem odhaczone; w kolejności dodania."""
-    return _all(db, user)
+def list_items(background: BackgroundTasks, db: Session = Depends(get_db),
+               user: CurrentUser = Depends(current_user)):
+    """Najpierw nieodhaczone, potem odhaczone; w kolejności dodania.
+
+    Pozycje z działu "Inne" w tle wysyłamy do AI (services/aisle_guess.py) - po odświeżeniu są w swoim dziale.
+    """
+    items = _all(db, user)
+    missing = aisle_guess.unknown([i.text for i in items if i.aisle == "Inne" and not i.checked])
+    if missing:
+        background.add_task(aisle_guess.learn, missing)
+    return items
 
 
 @router.post("/sync", response_model=list[ShoppingItemOut], dependencies=[Depends(require_owner)])
