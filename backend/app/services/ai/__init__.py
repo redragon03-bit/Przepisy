@@ -676,3 +676,28 @@ def receipt_from_images(jpegs: list[bytes], hints: str = "") -> AiReceipt:
     content.append("Odczytaj produkty z tego paragonu.")
     # Bez bulk(): paragonów jest mało, a skróty lepiej rozwija pełny model
     return _ask_provider(content, RECEIPT_PROMPT, AiReceipt)  # type: ignore[return-value]
+
+
+class AiAisle(BaseModel):
+    id: int = Field(description="Numer produktu z listy")
+    aisle: str = Field(description="Dział sklepu dokładnie z podanej listy działów")
+
+
+class AiAisles(BaseModel):
+    items: list[AiAisle]
+
+
+AISLES_PROMPT = """Dostajesz ponumerowane pozycje z polskiej listy zakupów i listę działów sklepu. \
+Każdej pozycji przypisz dział, w którym kupuje się ją w polskim supermarkecie, np. "Bagiety czosnkowe" \
+-> Pieczywo, "Gorgonzola z lady" -> Nabiał i jajka, "Pasztet" -> Mięso i ryby, "Rurki waflowe" -> \
+Słodycze i bakalie, "Pomelo" -> Warzywa i owoce. Dopiski o promocji ("2+1", "2za1") i marki pomiń. \
+Działu "Inne" użyj tylko dla rzeczy, które nie pasują do żadnego innego (np. baterie, kwiaty). \
+Nazwy działów przepisuj dokładnie tak, jak na liście."""
+
+
+def aisles_for(names: list[str], aisles: list[str]) -> dict[int, str]:
+    """Działy sklepu dla pozycji listy zakupów: {numer pozycji: dział} (tylko działy z listy)."""
+    lines = [f"{i}. {name}" for i, name in enumerate(names)]
+    text = "Działy: " + ", ".join(aisles) + "\n\nPozycje:\n" + "\n".join(lines)
+    answer = _ask_provider([text], AISLES_PROMPT, AiAisles)
+    return {item.id: item.aisle for item in answer.items if item.aisle in aisles and 0 <= item.id < len(names)}
