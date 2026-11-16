@@ -46,6 +46,14 @@ def _all(db: Session, user: CurrentUser) -> list[ShoppingItemOut]:
     return [to_out(i, promos) for i in _mine(db, user).order_by(ShoppingItem.checked, ShoppingItem.id)]
 
 
+def _learn_unknown(items: list[ShoppingItemOut], background: BackgroundTasks) -> list[ShoppingItemOut]:
+    """Pozycje z działu "Inne" wysyłamy w tle do AI (services/aisle_guess.py)."""
+    missing = aisle_guess.unknown([i.text for i in items if i.aisle == "Inne" and not i.checked])
+    if missing:
+        background.add_task(aisle_guess.learn, missing)
+    return items
+
+
 def _get(db: Session, item_id: int, user: CurrentUser) -> ShoppingItem:
     item = db.get(ShoppingItem, item_id)
     if item is None or item.user_id != user.id:
@@ -60,22 +68,19 @@ def list_items(background: BackgroundTasks, db: Session = Depends(get_db),
 
     Pozycje z działu "Inne" w tle wysyłamy do AI (services/aisle_guess.py) - po odświeżeniu są w swoim dziale.
     """
-    items = _all(db, user)
-    missing = aisle_guess.unknown([i.text for i in items if i.aisle == "Inne" and not i.checked])
-    if missing:
-        background.add_task(aisle_guess.learn, missing)
-    return items
+    return _learn_unknown(_all(db, user), background)
 
 
 @router.post("/sync", response_model=list[ShoppingItemOut], dependencies=[Depends(require_owner)])
-def sync(db: Session = Depends(get_db)):
+def sync(background: BackgroundTasks, db: Session = Depends(get_db)):
     """Pobiera zmiany z listy w Home Assistant (odhaczenia, nowe pozycje) i zwraca całą listę."""
     try:
         shopping.sync_with_home_assistant(db)
     except shopping.ShoppingError as exc:
         raise HTTPException(502, str(exc)) from exc
     db.commit()
-    return _all(db, OWNER)
+    # Telefon właściciela odświeża listę przez /sync, więc tu też pytamy AI o nieznane działy
+    return _learn_unknown(_all(db, OWNER), background)
 
 
 @router.post("", response_model=ShoppingItemOut, status_code=201)

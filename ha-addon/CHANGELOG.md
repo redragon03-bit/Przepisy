@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.24.2
+
+- Zakupy: Nutella, masło orzechowe i kremy czekoladowe w Słodyczach, pieluszki, chusteczki i kosmetyki
+  w „Chemia i dom”.
+- Zakupy: AI podpowiada dział także po odświeżeniu listy z HA (tak odświeża ją telefon właściciela)
+  i używa szybszego modelu z limitem czasu, więc pozycja z „Inne” szybciej trafia na swoje miejsce.
+
 ## 0.24.1
 
 - Zmiana pozycji w Zakupach i nazwy w spiżarni: klawiatura wysuwa się od razu, bez stukania w pole.

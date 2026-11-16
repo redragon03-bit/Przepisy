@@ -699,5 +699,7 @@ def aisles_for(names: list[str], aisles: list[str]) -> dict[int, str]:
     """Działy sklepu dla pozycji listy zakupów: {numer pozycji: dział} (tylko działy z listy)."""
     lines = [f"{i}. {name}" for i, name in enumerate(names)]
     text = "Działy: " + ", ".join(aisles) + "\n\nPozycje:\n" + "\n".join(lines)
-    answer = _ask_provider([text], AISLES_PROMPT, AiAisles)
+    # Krótkie zadanie: lżejszy model i limit czasu, żeby zawieszony Gemini nie blokował odpowiedzi minutami
+    with bulk(), time_limit(60):
+        answer = _ask_provider([text], AISLES_PROMPT, AiAisles)
     return {item.id: item.aisle for item in answer.items if item.aisle in aisles and 0 <= item.id < len(names)}
