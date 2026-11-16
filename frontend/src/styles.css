@@ -1232,6 +1232,7 @@ body:has(.timers) .page {
 .sheet.sheet-list {
   max-height: 85vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Warianty przepisu pod tytułem: oryginał, wege, na 8 osób... */
@@ -1369,6 +1370,15 @@ a.chip {
 
 .promo-meta {
   display: block;
+}
+
+/* Opis akcji zamiast ceny ("drugi tańszy produkt 80% taniej") - pod nazwą, mniejszy */
+.promo-deal {
+  display: block;
+  margin-top: 2px;
+  color: var(--deal-bg);
+  font-size: 0.85em;
+  font-weight: 700;
 }
 
 .promo-row > .grow {
@@ -1520,6 +1530,13 @@ a.chip {
   color: var(--promo-text);
 }
 
+/* Długi opis akcji w plakietce ("Biedronka drugi tańszy produkt 80% taniej") zawija się
+   zamiast wychodzić poza ekran */
+.tag-promo {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .tag-missing {
   background: var(--missing-soft);
   color: var(--missing);
@@ -1534,6 +1551,7 @@ a.chip {
 
 .promo-price {
   flex-shrink: 0;
+  max-width: 40%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;

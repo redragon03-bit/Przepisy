@@ -1,7 +1,7 @@
 // Testy dopasowania promocji do składników: npm test
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { nameFits, promoLabel, promoLabels, promoMatches, validLabel } from "./promo.ts";
+import { nameFits, promoLabel, promoLabels, promoMatches, shortPrice, validLabel } from "./promo.ts";
 
 const promo = (store: string, ingredient: string, price: string, name = ingredient) =>
   ({ id: 1, store, ingredient, price, name, note: "", leaflet: "", valid_from: null, valid_to: null });
@@ -62,4 +62,12 @@ test("po jednej promocji z każdego sklepu, bez odznaczonych sklepów", () => {
   assert.deepEqual(promoLabels("masło", promos), ["Biedronka 2,49 zł", "Lidl 5,99 zł", "Kaufland 4,99 zł"]);
   assert.deepEqual(promoLabels("masło", promos, new Set(["Biedronka", "Lidl"])), ["Kaufland 4,99 zł"]);
   assert.equal(promoLabel("masło", promos, new Set(["Biedronka"])), "Lidl 5,99 zł");
+});
+
+test("krótka cena zostaje w kolumnie, opis akcji idzie pod nazwę", () => {
+  assert.ok(shortPrice("2,49 zł"));
+  assert.ok(shortPrice("4,99 zł/kg"));
+  assert.ok(shortPrice("12,99 zł/szt."));
+  assert.ok(!shortPrice("drugi tańszy produkt 80% taniej"));
+  assert.ok(!shortPrice("1+1 gratis"));
 });

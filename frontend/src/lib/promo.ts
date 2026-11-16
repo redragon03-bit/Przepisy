@@ -65,6 +65,13 @@ export function promoLabel(name: string, promos: PromoLike[], hidden: ReadonlySe
   return promoLabels(name, promos, hidden)[0] ?? "";
 }
 
+// Czy "cena" z gazetki jest krótka ("2,49 zł", "4,99 zł/kg", "-30%") i zmieści się w kolumnie ceny.
+// Czasem zamiast ceny jest opis akcji ("drugi tańszy produkt 80% taniej") - taki tekst pokazujemy
+// pod nazwą mniejszą czcionką, żeby nie ściskał nazwy do jednego słowa w linii.
+export function shortPrice(price: string): boolean {
+  return price.length <= 14 && !/\p{L}{5,}/u.test(price);
+}
+
 // "do 7.11", "od 9.11 do 14.11" - kiedy obowiązuje promocja
 export function validLabel(from: string | null, to: string | null, today = new Date()): string {
   const short = (iso: string) => {
