@@ -5,6 +5,8 @@
 - Promocje: gdy zamiast ceny gazetka podaje opis akcji („drugi tańszy produkt 80% taniej”), opis jest
   pod nazwą mniejszą czcionką, a nazwa produktu ma pełną szerokość (wcześniej ściskała się do jednego słowa w linii).
 - Zakupy i przepis: długa plakietka promocji zawija się zamiast wychodzić poza ekran.
+- Panele wysuwane od dołu (np. szczegóły promocji) zamykają się przeciągnięciem w dół, a strona pod
+  panelem już się przy tym nie przesuwa.
 
 ## 0.24.3
 
