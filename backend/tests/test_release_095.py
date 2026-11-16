@@ -36,7 +36,16 @@ def test_clean_name_and_discount():
     assert promotions.clean_name("Masło 200 g") == "Masło 200 g"
     assert promotions.discount_of(Promotion(note="-30% z kartą", price="2,49 zł", discount=0)) == 30
     assert promotions.discount_of(Promotion(note="", price="2,49 zł", discount=25)) == 25
-    assert promotions.discount_of(Promotion(note="2+1 gratis", price="2,49 zł", discount=0)) == 0
+    # Akcje na kilka sztuk: rabat na sztukę (0.24.5)
+    assert promotions.discount_of(Promotion(note="2+1 gratis", price="2,49 zł", discount=0)) == 33
+    assert promotions.discount_of(Promotion(note="", price="1+1 gratis", discount=0)) == 50
+    assert promotions.discount_of(Promotion(note="z kartą", price="drugi tańszy produkt 80% taniej", discount=80)) == 40
+    assert promotions.discount_of(Promotion(note="2. sztuka -50%", price="5,99 zł", discount=50)) == 25
+    assert promotions.discount_of(Promotion(note="", price="trzeci produkt 100% taniej", discount=0)) == 33
+    assert promotions.discount_of(Promotion(note="-30% z kartą", price="2,49 zł", discount=30)) == 30
+    assert promotions.discount_of(Promotion(note="-50% na drugi produkt", price="3,99 zł", discount=50)) == 25
+    # Ilość, nie kolejna sztuka: rabat zostaje
+    assert promotions.discount_of(Promotion(note="przy zakupie 2 szt. -30%", price="3,99 zł", discount=30)) == 30
 
 
 def test_crop_product_saves_small_jpeg(client):
