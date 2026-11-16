@@ -40,3 +40,60 @@ export function sameProduct(a: string, b: string): boolean {
 export function findSame<T>(text: string, items: T[], name: (item: T) => string): T | undefined {
   return text.trim() ? items.find((item) => sameProduct(text, name(item))) : undefined;
 }
+
+// Zdrobnienie albo przymiotnik to inny produkt: "oliwa"/"oliwki", "olej"/"olejek", "cukier"/"cukierki",
+// "kasza"/"kaszanka", "pomidor"/"pomidorowy"
+const OTHER_PRODUCT = /^(e?k|ank|ecz|ow[aeyo]|owej|owego|owych|sk|ck)/;
+
+// Ten sam wyraz w innej formie ("karkówka"/"karkówki", "czosnek"/"czosnku"), ale nie zdrobnienie
+// ani przymiotnik. To samo robi serwer (same_word() w services/matching.py).
+function sameForm(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (!sameWord(a, b)) return false;
+  let common = 0;
+  while (common < Math.min(a.length, b.length) && a[common] === b[common]) common++;
+  const restA = a.slice(common);
+  const restB = b.slice(common);
+  return !(
+    (OTHER_PRODUCT.test(restA) && !restB.includes("k")) ||
+    (OTHER_PRODUCT.test(restB) && !restA.includes("k"))
+  );
+}
+
+// Czy produkt ze spiżarni wystarczy na składnik przepisu. Pierwszy wyraz (sam produkt) ten sam,
+// a pozostałe wyrazy z `have` są gdzieś w `needed`: "karkówka" na "karkówki wieprzowej",
+// "ser" na "ser żółty". Ale "ser" nie na "serek", "oliwa" nie na "oliwki", "papryka słodka"
+// nie na "paprykę". To samo robi serwer (covers() w services/matching.py).
+export function covers(have: string, needed: string): boolean {
+  const general = productWords(have);
+  const specific = productWords(needed);
+  if (!general.length || !specific.length || !sameForm(general[0], specific[0])) return false;
+  const left = specific.slice(1);
+  for (const word of general.slice(1)) {
+    const at = left.findIndex((other) => sameForm(word, other));
+    if (at < 0) return false;
+    left.splice(at, 1);
+  }
+  return true;
+}
+
+// Jeden człon składnika; "masło lub margaryna" - wystarczy jedno
+function partInStock(haves: string[], exact: Set<string>, part: string): boolean {
+  return part
+    .split(/\s+(?:lub|albo)\s+|\s*\/\s*/i)
+    .map((option) => option.trim())
+    .some((option) => option && (exact.has(fold(option)) || haves.some((have) => covers(have, option))));
+}
+
+// Czy w domu jest wszystko na składnik: "sól i pieprz" wymaga obu. `staples` ("Zawsze w domu")
+// liczą się tylko dokładnie: "cukier" nie pokrywa "cukru pudru". To samo robi serwer (in_stock()).
+export function inStock(haves: string[], needed: string, staples: string[] = []): boolean {
+  const exact = new Set(staples.map(fold));
+  if (exact.has(fold(needed))) return true;
+  const parts = needed
+    .replace(/\(.*?\)/g, " ")
+    .split(/\s+(?:i|oraz)\s+/i)
+    .filter((part) => part.trim());
+  if (parts.length > 1) return parts.every((part) => partInStock(haves, exact, part));
+  return partInStock(haves, exact, needed);
+}
