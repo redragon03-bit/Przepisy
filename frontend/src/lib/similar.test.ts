@@ -27,16 +27,33 @@ test("findSame zwraca pasującą pozycję", () => {
 test("produkt w domu wystarcza na składnik mimo odmiany i dodatkowych słów", () => {
   assert.ok(covers("karkówka", "karkówki wieprzowej"));
   assert.ok(covers("ser", "ser żółty"));
-  assert.ok(covers("ser feta", "ser"));
-  assert.ok(!covers("ser", "serek"));
-  assert.ok(!covers("pomidor", "koncentrat pomidorowy"));
-  assert.ok(!covers("jogurt grecki", "jogurt naturalny"));
-  assert.ok(!covers("czosnek", "bagiety czosnkowe"));
+  assert.ok(covers("pomidory", "pomidorów"));
+  for (const [have, needed] of [
+    ["ser", "serek"],
+    ["pomidor", "koncentrat pomidorowy"],
+    ["pomidor", "pomidorowy"],
+    ["jogurt grecki", "jogurt naturalny"],
+    ["czosnek", "bagiety czosnkowe"],
+    ["oliwa", "oliwki zielone"],
+    ["olej", "olejek waniliowy"],
+    ["cukier", "cukierki"],
+    ["kasza gryczana", "kaszanka"],
+    ["fasola", "fasolka szparagowa"],
+    ["papryka słodka", "papryka"],
+    ["mleko kokosowe", "mleko"],
+  ]) {
+    assert.ok(!covers(have, needed), `${have} / ${needed}`);
+  }
 });
 
-test("sól i pieprz wymaga obu, lub - jednego", () => {
+test("sól i pieprz wymaga obu, lub - jednego, Zawsze w domu tylko dokładnie", () => {
   assert.ok(inStock(["sól", "pieprz"], "sól i pieprz"));
   assert.ok(!inStock(["sól"], "sól i pieprz"));
+  assert.ok(inStock([], "sól i pieprz", ["sól", "pieprz"]));
   assert.ok(inStock(["margaryna"], "masło lub margaryna"));
+  assert.ok(inStock(["chleb"], "chleb (np. bagietka, ciabatta)"));
   assert.ok(inStock(["karkówka"], "karkówki wieprzowej"));
+  for (const needed of ["cukier puder", "olej kokosowy", "oliwki", "sól morska"]) {
+    assert.ok(!inStock([], needed, ["cukier", "olej", "oliwa", "sól"]), needed);
+  }
 });

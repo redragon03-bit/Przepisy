@@ -71,7 +71,7 @@ def find_ingredient(db: Session, name: str) -> Ingredient | None:
     return next((i for i in sorted(candidates, key=lambda i: i.id) if similar(name, i.name)), None)
 
 
-def _similar_word(a: str, b: str) -> bool:
+def similar_word(a: str, b: str) -> bool:
     """Ten sam wyraz w innej formie: 'pomidor' i 'pomidory', 'jajko' i 'jajka' (bez ogonków)."""
     if a == b:
         return True
@@ -99,7 +99,7 @@ def similar(a: str, b: str) -> bool:
         return False
     left = list(words_b)
     for word in words_a:
-        match = next((other for other in left if _similar_word(word, other)), None)
+        match = next((other for other in left if similar_word(word, other)), None)
         if match is None:
             return False
         left.remove(match)
@@ -128,7 +128,7 @@ def same_product(a: str, b: str) -> bool:
     if similar(a, b):
         return True
     words_a, words_b = _words(a), _words(b)
-    return not any(_similar_word(x, y) for x in words_a for y in words_b)
+    return not any(similar_word(x, y) for x in words_a for y in words_b)
 
 
 def split_different(group: list[str]) -> list[list[str]]:

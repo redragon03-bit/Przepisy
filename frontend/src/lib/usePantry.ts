@@ -20,11 +20,11 @@ function load(): Promise<Pantry> {
   if (!cache || Date.now() - cache.at > FRESH_MS) {
     const names = Promise.all([api.getPantry(), api.listIngredients("", true)])
       .then(([pantry, staples]) => {
-        const all = [...pantry, ...staples.map((s) => s.name)];
-        const exact = new Set(all.map(fold));
+        const staple = staples.map((s) => s.name);
+        const exact = new Set([...pantry, ...staple].map(fold));
         // Odmiana i dodatkowe słowa się nie liczą: "karkówka" w domu = "karkówki wieprzowej" w przepisie,
         // a "sól i pieprz" jest, gdy są oba
-        const has = (name: string) => !name || exact.has(fold(name)) || inStock(all, name);
+        const has = (name: string) => !name || exact.has(fold(name)) || inStock(pantry, name, staple);
         return { known: pantry.length > 0, has };
       })
       .catch(() => EMPTY);
