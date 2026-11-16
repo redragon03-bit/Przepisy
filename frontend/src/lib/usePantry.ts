@@ -2,6 +2,7 @@
 // Pobierane raz na kilka minut dla wszystkich ekranów, jak promocje.
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { inStock } from "./similar";
 import { fold } from "./stepIngredients";
 
 const FRESH_MS = 5 * 60_000;
@@ -19,8 +20,12 @@ function load(): Promise<Pantry> {
   if (!cache || Date.now() - cache.at > FRESH_MS) {
     const names = Promise.all([api.getPantry(), api.listIngredients("", true)])
       .then(([pantry, staples]) => {
-        const all = new Set([...pantry, ...staples.map((s) => s.name)].map(fold));
-        return { known: pantry.length > 0, has: (name: string) => !name || all.has(fold(name)) };
+        const all = [...pantry, ...staples.map((s) => s.name)];
+        const exact = new Set(all.map(fold));
+        // Odmiana i dodatkowe słowa się nie liczą: "karkówka" w domu = "karkówki wieprzowej" w przepisie,
+        // a "sól i pieprz" jest, gdy są oba
+        const has = (name: string) => !name || exact.has(fold(name)) || inStock(all, name);
+        return { known: pantry.length > 0, has };
       })
       .catch(() => EMPTY);
     cache = { at: Date.now(), names };

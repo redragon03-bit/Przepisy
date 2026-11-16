@@ -14,12 +14,12 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser, owned
 from ..config import get_settings
-from ..models import MealPlanEntry, Recipe, ShoppingItem
+from ..models import Ingredient, MealPlanEntry, Recipe, ShoppingItem
 from . import kitchen
 from .aisles import OTHER, aisle
 from .ingredients import find_ingredient, product_name, similar
 from .kitchen import OWNER
-from .matching import covers
+from .matching import in_stock
 
 log = logging.getLogger(__name__)
 
@@ -192,13 +192,15 @@ def add_recipe(db: Session, recipe: Recipe, factor: float = 1, skip_staples: boo
     open_items = db.query(ShoppingItem).filter(ShoppingItem.checked.is_(False),
                                                owned(ShoppingItem.user_id, user)).all()
     pantry = pantry_names(db, user)
+    if skip_staples:  # "sól i pieprz" pomijamy, gdy oba są "zawsze w domu"
+        pantry += [i.name for i in db.query(Ingredient).filter(Ingredient.is_staple.is_(True))]
     changed = 0
     for line in recipe.ingredients:
         name = line.ingredient.name
         if skip_staples and line.ingredient.is_staple:
             continue
-        # "ser" w spiżarni pokrywa "ser żółty" w przepisie
-        if any(covers(have, name) for have in pantry):
+        # "ser" w spiżarni pokrywa "ser żółty" w przepisie, "karkówka" - "karkówkę wieprzową"
+        if in_stock(pantry, name):
             if skipped is not None and name not in skipped:
                 skipped.append(name)
             continue

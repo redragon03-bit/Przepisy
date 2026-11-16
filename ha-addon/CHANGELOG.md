@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.24.3
+
+- Przepis: produkt z „W domu” nie ma już znacznika „brak”, gdy w przepisie stoi w innej formie
+  albo z dodatkowym słowem („karkówka” w domu = „1 kg karkówki wieprzowej”).
+- Przepis: „sól i pieprz” nie jest brakiem, gdy oba są w domu lub w „Zawsze w domu”
+  („masło lub margaryna” wystarczy jedno z nich). To samo w „Co ugotuję?” i przy dopisywaniu do zakupów.
+
 ## 0.24.2
 
 - Zakupy: Nutella, masło orzechowe i kremy czekoladowe w Słodyczach, pieluszki, chusteczki i kosmetyki

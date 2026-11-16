@@ -40,3 +40,34 @@ export function sameProduct(a: string, b: string): boolean {
 export function findSame<T>(text: string, items: T[], name: (item: T) => string): T | undefined {
   return text.trim() ? items.find((item) => sameProduct(text, name(item))) : undefined;
 }
+
+// Pierwszy wyraz (sam produkt) ten sam, a pozostałe wyrazy `general` są gdzieś w `specific`
+function contains(general: string[], specific: string[]): boolean {
+  if (!general.length || !specific.length || !sameWord(general[0], specific[0])) return false;
+  const left = specific.slice(1);
+  for (const word of general.slice(1)) {
+    const at = left.findIndex((other) => sameWord(word, other));
+    if (at < 0) return false;
+    left.splice(at, 1);
+  }
+  return true;
+}
+
+// Czy produkt ze spiżarni wystarczy na składnik przepisu: "karkówka" na "karkówki wieprzowej",
+// "ser" na "ser żółty", "ser feta" na "ser". Ale "ser" nie na "serek", a "pomidor" nie na
+// "koncentrat pomidorowy". To samo robi serwer (covers() w services/matching.py).
+export function covers(have: string, needed: string): boolean {
+  const haveWords = productWords(have);
+  const neededWords = productWords(needed);
+  if (haveWords.join(" ") === neededWords.join(" ")) return haveWords.length > 0;
+  return contains(haveWords, neededWords) || contains(neededWords, haveWords);
+}
+
+// Czy w domu jest wszystko na składnik. "sól i pieprz" wymaga obu, "masło lub margaryna" - jednego z nich.
+export function inStock(haves: string[], needed: string): boolean {
+  const all = needed.split(/\s*,\s*|\s+(?:i|oraz)\s+/i).filter((part) => part.trim());
+  if (all.length === 0) return false;
+  return all.every((part) =>
+    part.split(/\s+(?:lub|albo)\s+|\s*\/\s*/i).some((option) => haves.some((have) => covers(have, option))),
+  );
+}
