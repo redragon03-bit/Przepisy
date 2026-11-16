@@ -68,10 +68,16 @@ AISLES: list[tuple[str, list[str]]] = [
                             "chalw", "draż", "draz", "tort=", "torty=", "tortu=", "sernik", "piernik",
                             "rurki waflow", "chips", "czipsy", "paluszk", "krakers", "precl", "popcorn", "nachos",
                             "słodycz", "slodycz", "pistacj", "nerkow", "laskow", "pekan", "makadami", "figi suszon",
-                            "morele suszon", "śliwki suszon", "sliwki suszon", "bakali"]),
+                            "morele suszon", "śliwki suszon", "sliwki suszon", "bakali", "nutell", "nutel",
+                            "krem czekolad", "krem orzech", "masło orzech", "maslo orzech", "masło z orzech",
+                            "maslo z orzech", "krem kakao", "nugat", "marcepan", "kinder", "m&m", "snickers",
+                            "twix", "prince polo", "delicj", "pierniczk"]),
     ("Tłuszcze", ["olej", "oliw", "smalec", "margaryn"]),
     ("Chemia i dom", ["papier", "folia", "folii", "worki", "workó", "rękaw", "rekaw", "płyn", "plyn", "gąbk",
-                      "gabk", "ręcznik", "recznik", "serwetk"]),
+                      "gabk", "ręcznik", "recznik", "serwetk", "pieluch", "pieluszk", "chusteczk", "mydł",
+                      "mydl", "szampon", "pasta do zęb", "pasta do zeb", "proszek do prani", "kapsułk", "kapsulk",
+                      "tabletki do zmyw", "żel pod prysznic", "zel pod prysznic", "dezodorant", "baterie", "bateri",
+                      "żarów", "zarow", "worki na śmieci", "odplamiacz", "domestos", "ludwik", "zmywak"]),
 ]
 
 # Najpierw działy z nazwami, które zaczynają się jak produkty z innych działów
