@@ -14,7 +14,9 @@ export function usePullToRefresh(onRefresh: () => Promise<unknown>) {
     let startY: number | null = null;
     let distance = 0;
     const start = (e: TouchEvent) => {
-      startY = window.scrollY <= 0 ? e.touches[0].clientY : null;
+      // Ściąganie panelu od dołu w dół go zamyka - wtedy nie odświeżamy listy pod spodem
+      const inSheet = (e.target as Element | null)?.closest?.(".sheet-backdrop");
+      startY = window.scrollY <= 0 && !inSheet ? e.touches[0].clientY : null;
       distance = 0;
     };
     const move = (e: TouchEvent) => {

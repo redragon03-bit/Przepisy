@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, Promotion, PromoStatus } from "../api";
 import Sheet from "../components/Sheet";
-import { validLabel } from "../lib/promo";
+import { shortPrice, validLabel } from "../lib/promo";
 import { useHiddenPromoStores } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { fold } from "../lib/stepIngredients";
@@ -180,6 +180,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
         <span className="grow">
           {p.favorite && "⭐ "}
           {p.name}
+          {!shortPrice(p.price) && <span className="promo-deal">{p.price}</span>}
           {(withStore || p.note || p.valid_to || p.valid_from) && (
             <span className="muted small promo-meta">
               {[withStore && p.store, p.note, validLabel(p.valid_from, p.valid_to)].filter(Boolean).join(" · ")}
@@ -187,7 +188,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
           )}
         </span>
         <span className="promo-price">
-          <strong>{p.price}</strong>
+          {shortPrice(p.price) && <strong>{p.price}</strong>}
           {p.discount > 0 && <span className="promo-discount">-{p.discount}%</span>}
         </span>
       </button>

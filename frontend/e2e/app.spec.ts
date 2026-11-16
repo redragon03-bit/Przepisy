@@ -404,6 +404,48 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   await expect(page.getByRole("heading", { name: "Naleśniki" })).toBeVisible();
 });
 
+test("promocje: opis akcji zamiast ceny idzie pod nazwę, panel zamyka się przeciągnięciem w dół", async ({ page }) => {
+  const long = {
+    id: 7, store: "Biedronka", name: "Wszystkie kawy Nescafé i Dolce Gusto z kartą lub aplikacją", category: "jedzenie",
+    ingredient: "kawa", price: "drugi tańszy produkt 80% taniej", note: "", leaflet: "Gazetka", valid_from: null, valid_to: "2026-11-21",
+    discount: 80, aisle: "Napoje", aisle_order: 9, image_url: "", key: "kawa", favorite: false,
+  };
+  await page.route("**/api/promotions", (route) => route.fulfill({ json: [long] }));
+  await page.route("**/api/promotions/favorites", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/promotions/status", (route) =>
+    route.fulfill({ json: { stores: ["Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
+  );
+  await login(page);
+  await page.goto("/promocje");
+  const row = page.locator(".promo-row").first();
+  await expect(row.locator(".promo-deal")).toHaveText("drugi tańszy produkt 80% taniej");
+  await expect(row.locator(".promo-price strong")).toHaveCount(0);
+  await expect(row.locator(".promo-discount")).toHaveText("-80%");
+  // Nazwa ma większość szerokości wiersza, a nie jedno słowo w linii
+  const name = await row.locator(".grow").boundingBox();
+  const all = await row.boundingBox();
+  expect(name!.width).toBeGreaterThan(all!.width * 0.55);
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/promocje-dlugi-opis.png` });
+
+  // Panel promocji: przeciągnięcie w dół zamyka
+  await row.click();
+  const sheet = page.locator(".sheet");
+  await expect(sheet).toBeVisible();
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/promocje-panel.png` });
+  await sheet.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const touch = (y: number) => new Touch({ identifier: 1, target: el, clientX: x, clientY: y });
+    const fire = (type: string, y: number) =>
+      el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [touch(y)], changedTouches: [touch(y)] }));
+    const y0 = box.top + 20;
+    fire("touchstart", y0);
+    for (let dy = 10; dy <= 150; dy += 20) fire("touchmove", y0 + dy);
+    fire("touchend", y0 + 150);
+  });
+  await expect(sheet).toHaveCount(0);
+});
+
 test("import: zawieszony import da się anulować", async ({ page }) => {
   let jobs = [{ id: 1, kind: "url", source: "https://aniagotuje.pl/przepis/ciapkapusta", status: "running", error: "", recipe_id: null, recipe_count: 0, created_at: "2026-11-10T08:00:00" }];
   await page.route("**/api/imports", (route) => route.fulfill({ json: jobs }));

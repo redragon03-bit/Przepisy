@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.24.4
+
+- Promocje: gdy zamiast ceny gazetka podaje opis akcji („drugi tańszy produkt 80% taniej”), opis jest
+  pod nazwą mniejszą czcionką, a nazwa produktu ma pełną szerokość (wcześniej ściskała się do jednego słowa w linii).
+- Zakupy i przepis: długa plakietka promocji zawija się zamiast wychodzić poza ekran.
+
 ## 0.24.3
 
 - Przepis: produkt z „W domu” nie ma już znacznika „brak”, gdy w przepisie stoi w innej formie
