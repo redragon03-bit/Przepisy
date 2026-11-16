@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.24.5
+
+- Promocje: przy akcjach na kilka sztuk rabat jest liczony na sztukę. „Drugi 80% taniej” pokazuje -40%,
+  „2+1” -33%, „1+1” -50%, „-50% na drugi” -25%.
+
 ## 0.24.4
 
 - Promocje: gdy zamiast ceny gazetka podaje opis akcji („drugi tańszy produkt 80% taniej”), opis jest

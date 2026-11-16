@@ -306,8 +306,45 @@ def clean_name(name: str) -> str:
     return _NAME_PRICE.sub("", name).strip() or name.strip()
 
 
+# Akcje na kilka sztuk: "drugi tańszy produkt 80% taniej", "2. sztuka -50%", "trzeci za 1 zł" nie,
+# tylko z procentem; "2+1", "1+1 gratis".
+_NTH = {"drug": 2, "2": 2, "trzec": 3, "3": 3, "czwart": 4, "4": 4}
+_ORD = r"(drug|trzec|czwart)\w*|([234])\."
+# "drugi tańszy produkt 80% taniej", "2. sztuka -50%"
+_NTH_PERCENT = re.compile(rf"(?:{_ORD})\s+(?:\w+\s+){{0,3}}?[-–]?\s*(\d{{1,3}})\s*%", re.IGNORECASE)
+# "-50% na drugi produkt"
+_PERCENT_NTH = re.compile(rf"(\d{{1,3}})\s*%\s+(?:taniej\s+)?na\s+(?:{_ORD})", re.IGNORECASE)
+_PLUS = re.compile(r"\b(\d)\s*\+\s*(\d)\b(?!\s*(?:kg|g|l|ml)\b)", re.IGNORECASE)
+
+
+def multi_buy_discount(text: str) -> int | None:
+    """Rabat na sztukę przy akcji na kilka sztuk, w %; None, gdy to nie taka akcja.
+
+    "drugi 80% taniej" - za dwie sztuki płacisz 100% + 20%, czyli każda 40% taniej.
+    "2+1" - trzy sztuki w cenie dwóch, każda 33% taniej.
+    """
+    if match := _PLUS.search(text):
+        paid, free = int(match.group(1)), int(match.group(2))
+        if paid and free:
+            return round(100 * free / (paid + free))
+    for pattern, ordinal in ((_NTH_PERCENT, (1, 2)), (_PERCENT_NTH, (2, 3))):
+        if match := pattern.search(text):
+            word = (match.group(ordinal[0]) or match.group(ordinal[1])).lower()
+            count = next(n for key, n in _NTH.items() if word.startswith(key))
+            percent_group = 3 if pattern is _NTH_PERCENT else 1
+            return round(min(int(match.group(percent_group)), 100) / count)
+    return None
+
+
 def discount_of(promo: Promotion) -> int:
-    """Rabat w %: zapisany przez AI albo odczytany z dopisku/ceny ("-30%")."""
+    """Rabat w %: zapisany przez AI albo odczytany z dopisku/ceny ("-30%").
+
+    Przy akcjach na kilka sztuk ("drugi 80% taniej", "2+1") liczymy rabat na sztukę:
+    AI zapisuje wtedy często procent z gazetki (80), a realnie każda sztuka jest 40% taniej.
+    """
+    multi = multi_buy_discount(f"{promo.price} {promo.note}")
+    if multi is not None:
+        return multi if 0 < multi < 100 else 0
     if 0 < (promo.discount or 0) < 100:
         return promo.discount
     match = _PERCENT.search(f"{promo.note} {promo.price}")
