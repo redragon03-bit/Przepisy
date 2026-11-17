@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.24.6
+
+- Przepis: marka albo odmiana z „W domu” pasuje do składnika z rodzajem przed nią, np. „almette” do
+  „serek almette lub bieluch”, „feta” do „sera feta”, „spaghetti” do „makaronu spaghetti”.
+
 ## 0.24.5
 
 - Promocje: przy akcjach na kilka sztuk rabat jest liczony na sztukę. „Drugi 80% taniej” pokazuje -40%,

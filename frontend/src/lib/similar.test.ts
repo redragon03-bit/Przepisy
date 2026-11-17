@@ -57,3 +57,13 @@ test("sól i pieprz wymaga obu, lub - jednego, Zawsze w domu tylko dokładnie", 
     assert.ok(!inStock([], needed, ["cukier", "olej", "oliwa", "sól"]), needed);
   }
 });
+
+test("marka po rodzaju: almette = serek almette", () => {
+  assert.ok(covers("almette", "serek almette"));
+  assert.ok(covers("feta", "sera feta"));
+  assert.ok(covers("spaghetti", "makaron spaghetti"));
+  assert.ok(inStock(["almette"], "serek almette lub bieluch (lub pół na pół)"));
+  assert.ok(!covers("almette", "serek"));
+  assert.ok(!covers("wieprzowa", "karkówka wieprzowa"));
+  assert.ok(!covers("kurczak", "pierś z kurczaka"));
+});

@@ -64,9 +64,20 @@ function sameForm(a: string, b: string): boolean {
 // a pozostałe wyrazy z `have` są gdzieś w `needed`: "karkówka" na "karkówki wieprzowej",
 // "ser" na "ser żółty". Ale "ser" nie na "serek", "oliwa" nie na "oliwki", "papryka słodka"
 // nie na "paprykę". To samo robi serwer (covers() w services/matching.py).
+// Rodzaj produktu przed marką albo odmianą: "serek almette", "ser feta", "jogurt skyr", "ryż basmati"
+const KINDS = new Set(
+  "ser sera serek serka serki jogurt jogurtu makaron makaronu kasza kaszy ryz ryzu sos sosu pasta pasty maka maki platki platkow kielbasa kielbasy wedlina wedliny piwo piwa wino wina sok soku napoj napoju".split(" "),
+);
+
 export function covers(have: string, needed: string): boolean {
   const general = productWords(have);
   const specific = productWords(needed);
+  if (containsAll(general, specific)) return true;
+  // "almette" w domu pokrywa "serek almette", "feta" - "ser feta", "spaghetti" - "makaron spaghetti"
+  return specific.length > 1 && KINDS.has(specific[0]) && containsAll(general, specific.slice(1));
+}
+
+function containsAll(general: string[], specific: string[]): boolean {
   if (!general.length || !specific.length || !sameForm(general[0], specific[0])) return false;
   const left = specific.slice(1);
   for (const word of general.slice(1)) {
