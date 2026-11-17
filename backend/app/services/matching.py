@@ -32,6 +32,11 @@ _UNITS = {"g", "kg", "dag", "ml", "l", "szt", "sztuk", "sztuki", "sztuka", "op",
 _OTHER_PRODUCT = re.compile(r"^(e?k|ank|ecz|ow[aeyo]|owej|owego|owych|sk|ck)")
 
 
+# Rodzaj produktu przed marką albo odmianą: "serek almette", "ser feta", "jogurt skyr", "ryż basmati"
+_KINDS = {"ser", "sera", "serek", "serka", "serki", "jogurt", "jogurtu", "makaron", "makaronu", "kasza", "kaszy",
+          "ryz", "ryzu", "maka", "maki", "piwo", "piwa", "wino", "wina"}
+
+
 def product_words(text: str) -> list[str]:
     text = re.sub(r"\(.*?\)", " ", fold(text))
     return [w for w in re.split(r"[^a-z0-9]+", text)
@@ -66,6 +71,17 @@ def covers(have: str, needed: str) -> bool:
     if needed == have:
         return True
     general, specific = product_words(have), product_words(needed)
+    if _contains(general, specific):
+        return True
+    # "almette" w domu pokrywa "serek almette", "feta" - "ser feta", "spaghetti" - "makaron spaghetti"
+    # ale nie "sos do spaghetti" ani "makaron do rosołu" - tam po rodzaju stoi "do"/"z"
+    raw = [w for w in re.split(r"[^a-z0-9]+", re.sub(r"\(.*?\)", " ", fold(needed)))
+           if w and w not in _UNITS and not w[0].isdigit()]
+    return (len(specific) > 1 and specific[0] in _KINDS and len(raw) > 1 and raw[1] not in _FILLER
+            and _contains(general, specific[1:]))
+
+
+def _contains(general: list[str], specific: list[str]) -> bool:
     if not general or not specific or not same_word(general[0], specific[0]):
         return False
     left = specific[1:]

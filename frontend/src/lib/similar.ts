@@ -60,6 +60,11 @@ function sameForm(a: string, b: string): boolean {
   );
 }
 
+// Rodzaj produktu przed marką albo odmianą: "serek almette", "ser feta", "jogurt skyr", "ryż basmati"
+const KINDS = new Set(
+  "ser sera serek serka serki jogurt jogurtu makaron makaronu kasza kaszy ryz ryzu maka maki piwo piwa wino wina".split(" "),
+);
+
 // Czy produkt ze spiżarni wystarczy na składnik przepisu. Pierwszy wyraz (sam produkt) ten sam,
 // a pozostałe wyrazy z `have` są gdzieś w `needed`: "karkówka" na "karkówki wieprzowej",
 // "ser" na "ser żółty". Ale "ser" nie na "serek", "oliwa" nie na "oliwki", "papryka słodka"
@@ -67,6 +72,23 @@ function sameForm(a: string, b: string): boolean {
 export function covers(have: string, needed: string): boolean {
   const general = productWords(have);
   const specific = productWords(needed);
+  if (containsAll(general, specific)) return true;
+  // "almette" w domu pokrywa "serek almette", "feta" - "ser feta", "spaghetti" - "makaron spaghetti"
+  // ale nie "makaron do rosołu" ani "ser z fetą" - tam po rodzaju stoi "do"/"z"
+  const raw = fold(needed)
+    .replace(/\(.*?\)/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w && !UNITS.has(w) && !/^\d/.test(w));
+  return (
+    specific.length > 1 &&
+    KINDS.has(specific[0]) &&
+    raw.length > 1 &&
+    !FILLER.has(raw[1]) &&
+    containsAll(general, specific.slice(1))
+  );
+}
+
+function containsAll(general: string[], specific: string[]): boolean {
   if (!general.length || !specific.length || !sameForm(general[0], specific[0])) return false;
   const left = specific.slice(1);
   for (const word of general.slice(1)) {
