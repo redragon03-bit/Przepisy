@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.24.7
+
+- iPhone: stuknięcie w pole do pisania (np. „Nowy wariant przepisu”) już nie powiększa ekranu. Pola mają
+  zawsze co najmniej 16 px, także gdy „Tekst” w Ustawieniach → Wygląd jest poniżej 100%.
+
 ## 0.24.6
 
 - Przepis: marka albo odmiana z „W domu” pasuje do składnika z rodzajem przed nią, np. „almette” do
