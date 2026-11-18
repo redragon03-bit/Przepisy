@@ -574,6 +574,29 @@ test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async
   expect(await h1Size()).toBe("24px");
 });
 
+test("pola do pisania mają co najmniej 16 px także przy mniejszym tekście (iPhone nie przybliża ekranu)", async ({ page }) => {
+  await login(page);
+  // Przybliżanie po stuknięciu w pole blokuje też maximum-scale=1
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /maximum-scale=1/);
+  await page.goto("/ustawienia");
+  const smaller = page.getByRole("button", { name: "Tekst: mniejsze" });
+  for (let i = 0; i < 4; i++) await smaller.click();
+  await expect(page.getByLabel("Tekst: wielkość")).toHaveText("80%");
+  const smallestField = () =>
+    page.evaluate(() =>
+      Math.min(...[...document.querySelectorAll("input, textarea, select")].map((e) => parseFloat(getComputedStyle(e).fontSize))),
+    );
+  for (const path of ["/ustawienia", "/", "/dodaj", "/zakupy"]) {
+    await page.goto(path);
+    await page.locator("input, textarea, select").first().waitFor({ state: "attached" });
+    expect(await smallestField(), path).toBeGreaterThanOrEqual(16);
+  }
+  // Zwykły tekst dalej się zmniejsza
+  expect(await page.locator("body").evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeLessThan(16);
+  await page.goto("/ustawienia");
+  await page.getByRole("button", { name: "Przywróć 100%" }).click();
+});
+
 test("wygląd: podgląd przepisu, stuknięty element zmienia się od razu", async ({ page }) => {
   await login(page);
   await page.goto("/ustawienia");

@@ -186,6 +186,14 @@ button,
   color: inherit;
 }
 
+/* Pola do pisania nigdy poniżej 16 px, nawet przy „Tekst” w Wyglądzie poniżej 100% -
+   inaczej iPhone przybliża ekran przy wpisywaniu i strona wychodzi poza szerokość */
+input,
+textarea,
+select {
+  font-size: max(16px, calc(16px * var(--s-body)));
+}
+
 input,
 textarea,
 select {
