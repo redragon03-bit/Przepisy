@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser
 from ..models import Ingredient, MemberMark, MemberPantry, Recipe
-from .ingredients import find_ingredient, get_or_create_ingredient
+from .ingredients import find_ingredient, get_or_create_ingredient, only_inflection
 
 OWNER = CurrentUser(None, "")
 
@@ -99,15 +99,23 @@ def set_pantry(db: Session, user: CurrentUser, names: set[str]) -> None:
         db.add(MemberPantry(user_id=user.id, ingredient=get_or_create_ingredient(db, name)))
 
 
-def add_to_pantry(db: Session, user: CurrentUser, names: list[str], create: bool = False) -> dict[str, str]:
+def add_to_pantry(db: Session, user: CurrentUser, names: list[str], create: bool = False,
+                  typed: bool = False) -> dict[str, str]:
     """Dopisuje składniki do spiżarni (kupione z listy zakupów, z paragonu).
 
     Bez `create` tylko istniejące składniki; z `create` nowe nazwy też zakładamy, a podobna
     nazwa ('pierś z kurczaka' przy 'kurczak piersi') trafia do istniejącego składnika.
+    `typed` (wpisane ręcznie w „W domu”): gdy istniejący składnik różni się tylko końcówką
+    ('mleka' z linijki przepisu), zostaje nazwa wpisana ('mleko') - przepisy i tak ją dopasują.
     Zwraca, pod jaką nazwą trafił każdy produkt.
     """
     if create:
-        found = {name: find_ingredient(db, name) or get_or_create_ingredient(db, name) for name in dict.fromkeys(names)}
+        found = {}
+        for name in dict.fromkeys(names):
+            ingredient = find_ingredient(db, name)
+            if ingredient is None or (typed and ingredient.name != name and only_inflection(name, ingredient.name)):
+                ingredient = get_or_create_ingredient(db, name)
+            found[name] = ingredient
     else:
         found = {i.name: i for i in db.query(Ingredient).filter(Ingredient.name.in_(names))}
     ingredients = list({i.id: i for i in found.values()}.values())

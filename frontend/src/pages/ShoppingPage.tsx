@@ -17,7 +17,7 @@ import { usePullToRefresh } from "../lib/usePullToRefresh";
 // albo ręcznie tutaj. Odhaczona pozycja trafia do spiżarni, a dopisana - znika ze spiżarni
 // (robi to serwer). Działa bez internetu (patrz lib/offlineShopping.ts), a z Home Assistant
 // zgadza się w obie strony.
-export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
+export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean; owner: boolean }) {
   // Widok zapamiętany w telefonie; link z "Co ugotuję?" otwiera spiżarnię (?widok=dom)
   const [params, setParams] = useSearchParams();
   const [savedView, setSavedView] = useRemembered<"list" | "pantry">("shopping-view", "list");
@@ -195,7 +195,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
           <h1>Zakupy</h1>
         </header>
         {switcher}
-        <PantryView receipts={receipts} onCount={setPantryCount} />
+        <PantryView receipts={receipts} owner={owner} onCount={setPantryCount} />
       </>
     );
   }
@@ -268,7 +268,7 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
       ) : (
         inPantry && (
           <p className="similar-hint small">
-            Masz w domu: <b>{inPantry}</b> - po dopisaniu zniknie ze spiżarni.
+            Masz w domu: <b>{inPantry}</b> - po dopisaniu zniknie z „W domu”.
           </p>
         )
       )}
@@ -293,14 +293,14 @@ export default function ShoppingPage({ haEnabled }: { haEnabled: boolean }) {
           ))}
           {done.length > 0 && (
             <>
-              <h2 className="aisle">Kupione - już w spiżarni</h2>
+              <h2 className="aisle">Kupione - już w domu</h2>
               <ul className="checklist shopping">{done.map(row)}</ul>
             </>
           )}
           <p className="muted small center">Przytrzymaj pozycję, żeby ją zmienić. Przesuń w lewo, żeby usunąć.</p>
           <div className="actions">
             {done.length > 0 && (
-              <button type="button" onClick={() => removeLater("Usunięto kupione z listy (zostają w spiżarni)", done, [{ op: "clear", onlyChecked: true }])}>
+              <button type="button" onClick={() => removeLater("Usunięto kupione z listy (zostają w „W domu”)", done, [{ op: "clear", onlyChecked: true }])}>
                 Usuń kupione
               </button>
             )}

@@ -62,7 +62,7 @@ def set_expires(data: PantryExpiresIn, db: Session = Depends(get_db), user: Curr
 @router.post("/add", response_model=list[PantryItem])
 def add_items(data: PantryNamesIn, db: Session = Depends(get_db), user: CurrentUser = Depends(current_user)):
     """Dopisuje produkty do spiżarni (pozostałe zostają)."""
-    kitchen.add_to_pantry(db, user, [normalize_name(n) for n in data.names if n.strip()], create=True)
+    kitchen.add_to_pantry(db, user, [normalize_name(n) for n in data.names if n.strip()], create=True, typed=True)
     db.commit()
     return _items(db, user)
 

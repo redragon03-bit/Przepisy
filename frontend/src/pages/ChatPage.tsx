@@ -118,7 +118,7 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
         <section className="box">
           <p className="small">
             Napisz, na co masz ochotę albo czego nie chcesz. Najpierw poszukam w Twoich przepisach, a jeśli nic nie pasuje,
-            wymyślę nowy. Biorę pod uwagę to, co masz w domu (spiżarnia w „Co ugotuję?”).
+            wymyślę nowy. Biorę pod uwagę to, co masz w domu (Zakupy → W domu).
           </p>
           <div className="chat-suggestions">
             {SUGGESTIONS.map((s) => (

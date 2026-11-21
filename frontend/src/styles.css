@@ -2478,3 +2478,12 @@ body:has(.fab) .back-to-top {
 .duplicate-actions button {
   flex: 1 1 auto;
 }
+
+/* „Zawsze w domu” na dole widoku Zakupy → W domu */
+.staples {
+  margin-top: 24px;
+}
+
+.staples .chips {
+  margin-top: 8px;
+}

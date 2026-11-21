@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, Ingredient, ReceiptSettings } from "../api";
+import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, ReceiptSettings } from "../api";
 import { Link } from "react-router-dom";
 import AccountsSection from "../components/AccountsSection";
 import AppearanceSection from "../components/AppearanceSection";
@@ -9,8 +9,6 @@ import { useToast } from "../lib/toast";
 const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", xai: "Grok", groq: "Groq", mistral: "Mistral" };
 
 export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onLogout: () => void }) {
-  const [staples, setStaples] = useState<Ingredient[]>([]);
-  const [newStaple, setNewStaple] = useState("");
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [uncategorized, setUncategorized] = useState(0);
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
@@ -21,10 +19,8 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const [showPromos, setShowPromos] = usePromoBadges();
   const [receipts, setReceipts] = useState<ReceiptSettings | null>(null);
 
-  const refresh = () => api.listIngredients("", true).then(setStaples);
   const owner = auth.is_owner;
   useEffect(() => {
-    refresh();
     api.receiptSettings().then(setReceipts, () => undefined);
     // Kopie i porządki w bazie to sprawy właściciela - domownik ich nie widzi
     if (!owner) return;
@@ -97,16 +93,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
     if (result) {
       toast(`Przywrócono kopię: ${result.recipes} przepisów.`);
       api.listBackups().then(setBackups);
-      refresh();
     }
-  };
-
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStaple.trim()) return;
-    if (!(await run(() => api.addStaple(newStaple)))) return;
-    setNewStaple("");
-    refresh();
   };
 
   const logout = async () => {
@@ -125,33 +112,6 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
           Aplikacja nie ma hasła - każdy, kto ma do niej dostęp, może zmieniać przepisy. Ustaw hasło w opcjach dodatku (app_password).
         </p>
       )}
-
-      <section className="box">
-        <h2>Zawsze w domu</h2>
-        <p className="muted small">
-          Te składniki nie są liczone jako brakujące w „Co ugotuję?”.
-          {!owner && " Listę zmienia właściciel aplikacji."}
-        </p>
-        <div className="chips">
-          {staples.map((s) =>
-            owner ? (
-              <button key={s.id} type="button" className="chip" onClick={() => run(() => api.setStaple(s.id, false)).then(refresh)}>
-                {s.name} ✕
-              </button>
-            ) : (
-              <span key={s.id} className="chip">
-                {s.name}
-              </span>
-            ),
-          )}
-        </div>
-        {owner && (
-          <form className="row" onSubmit={add}>
-            <input value={newStaple} onChange={(e) => setNewStaple(e.target.value)} placeholder="np. masło" autoCapitalize="none" />
-            <button>Dodaj</button>
-          </form>
-        )}
-      </section>
 
       <section className="box">
         <h2>Promocje</h2>
@@ -173,7 +133,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
 
       {receipts && (
         <section className="box">
-          <h2>Spiżarnia</h2>
+          <h2>W domu</h2>
           <label className="toggle switch-row">
             <span className="grow">
               Dodawanie z paragonu
@@ -201,9 +161,12 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
                   }
                 }
               }}
-              aria-label="Dodawanie produktów do spiżarni z paragonu"
+              aria-label="Dodawanie produktów do „W domu” z paragonu"
             />
           </label>
+          <p className="muted small">
+            „Zawsze w domu” (sól, olej…) jest teraz na dole <Link to="/zakupy?widok=dom">Zakupy → W domu</Link>.
+          </p>
         </section>
       )}
 

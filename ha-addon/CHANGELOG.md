@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.25.0
+
+- Spiżarnia nazywa się wszędzie „W domu” (Zakupy, Ustawienia, Co ugotuję?, Pomoc, komunikaty).
+- „Zawsze w domu” (sól, olej…) przeniesione z Ustawień na dół Zakupy → W domu: kafelek „＋ dodaj”,
+  ✕ usuwa, a produkt z listy przeniesiesz stuknięciem i „🧂 Zawsze w domu - nie kończy się”.
+- W „W domu” przycisk „🥕 Co z tego ugotuję?”; w Ustawieniach zostaje jedna sekcja „W domu” (paragon).
+- Wpisane ręcznie „mleko” nie zmienia się już w „mleka”, gdy w bazie jest inna odmiana nazwy.
+
 ## 0.24.7
 
 - iPhone: stuknięcie w pole do pisania (np. „Nowy wariant przepisu”) już nie powiększa ekranu. Pola mają

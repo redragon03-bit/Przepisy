@@ -66,7 +66,7 @@ export default function ReceiptSheet({ files, onDone, onClose }: {
         scan?.store ?? "",
         chosen.map((r) => ({ raw: r.raw, name: r.name.trim(), expires: r.days ? inDays(r.days) : null })),
       );
-      toast(`Dodano do spiżarni: ${chosen.length}`);
+      toast(`Dodano do „W domu”: ${chosen.length}`);
       onDone(items);
     } catch (e) {
       toast((e as Error).message);
@@ -124,7 +124,7 @@ export default function ReceiptSheet({ files, onDone, onClose }: {
             ))}
           </ul>
           <button type="button" className="wide primary" disabled={!chosen.length || saving} onClick={save}>
-            Dodaj {chosen.length} do spiżarni
+            Dodaj {chosen.length} do „W domu”
           </button>
         </>
       )}
