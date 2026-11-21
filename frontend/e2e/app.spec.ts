@@ -283,6 +283,38 @@ test("spiżarnia w Zakupach: odhaczone trafia do „W domu”, termin stawia prz
   await expect(page.locator(".swipe-row", { hasText: "jajka" })).toBeVisible();
 });
 
+test("„Zawsze w domu” w Zakupy → W domu: dodanie, przeniesienie z listy, usunięcie", async ({ page }) => {
+  await server.put("/api/pantry", { data: { names: ["ocet"] } });
+  await login(page);
+  await page.goto("/zakupy?widok=dom");
+  const staples = page.locator("section.staples");
+  await expect(staples.getByRole("heading", { name: "🧂 Zawsze w domu" })).toBeVisible();
+  await expect(staples.getByRole("button", { name: /: sól$/ })).toBeVisible();
+
+  // Kafelek „＋ dodaj”
+  await staples.getByRole("button", { name: "＋ dodaj" }).click();
+  await page.getByRole("dialog").getByRole("textbox").fill("bazylia suszona");
+  await page.getByRole("dialog").getByRole("button", { name: "Zapisz" }).click();
+  await expect(staples.getByRole("button", { name: /: bazylia suszona$/ })).toBeVisible();
+
+  // Produkt z listy przenosimy do „Zawsze w domu”
+  await page.locator(".swipe-row", { hasText: "ocet" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /Zawsze w domu/ }).click();
+  await expect(page.locator(".swipe-row", { hasText: "ocet" })).toHaveCount(0);
+  await expect(staples.getByRole("button", { name: /: ocet$/ })).toBeVisible();
+  await page.screenshot({ path: "test-results/zawsze-w-domu.png" });
+
+  // ✕ usuwa
+  await staples.getByRole("button", { name: /: bazylia suszona$/ }).click();
+  await expect(staples.getByRole("button", { name: /: bazylia suszona$/ })).toHaveCount(0);
+  await staples.getByRole("button", { name: /: ocet$/ }).click();
+
+  // W Ustawieniach nie ma już osobnej sekcji
+  await page.goto("/ustawienia");
+  await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Zawsze w domu" })).toHaveCount(0);
+});
+
 test("tryb gotowania: składniki przy kroku i ten sam krok po ponownym otwarciu", async ({ page }) => {
   await login(page);
   await page.locator(".grid .card", { hasText: "Żurek śląski" }).click();
@@ -803,11 +835,11 @@ test("paragon: włączony w Ustawieniach, AI odczytuje, poprawiasz nazwę i doda
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByText("Z paragonu · Biedronka")).toBeVisible({ timeout: 10_000 });
   // Zaznaczone jest jedzenie z nazwą; chemia i nieznane - nie
-  await expect(sheet.getByRole("button", { name: "Dodaj 2 do spiżarni" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Dodaj 2 do „W domu”" })).toBeVisible();
   await sheet.locator(".receipt-name").first().fill("ser żółty");
   await page.screenshot({ path: "test-results/paragon.png" });
-  await sheet.getByRole("button", { name: "Dodaj 2 do spiżarni" }).click();
-  await expect(page.getByText("Dodano do spiżarni: 2")).toBeVisible();
+  await sheet.getByRole("button", { name: "Dodaj 2 do „W domu”" }).click();
+  await expect(page.getByText("Dodano do „W domu”: 2")).toBeVisible();
   await expect(page.locator(".swipe-row", { hasText: "ser żółty" })).toBeVisible();
   await expect(page.locator(".swipe-row", { hasText: "mlek" })).toContainText("za 5 dni");
   await page.screenshot({ path: "test-results/w-domu.png" });

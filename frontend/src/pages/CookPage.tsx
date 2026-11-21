@@ -7,7 +7,7 @@ import RecipeCard from "../components/RecipeCard";
 import { useHiddenPromoStores } from "../lib/promoBadges";
 import { usePromotions } from "../lib/usePromotions";
 
-// "Co mogę ugotować?" - przepisy z produktów ze spiżarni (Zakupy → W domu).
+// "Co mogę ugotować?" - przepisy z produktów z Zakupy → W domu (spiżarnia).
 // Spiżarnię zmienia się w Zakupach: odhaczone kupione, dopisane ręcznie, z paragonu.
 // Starsze wersje trzymały wybór w przeglądarce - przenosimy go raz do spiżarni.
 const OLD_STORAGE_KEY = "cook-ingredients";
@@ -124,15 +124,15 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
         <h1>Co ugotuję?</h1>
       </header>
       <section className="box">
-        <h2>Moja spiżarnia</h2>
+        <h2>Z tego, co masz w domu</h2>
         {items.length === 0 ? (
           <p className="muted small">
-            Spiżarnia jest pusta. Odhaczaj kupione na liście zakupów albo dopisz, co masz w domu:{" "}
+            Nic jeszcze nie ma w „W domu”. Odhaczaj kupione na liście zakupów albo dopisz, co masz w domu:{" "}
             <Link to="/zakupy?widok=dom">Zakupy → W domu</Link>.
           </p>
         ) : (
           <p className="small">
-            Szukam przepisów z {items.length} {items.length === 1 ? "produktu" : "produktów"} ze spiżarni ·{" "}
+            Szukam przepisów z {items.length} {items.length === 1 ? "produktu" : "produktów"} (i „Zawsze w domu”) ·{" "}
             <Link to="/zakupy?widok=dom">Zmień</Link>
           </p>
         )}
@@ -153,7 +153,7 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
       <PromoSection aiEnabled={aiEnabled} />
 
       {matches === null ? null : matches.length === 0 ? (
-        <p className="muted center">Brak pasujących przepisów. Dopisz produkty do spiżarni albo zwiększ liczbę braków.</p>
+        <p className="muted center">Brak pasujących przepisów. Dopisz produkty w Zakupy → W domu albo zwiększ liczbę braków.</p>
       ) : (
         <div className="grid">
           {matches.map((m) => (

@@ -21,13 +21,14 @@ export function expiresLabel(expires: string): string {
   return `za ${days} dni`;
 }
 
-// Panel produktu ze spiżarni: do kiedy zużyć, dopisz do zakupów, usuń.
-export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopping, onRename, onClose }: {
+// Panel produktu z „W domu”: do kiedy zużyć, dopisz do zakupów, zawsze w domu, usuń.
+export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopping, onStaple, onRename, onClose }: {
   name: string;
   expires?: string;
   onTerm: (day: string | null) => void;
   onRemove: () => void;
   onToShopping?: () => void;
+  onStaple?: () => void;
   onRename?: () => void;
   onClose: () => void;
 }) {
@@ -73,13 +74,18 @@ export default function ExpirySheet({ name, expires, onTerm, onRemove, onToShopp
           🛒 Kończy się - dopisz do zakupów
         </button>
       )}
+      {onStaple && (
+        <button type="button" className="sheet-row" onClick={onStaple}>
+          🧂 Zawsze w domu - nie kończy się
+        </button>
+      )}
       {onRename && (
         <button type="button" className="sheet-row" onClick={onRename}>
           ✏️ Zmień nazwę
         </button>
       )}
       <button type="button" className="sheet-row danger-tile" onClick={onRemove}>
-        🗑️ Zużyte - usuń ze spiżarni
+        🗑️ Zużyte - usuń z „W domu”
       </button>
     </Sheet>
   );

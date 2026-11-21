@@ -62,7 +62,7 @@ function OwnerAccounts({ auth }: { auth: AuthStatus }) {
     if (account.id === null) return;
     if (
       !window.confirm(
-        `Usunąć konto „${account.name}”? Jego plan, lista zakupów i spiżarnia znikną, a dodane przez niego przepisy zostaną u Ciebie.`,
+        `Usunąć konto „${account.name}”? Jego plan, lista zakupów i „W domu” znikną, a dodane przez niego przepisy zostaną u Ciebie.`,
       )
     )
       return;
@@ -74,7 +74,7 @@ function OwnerAccounts({ auth }: { auth: AuthStatus }) {
     <section className="box">
       <h2>Konta</h2>
       <p className="muted small">
-        Przepisy są wspólne. Każde konto ma własny plan, listę zakupów, spiżarnię, ulubione i oceny. Domownik zmienia tylko przepisy, które
+        Przepisy są wspólne. Każde konto ma własny plan, listę zakupów, „W domu”, ulubione i oceny. Domownik zmienia tylko przepisy, które
         sam dodał, i nie widzi kopii zapasowych ani Home Assistant.
       </p>
       <ul className="account-list">
@@ -160,7 +160,7 @@ function OwnPassword({ name }: { name: string }) {
     <section className="box">
       <h2>Twoje konto</h2>
       <p className="muted small">
-        Zalogowano jako <b>{name}</b>. Przepisy są wspólne z właścicielem aplikacji; plan, zakupy, spiżarnia, ulubione i oceny masz swoje.
+        Zalogowano jako <b>{name}</b>. Przepisy są wspólne z właścicielem aplikacji; plan, zakupy, „W domu”, ulubione i oceny masz swoje.
       </p>
       <form className="stack" onSubmit={save}>
         <input

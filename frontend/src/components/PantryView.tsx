@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { Link } from "react-router-dom";
 import { focusEditField } from "../lib/focusField";
-import { api, PantryItem } from "../api";
+import { api, Ingredient, PantryItem } from "../api";
 import { sendChanges } from "../lib/offlineShopping";
 import { findSame } from "../lib/similar";
 import { useToast } from "../lib/toast";
@@ -11,16 +12,20 @@ import ReceiptSheet from "./ReceiptSheet";
 import RenameSheet from "./RenameSheet";
 import SwipeRow from "./SwipeRow";
 
-// Spiżarnia: co jest w domu. Trafia tu to, co odhaczysz na liście zakupów, to, co dopiszesz
+// „W domu” (spiżarnia): co jest w domu. Trafia tu to, co odhaczysz na liście zakupów, to, co dopiszesz
 // tutaj, i produkty z paragonu (jeśli włączone w Ustawieniach). Przepisy oznaczają składniki,
-// których tu nie ma, jako „brak”, a lista zakupów je pomija.
-export default function PantryView({ receipts, onCount }: { receipts: boolean; onCount: (count: number) => void }) {
+// których tu nie ma, jako „brak”, a lista zakupów je pomija. Na dole „Zawsze w domu” (sól, olej…) -
+// produkty, które się nie kończą; zmienia je właściciel aplikacji (lista jest wspólna dla kont).
+export default function PantryView({ receipts, owner, onCount }: { receipts: boolean; owner: boolean; onCount: (count: number) => void }) {
   const [items, setItemsState] = useState<PantryItem[] | null>(null);
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<PantryItem | null>(null);
   // Produkt, któremu zmieniamy nazwę (przytrzymanie albo „Zmień nazwę” w panelu terminu)
   const [renaming, setRenaming] = useState<PantryItem | null>(null);
   const [files, setFiles] = useState<File[] | null>(null);
+  const [staples, setStaples] = useState<Ingredient[]>([]);
+  // Panel dopisywania do „Zawsze w domu” (kafelek „+ dodaj”)
+  const [addingStaple, setAddingStaple] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const { toast, undoable, run } = useToast();
 
@@ -35,6 +40,7 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
     sendChanges()
       .then(() => api.pantryItems())
       .then(setItems, () => setItemsState([]));
+    refreshStaples();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -74,6 +80,34 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
     if (list) setItems(list);
   };
 
+  const refreshStaples = () => api.listIngredients("", true).then(setStaples, () => undefined);
+
+  const addStaple = async (name: string) => {
+    setAddingStaple(false);
+    if (await run(() => api.addStaple(name))) {
+      forgetPantry();
+      refreshStaples();
+      toast(`Zawsze w domu: ${name}`);
+    }
+  };
+
+  const removeStaple = async (staple: Ingredient) => {
+    if (await run(() => api.setStaple(staple.id, false))) {
+      forgetPantry();
+      setStaples((list) => list.filter((s) => s.id !== staple.id));
+    }
+  };
+
+  // Produkt z listy, który się nie kończy (sól, olej): przenosimy do „Zawsze w domu”
+  const toStaples = async (item: PantryItem) => {
+    setEditing(null);
+    if (!(await run(() => api.addStaple(item.name)))) return;
+    const list = await run(() => api.removeFromPantry([item.name]));
+    if (list) setItems(list);
+    refreshStaples();
+    toast(`Przeniesiono do „Zawsze w domu”: ${item.name}`);
+  };
+
   // Dopisanie do zakupów zabiera produkt ze spiżarni (serwer robi to sam)
   const toShopping = async (item: PantryItem) => {
     setEditing(null);
@@ -111,6 +145,11 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
           </p>
         );
       })()}
+      {items.length > 0 && (
+        <Link to="/co-ugotowac" className="button wide">
+          🥕 Co z tego ugotuję?
+        </Link>
+      )}
       {receipts && (
         <>
           <button type="button" className="wide" onClick={() => fileInput.current?.click()}>
@@ -133,7 +172,7 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
 
       {items.length === 0 ? (
         <p className="muted center">
-          Spiżarnia jest pusta. Odhacz coś na liście zakupów albo dopisz powyżej, co masz w domu - przepisy pokażą wtedy, czego brakuje.
+          Nic tu jeszcze nie ma. Odhacz coś na liście zakupów albo dopisz powyżej, co masz w domu - przepisy pokażą wtedy, czego brakuje.
         </p>
       ) : (
         <>
@@ -153,6 +192,39 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
         </>
       )}
 
+      <section className="staples">
+        <h2 className="aisle">🧂 Zawsze w domu</h2>
+        <p className="muted small">
+          Nie kończą się, więc nigdy nie są „brak” i nie trafiają na listę zakupów.
+          {owner ? " Stuknij, żeby usunąć." : " Listę zmienia właściciel aplikacji."}
+        </p>
+        <div className="chips">
+          {staples.map((s) =>
+            owner ? (
+              <button key={s.id} type="button" className="chip" onClick={() => removeStaple(s)} aria-label={`Usuń z „Zawsze w domu”: ${s.name}`}>
+                {s.name} ✕
+              </button>
+            ) : (
+              <span key={s.id} className="chip">
+                {s.name}
+              </span>
+            ),
+          )}
+          {owner && (
+            <button
+              type="button"
+              className="chip"
+              onClick={() => {
+                flushSync(() => setAddingStaple(true));
+                focusEditField();
+              }}
+            >
+              ＋ dodaj
+            </button>
+          )}
+        </div>
+      </section>
+
       {editing && (
         <ExpirySheet
           name={editing.name}
@@ -160,6 +232,7 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
           onTerm={(day) => setTerm(editing, day)}
           onRemove={() => used(editing)}
           onToShopping={() => toShopping(editing)}
+          onStaple={owner ? () => toStaples(editing) : undefined}
           onRename={() => {
             // Panel rysujemy od razu, żeby fokus (i klawiatura) przyszedł jeszcze w stuknięciu
             flushSync(() => {
@@ -173,6 +246,9 @@ export default function PantryView({ receipts, onCount }: { receipts: boolean; o
       )}
       {renaming && (
         <RenameSheet title="Zmień nazwę" text={renaming.name} onClose={() => setRenaming(null)} onSave={(name) => rename(renaming, name)} />
+      )}
+      {addingStaple && (
+        <RenameSheet title="Dodaj do „Zawsze w domu”" text="" onClose={() => setAddingStaple(false)} onSave={addStaple} />
       )}
       {files && (
         <ReceiptSheet

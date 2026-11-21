@@ -120,7 +120,7 @@ export default function App() {
           <Route path="/co-ugotowac" element={<CookPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/promocje" element={<PromotionsPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
-          <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} />} />
+          <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} owner={auth.is_owner} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
           <Route path="/pomoc" element={<HelpPage />} />
           <Route path="/sekcje" element={<SectionsReviewPage />} />

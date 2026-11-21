@@ -106,6 +106,17 @@ def similar(a: str, b: str) -> bool:
     return True
 
 
+def only_inflection(a: str, b: str) -> bool:
+    """Te same wyrazy w tej samej kolejności, różni się tylko końcówka: 'mleko' i 'mleka'.
+
+    Inny szyk ('kurczak piersi' i 'pierś z kurczaka') to nie tylko odmiana.
+    """
+    words_a, words_b = _words(a), _words(b)
+    if not words_a or len(words_a) != len(words_b):
+        return False
+    return all(similar_word(x, y) for x, y in zip(words_a, words_b, strict=True))
+
+
 def group_similar(names: list[str]) -> list[list[str]]:
     """Grupy podobnych nazw, np. [['pomidor', 'pomidory']]. Grupy jednoelementowe pomijamy."""
     groups: list[list[str]] = []
