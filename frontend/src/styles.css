@@ -504,6 +504,19 @@ button.small,
   padding: 8px 10px 10px;
 }
 
+/* Pasek pod paskiem stanu iPhone'a (element w index.html). iOS 26 nie rozmywa wtedy
+   górnej części ekranu: musi być fixed, na całą szerokość, z jednolitym tłem i łapać
+   dotknięcia (bez pointer-events: none). */
+.top-edge {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: env(safe-area-inset-top, 0px);
+  background-color: var(--bg);
+}
+
 /* Szczegóły przepisu */
 /* Górny pasek przepisu zostaje na górze z pełnym tłem. Bez tego Safari na iPhonie
    (iOS 26) rozmywa pas pod paskiem stanu, który zachodził na Wróć, Inny i serce -

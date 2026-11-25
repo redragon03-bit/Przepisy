@@ -954,3 +954,21 @@ test("górny pasek przepisu zostaje na górze z pełnym tłem (bez rozmycia przy
   expect((await bar.boundingBox())!.y).toBeLessThanOrEqual(0.5);
   await expect(bar.getByRole("button", { name: "‹ Wróć" })).toBeInViewport();
 });
+
+test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 26 nie rozmywa góry)", async ({ page }) => {
+  await login(page);
+  for (const path of ["/", "/dodaj", "/zakupy"]) {
+    await page.goto(path);
+    const band = page.locator(".top-edge");
+    await expect(band).toHaveCount(1);
+    const style = await band.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { position: s.position, top: s.top, bg: s.backgroundColor, events: s.pointerEvents, width: el.getBoundingClientRect().width };
+    });
+    expect(style.position).toBe("fixed");
+    expect(style.top).toBe("0px");
+    expect(style.bg).not.toBe("rgba(0, 0, 0, 0)");
+    expect(style.events).not.toBe("none");
+    expect(style.width).toBe(page.viewportSize()!.width);
+  }
+});
