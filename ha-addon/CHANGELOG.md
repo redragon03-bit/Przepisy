@@ -6,6 +6,14 @@
   Pod paskiem stanu jest teraz cienki pasek w kolorze tła, przy którym Safari nie rozmywa nagłówków
   (Dodaj przepis, Zakupy, przycisków w przepisie).
 
+## 0.26.0
+
+- Czat nie gubi rozmowy: po wysłaniu pytania można przejść na inną zakładkę, odpowiedź przychodzi
+  dalej i czeka po powrocie. Rozmowa zostaje też po zamknięciu aplikacji (do „Nowa rozmowa”);
+  gdy aplikacja zamknie się w trakcie odpowiedzi, jest „Spróbuj ponownie”.
+- Ustawienia → Wygląd: nowa grupa „Czat” (dymki i karty przepisów w czacie) i dymki czatu w podglądzie.
+  Karty przepisów w czacie są domyślnie mniejsze niż na liście przepisów.
+
 ## 0.25.5
 
 - Ekran aktualizacji: zamiast ikonki 🔄 smok z logo miesza w kotle – nad kotłem unosi się para,

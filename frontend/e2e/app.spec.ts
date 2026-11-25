@@ -971,4 +971,46 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
     expect(style.events).not.toBe("none");
     expect(style.width).toBe(page.viewportSize()!.width);
   }
+
+test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {
+  // AI włączone na niby; odpowiedź przychodzi po chwili, gdy jesteśmy już na innej zakładce
+  await page.route("**/api/auth/status", async (route) => {
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
+  });
+  let calls = 0;
+  await page.route("**/api/chat", async (route) => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 1500));
+    route.fulfill({ json: { text: "Może owsianka z owocami?", new_recipe: null, recipes: [] } });
+  });
+  await login(page);
+  await page.getByRole("link", { name: "Czat" }).click();
+  await page.getByLabel("Wiadomość").fill("Coś zdrowego na śniadanie");
+  await page.getByRole("button", { name: "Wyślij" }).click();
+  await expect(page.getByRole("status", { name: "Myślę…" })).toBeVisible();
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  await expect(page.getByRole("heading", { name: "Zakupy" })).toBeVisible();
+  await page.getByRole("link", { name: "Czat" }).click();
+  await expect(page.getByText("Coś zdrowego na śniadanie")).toBeVisible();
+  await expect(page.getByText("Może owsianka z owocami?")).toBeVisible();
+  expect(calls).toBe(1);
+
+  // Czat ma własną grupę w Ustawieniach → Wygląd
+  const bubble = page.locator(".bubble.assistant").first();
+  expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
+  await page.goto("/ustawienia");
+  const smaller = page.getByRole("button", { name: "Czat: mniejsze" });
+  await smaller.click();
+  await smaller.click();
+  await expect(page.getByLabel("Czat: wielkość")).toHaveText("90%");
+  expect(await page.locator(".scale-preview .bubble.user").evaluate((e) => getComputedStyle(e).fontSize)).toBe("14.4px");
+  // Rozmowa przetrwała też przeładowanie aplikacji
+  await page.goto("/czat");
+  await expect(page.getByText("Może owsianka z owocami?")).toBeVisible();
+  expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("14.4px");
+  await page.screenshot({ path: "test-results/czat-po.png" });
+  await page.getByRole("button", { name: "Nowa rozmowa" }).click();
+  await page.goto("/ustawienia");
+  await page.getByRole("button", { name: "Przywróć 100%" }).click();
 });
