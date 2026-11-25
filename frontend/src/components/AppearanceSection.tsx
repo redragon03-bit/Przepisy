@@ -108,6 +108,11 @@ export default function AppearanceSection() {
           </span>
           <strong className="timer-time">4:59</strong>
         </div>
+        <p className="muted small scale-preview-label">Czat</p>
+        <div className={`chat scale-preview-chat${picked === "chat" ? " picked" : ""}`} data-group="chat">
+          <div className="bubble user">Coś zdrowego na śniadanie?</div>
+          <div className="bubble assistant">Może owsianka z owocami?</div>
+        </div>
       </div>
       <div className="scale-preview-bar" aria-live="polite">
         {pickedGroup ? (

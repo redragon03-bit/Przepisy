@@ -70,7 +70,7 @@ export function savedAuth(): AuthStatus | null {
 
 // Lista zakupów i przepisy zapamiętane offline należą do zalogowanej osoby -
 // po wylogowaniu je usuwamy, żeby kolejna osoba na tym telefonie nie zobaczyła cudzych
-const PERSONAL_KEYS = ["shopping-items", "shopping-queue", "offline-recipes", "offline-recipe-list", "recent-recipes", AUTH_KEY];
+const PERSONAL_KEYS = ["shopping-items", "shopping-queue", "offline-recipes", "offline-recipe-list", "recent-recipes", "chat-messages", AUTH_KEY];
 
 function forgetPersonalData() {
   try {
