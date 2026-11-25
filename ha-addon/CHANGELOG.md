@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.26.2
+
+- iPhone (iOS 26, aplikacja z ekranu głównego): górna część każdego ekranu nie jest już rozmyta.
+  Pod paskiem stanu jest teraz cienki pasek w kolorze tła, przy którym Safari nie rozmywa nagłówków
+  (Dodaj przepis, Zakupy, przycisków w przepisie).
+
 ## 0.26.1
 
 - Ostrzejsze zdjęcia przepisów. Przy imporcie aplikacja bierze zdjęcie z danych przepisu
