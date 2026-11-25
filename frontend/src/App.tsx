@@ -2,6 +2,7 @@ import { MouseEvent, useEffect, useLayoutEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation, useNavigationType } from "react-router-dom";
 import { api, AuthStatus, savedAuth, saveAuth, setUnauthorizedHandler } from "./api";
 import BackToTop from "./components/BackToTop";
+import { LoadingScreen } from "./components/Loading";
 import ServerDownScreen from "./components/ServerDownScreen";
 import Sheet from "./components/Sheet";
 import TimersBar from "./components/TimersBar";
@@ -41,7 +42,13 @@ const MORE = [
 ];
 
 export default function App() {
-  const [auth, setAuth] = useState<AuthStatus | null>(null);
+  // Telefon pamięta ostatnie logowanie, więc aplikacja rysuje się od razu, bez czekania
+  // na serwer (przez Tailscale pierwsze zapytanie potrafi trwać kilka sekund).
+  // Świeży stan z serwera przychodzi w tle; wygasła sesja przełączy na ekran logowania.
+  const [auth, setAuth] = useState<AuthStatus | null>(() => {
+    const saved = savedAuth();
+    return saved?.authenticated ? saved : null;
+  });
   const location = useLocation();
   const navigationType = useNavigationType();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -84,7 +91,7 @@ export default function App() {
       () => prefetchPlanned().catch(() => {}),
       () => {
         const saved = savedAuth();
-        if (saved) setAuth(saved);
+        if (saved) setAuth((current) => current ?? saved);
         setOffline(true);
       },
     );
@@ -93,7 +100,7 @@ export default function App() {
   if (!auth)
     return (
       <>
-        <div className="center muted">{offline ? "Brak połączenia z serwerem." : "Ładowanie…"}</div>
+        <LoadingScreen text={offline ? "Brak połączenia z serwerem." : undefined} />
         <ServerDownScreen />
       </>
     );

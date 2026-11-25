@@ -6,6 +6,7 @@ import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
 import { useHiddenPromoStores } from "../lib/promoBadges";
 import { usePromotions } from "../lib/usePromotions";
+import Loading from "../components/Loading";
 
 // "Co mogę ugotować?" - przepisy z produktów z Zakupy → W domu (spiżarnia).
 // Spiżarnię zmienia się w Zakupach: odhaczone kupione, dopisane ręcznie, z paragonu.
@@ -113,7 +114,7 @@ export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
     api.whatCanICook(items.map((i) => i.name), maxMissing).then(setMatches);
   }, [items, maxMissing]);
 
-  if (items === null) return <p className="muted center">Ładowanie…</p>;
+  if (items === null) return <Loading />;
 
   const soon = inDays(USE_FIRST_DAYS);
   const urgent = items.filter((i) => i.expires && i.expires <= soon).sort((a, b) => a.expires!.localeCompare(b.expires!));

@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.25.2
+
+- Ekran ładowania z logo smoka i nazwą „Smocza strawa” zamiast samego napisu „Ładowanie…”,
+  przy starcie aplikacji i na stronach, które czekają na dane.
+- Aplikacja otwiera się od razu: nie czeka na serwer z logowaniem, a lista przepisów rysuje się
+  z pamięci telefonu i odświeża w tle.
+- Zapytania wolniejsze niż 1 s trafiają do logu dodatku (łatwiej sprawdzić, czy czeka serwer, czy sieć).
+
 ## 0.25.1
 
 - Minutnik nie ginie, gdy dodatek się zrestartuje albo zaktualizuje w trakcie gotowania: powiadomienie

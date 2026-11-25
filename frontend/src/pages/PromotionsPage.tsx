@@ -7,6 +7,7 @@ import { useHiddenPromoStores } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { fold } from "../lib/stepIngredients";
 import { useToast } from "../lib/toast";
+import Loading from "../components/Loading";
 
 // "Promocje": jedzenie, pieluchy i środki czystości w promocji z gazetek, pogrupowane na sklepy.
 // Serwer sam co 12 godzin sprawdza nowe gazetki (Lidl ze strony Lidla, reszta z Blixa)
@@ -155,7 +156,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
     if (await run(() => api.promoToShopping(promo.id))) toast(`Dodano do zakupów: ${promo.name}`);
   };
 
-  if (promos === null || status === null) return <p className="muted center">Ładowanie…</p>;
+  if (promos === null || status === null) return <Loading />;
 
   const stores = [...new Set(promos.map((p) => p.store))];
   const categories = CATEGORIES.filter(([key]) => promos.some((p) => p.category === key));

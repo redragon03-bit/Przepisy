@@ -11,6 +11,7 @@ import { findSame, sameProduct } from "../lib/similar";
 import { applyChange, cachedItems, cacheItems, Change, pendingChanges, queueChange, sendChanges } from "../lib/offlineShopping";
 import { useToast } from "../lib/toast";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
+import Loading from "../components/Loading";
 
 // Zakupy mają dwa widoki: "Do kupienia" (lista zakupów) i "W domu" (spiżarnia, PantryView).
 // Lista jest pogrupowana działami sklepu. Pozycje dodaje się z przepisu, z planu tygodnia
@@ -204,7 +205,7 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
     return (
       <>
         {switcher}
-        <p className="muted center">{offline ? "Brak połączenia - lista pojawi się po połączeniu." : "Ładowanie…"}</p>
+        {offline ? <p className="muted center">Brak połączenia - lista pojawi się po połączeniu.</p> : <Loading />}
       </>
     );
   const open = items.filter((i) => !i.checked);

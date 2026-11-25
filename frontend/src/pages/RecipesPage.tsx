@@ -6,8 +6,9 @@ import RecipeCard from "../components/RecipeCard";
 import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
-import { listRecipes } from "../lib/recipeCache";
+import { listRecipes, storedRecipeList } from "../lib/recipeCache";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
+import Loading from "../components/Loading";
 
 // Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
 // w przepis i cofnięciu lista wyglądała tak samo jak przed chwilą.
@@ -102,11 +103,16 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [favorites, setFavorites] = useState(saved.favorites);
   const [categories, setCategories] = useState<Category[]>(cache?.categories ?? []);
   const [uncategorized, setUncategorized] = useState(cache?.uncategorized ?? 0);
-  const [total, setTotal] = useState(cache?.total ?? 0);
+  // Po starcie aplikacji (pusta pamięć strony) rysujemy od razu listę zapamiętaną w telefonie,
+  // a świeżą z serwera podmieniamy, gdy przyjdzie - zamiast czekać na serwer z pustym ekranem
+  const [stored] = useState(() =>
+    cache || saved.q || saved.ingredients.length || saved.category || saved.favorites ? null : storedRecipeList(),
+  );
+  const [total, setTotal] = useState(cache?.total ?? stored?.length ?? 0);
   const [showFilters, setShowFilters] = useState(saved.showFilters);
   const [sort, setSort] = useState<Sort>(saved.sort);
   const navigate = useNavigate();
-  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? null);
+  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? stored);
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
 
   useEffect(() => {
@@ -286,7 +292,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       <RecipeStrip title="Ostatnio oglądane" recipes={recent} />
       <RecipeStrip title="Dawno nie gotowane" recipes={forgotten} />
       {shown === null ? (
-        <p className="muted center">Ładowanie…</p>
+        <Loading />
       ) : shown.length === 0 ? (
         <p className="muted center">
           {filtering ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
