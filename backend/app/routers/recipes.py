@@ -14,6 +14,7 @@ from ..schemas import (
     CookLogOut,
     ImageFromUrl,
     ImageSearchProgress,
+    ImageUpgradeProgress,
     IngredientLine,
     MoreImageCandidates,
     RecipeIn,
@@ -31,7 +32,7 @@ from ..schemas import (
     image_url,
     thumb_url,
 )
-from ..services import ai, fetcher, image_search, images, importer
+from ..services import ai, image_search, images, importer
 from ..services.categories import normalize_category, set_categories
 from ..services.ingredients import get_or_create_ingredient, guess_ingredient_name, normalize_name
 from ..services.kitchen import OWNER, Marks
@@ -78,6 +79,7 @@ def to_out(recipe: Recipe, marks: Marks | None = None) -> RecipeOut:
     return RecipeOut(
         **to_summary(recipe, marks).model_dump(),
         can_edit=can_edit(recipe, user),
+        image_low_res=images.is_low_res(recipe.image),
         description=recipe.description,
         servings=recipe.servings,
         prep_minutes=recipe.prep_minutes,
@@ -198,6 +200,25 @@ def start_image_search(background: BackgroundTasks, db: Session = Depends(get_db
     if not image_search.progress["running"]:
         background.add_task(image_search.fill_missing)
     return _search_progress(db)
+
+
+def _upgrade_progress(db: Session) -> ImageUpgradeProgress:
+    return ImageUpgradeProgress(**image_search.upgrade_progress, low_res=len(image_search.low_res_ids(db)))
+
+
+@router.get("/image-upgrade", response_model=ImageUpgradeProgress)
+def image_upgrade_status(db: Session = Depends(get_db)):
+    """Postęp poprawiania rozmazanych zdjęć."""
+    return _upgrade_progress(db)
+
+
+@router.post("/image-upgrade", response_model=ImageUpgradeProgress, status_code=202,
+             dependencies=[Depends(require_owner)])
+def start_image_upgrade(background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Szuka na stronach źródłowych większych wersji rozmazanych zdjęć (w tle)."""
+    if not image_search.upgrade_progress["running"]:
+        background.add_task(image_search.upgrade_low_res)
+    return _upgrade_progress(db)
 
 
 @router.get("/sections/todo", response_model=list[RecipeSummary])
@@ -511,7 +532,7 @@ def image_from_url(recipe_id: int, data: ImageFromUrl, db: Session = Depends(get
                    user: CurrentUser = Depends(current_user)):
     recipe = _get_editable(db, recipe_id, user)
     try:
-        filename = images.save_image_bytes(fetcher.fetch_image(data.url))
+        filename = images.save_image_bytes(images.fetch_best(data.url))
     except Exception as exc:
         raise HTTPException(400, "Nie udało się pobrać tego zdjęcia - wybierz inne") from exc
     images.delete_image(recipe.image)

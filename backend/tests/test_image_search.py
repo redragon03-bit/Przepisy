@@ -1,8 +1,17 @@
 """Szukanie zdjęć dla przepisów bez zdjęcia."""
 
+import io
 from types import SimpleNamespace
 
+from PIL import Image
+
 from app.services import ai, fetcher, image_search, importer
+
+
+def jpeg(width: int = 1200, height: int = 800) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", (width, height), (200, 120, 40)).save(out, "JPEG")
+    return out.getvalue()
 
 # Prawdziwa funkcja - conftest podmienia ją w każdym teście, żeby nie łączyć się z internetem
 SEARCH_RECIPE_PAGES = ai.search_recipe_pages
@@ -13,7 +22,8 @@ PAGE = '<html><head><meta property="og:image" content="https://blog.example/chia
 def _fake_web(monkeypatch, saved):
     monkeypatch.setattr(image_search.ai, "search_recipe_pages", lambda title, names: ["https://blog.example/pudding"])
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: (PAGE, url))
-    monkeypatch.setattr(image_search.images, "download_image", lambda url: saved.append(url) or "chia.jpg")
+    monkeypatch.setattr(fetcher, "fetch_image", lambda url: jpeg())
+    monkeypatch.setattr(image_search.images, "save_image_bytes", lambda data: saved.append(data) or "chia.jpg")
 
 
 def test_candidates_from_found_pages(client, monkeypatch):
@@ -34,12 +44,12 @@ def test_fill_missing_for_existing_recipes(client, monkeypatch):
     status = client.get("/api/recipes/image-search").json()
     assert status["found"] == 1 and status["missing"] == 0 and not status["running"]
     assert client.get(f"/api/recipes/{recipe['id']}").json()["image_url"] == "/media/chia.jpg"
-    assert saved == ["https://blog.example/chia.jpg"]
+    assert len(saved) == 1
 
 
 def test_image_from_url(client, monkeypatch):
     recipe = client.post("/api/recipes", json={"title": "Placki"}).json()
-    monkeypatch.setattr(fetcher, "fetch_image", lambda url: b"jpeg")
+    monkeypatch.setattr(fetcher, "fetch_image", lambda url: jpeg())
     monkeypatch.setattr(image_search.images, "save_image_bytes", lambda data: "placki.jpg")
     updated = client.post(f"/api/recipes/{recipe['id']}/image-from-url", json={"url": "https://x/p.jpg"}).json()
     assert updated["image_url"] == "/media/placki.jpg"
@@ -133,6 +143,7 @@ def test_web_search_is_tried_before_ai(client, monkeypatch):
 
     monkeypatch.setattr(image_search.ai, "search_recipe_pages", no_ai)
     monkeypatch.setattr(fetcher, "fetch_html", lambda url: (PAGE, url))
+    monkeypatch.setattr(fetcher, "fetch_image", lambda url: jpeg())
     recipe = client.post("/api/recipes", json={"title": "Pudding chia"}).json()
     assert client.get(f"/api/recipes/{recipe['id']}/image-candidates").json() == ["https://blog.example/chia.jpg"]
 
@@ -141,7 +152,7 @@ def test_more_candidates_skip_shown_and_ask_differently(client, monkeypatch):
     queries = []
     pages = {"https://a.example/1": "https://a.example/1.jpg", "https://b.example/2": "https://b.example/2.jpg"}
     monkeypatch.setattr(image_search.web_search, "search_pages", lambda q: queries.append(q) or list(pages))
-    monkeypatch.setattr(image_search, "_page_image", lambda url: pages[url])
+    monkeypatch.setattr(image_search, "_page_image", lambda url: (pages[url], 1000))
     monkeypatch.setattr(image_search, "_openverse", lambda q, limit, page=1: [f"https://ov.example/{page}.jpg"])
     recipe = client.post("/api/recipes", json={"title": "Sernik"}).json()
     first = client.get(f"/api/recipes/{recipe['id']}/image-candidates").json()

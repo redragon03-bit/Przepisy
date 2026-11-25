@@ -90,6 +90,8 @@ class CookLogOut(BaseModel):
 class RecipeOut(RecipeSummary):
     # Czy zalogowana osoba może zmienić albo usunąć przepis (domownik - tylko swoje)
     can_edit: bool = True
+    # Zdjęcie jest za małe i na telefonie wygląda na rozmazane (patrz images.LOW_RES)
+    image_low_res: bool = False
     description: str
     servings: str
     prep_minutes: int | None
@@ -346,6 +348,16 @@ class ImageFromUrl(BaseModel):
 class MoreImageCandidates(BaseModel):
     skip: list[str] = []  # zdjęcia już pokazane
     round: int = Field(1, ge=0, le=50)  # która prośba o "inne"
+
+
+class ImageUpgradeProgress(BaseModel):
+    running: bool
+    done: int
+    # Ile zdjęć udało się podmienić na większe
+    improved: int
+    total: int
+    # Ile przepisów nadal ma rozmazane zdjęcie
+    low_res: int
 
 
 class ImageSearchProgress(BaseModel):
