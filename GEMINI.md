@@ -13,6 +13,13 @@ dodana do ekranu głównego.
 - Teksty w aplikacji po polsku, krótkie i zrozumiałe.
 - Do pull requestów i sprawdzania CI używaj `gh` (np. `gh pr list --state open`,
   `gh pr create`, `gh pr checks`).
+- Git przez sieć (fetch, pull, push) rób z prefiksem, bo powłoka Gemini ignoruje konfigurację
+  gita: `git -C <ścieżka> -c credential.helper= -c "credential.helper=!gh auth git-credential" push origin <gałąź>`.
+  Repo ma remote `https://`. Nie przełączaj na SSH i nie wpisuj tokenów. Lokalne `add`, `commit`,
+  `status`, `diff`, `log` działają bez prefiksu. To repo jest publiczne: nie wpisuj do plików ani
+  commitów adresów, tokenów, haseł ani danych domu.
+- Ścieżka repo na laptopie: `C:\projekty\Przepisy`. Adresy aplikacji, encje i inne dane domu są w
+  prywatnym repo `C:\projekty\home-assistant-bibice`. Jeśli nie masz do niego dostępu, poproś Darka.
 
 ## Poprawki interfejsu na iPhonie
 - Mało przycisków. Darek nie lubi zagraconego ekranu. Preferuj gesty (przesunięcie, długie
@@ -79,7 +86,7 @@ bez podbicia wersji.
 5. Po scaleniu job `docker` buduje obraz `ghcr.io/redragon03-bit/przepisy:<wersja>` (amd64 i
    arm64), zwykle kilka minut, limit 30 minut. Dopóki nie skończy się na zielono, dodatek się
    nie zaktualizuje. Gdy wisi, anuluj i uruchom ponownie.
-6. Dopiero potem aktualizacja w HA przez serwer MCP `homeassistant`: `ha_manage_app` z
+6. Dopiero potem aktualizacja w HA przez serwer MCP Home Assistant (w Gemini `home-assistant`): `ha_manage_app` z
    `check_updates`, potem update dodatku `f6f83020_przepisy`. Przed użyciem narzędzi HA
    wywołaj `ha_get_skill_guide`.
 7. Sprawdź log (`ha_get_logs`, `source=supervisor`): start uvicorn i błędy importu. Potem
