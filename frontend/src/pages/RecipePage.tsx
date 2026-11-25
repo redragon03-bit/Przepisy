@@ -189,7 +189,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
       {recipe.description && <p>{recipe.description}</p>}
       <p className="muted small">
         {[recipe.servings, ...times].filter(Boolean).join(" · ")}
-        {recipe.source_url && (
+        {/^https?:\/\//i.test(recipe.source_url) && (
           <>
             {" · "}
             <a href={recipe.source_url} target="_blank" rel="noreferrer">
