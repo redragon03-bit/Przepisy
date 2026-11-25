@@ -75,41 +75,41 @@
   color-scheme: light dark;
 }
 
-/* Ciemny motyw: ciepłe, "kawowe" szarości zamiast czerni; jaśniejszy pomarańcz z ciemnym tekstem na nim */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1714;
-    --surface: #26201c;
-    --surface-2: #2f2722;
-    --text: #f3ebe4;
-    --muted: #b8a99c;
-    --accent: #ff8a4c;
-    --accent-strong: #ff8a4c;
-    --on-accent: #1b1714;
-    --accent-soft: #4a2c1c;
-    --on-accent-soft: #ffc9a8;
-    --border: #3a312b;
-    --field: #342b25;
-    --field-border: #6b5a4d;
-    --danger: #ff8a7a;
-    --ok: #6fd39b;
-    --missing: #ffb4a8;
-    --missing-soft: #3a1e1a;
-    --promo-bg: #ffd84d;
-    --promo-text: #2b2118;
-    --deal-bg: #ff6b5b;
-    --deal-text: #1b1714;
-    --timer-bg: #f3ebe4;
-    --timer-text: #1b1714;
-    --timer-progress: #e8692c;
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow-2: 0 8px 28px rgb(0 0 0 / 55%);
-  }
+/* Ciemny motyw: ciepłe, "kawowe" szarości zamiast czerni; jaśniejszy pomarańcz z ciemnym tekstem na nim.
+   data-scheme ustawia lib/theme.ts (tryb z Ustawień → Wygląd albo z telefonu); kolory palety
+   (tło, akcent, ramki) nadpisuje wybrany motyw, tu zostają kolory semantyczne. */
+:root[data-scheme="dark"] {
+  --bg: #1b1714;
+  --surface: #26201c;
+  --surface-2: #2f2722;
+  --text: #f3ebe4;
+  --muted: #b8a99c;
+  --accent: #ff8a4c;
+  --accent-strong: #ff8a4c;
+  --on-accent: #1b1714;
+  --accent-soft: #4a2c1c;
+  --on-accent-soft: #ffc9a8;
+  --border: #3a312b;
+  --field: #342b25;
+  --field-border: #6b5a4d;
+  --danger: #ff8a7a;
+  --ok: #6fd39b;
+  --missing: #ffb4a8;
+  --missing-soft: #3a1e1a;
+  --promo-bg: #ffd84d;
+  --promo-text: #2b2118;
+  --deal-bg: #ff6b5b;
+  --deal-text: #1b1714;
+  --timer-bg: #f3ebe4;
+  --timer-text: #1b1714;
+  --timer-progress: #e8692c;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-2: 0 8px 28px rgb(0 0 0 / 55%);
+}
 
-  /* Zdjęcia potraw nie świecą w oczy po ciemku */
-  img {
-    filter: brightness(0.92);
-  }
+/* Zdjęcia potraw nie świecą w oczy po ciemku */
+:root[data-scheme="dark"] img {
+  filter: brightness(0.92);
 }
 
 /* Ktoś wyłączył animacje w iOS (Dostępność → Ruch) - nie ruszamy niczego */
@@ -2675,4 +2675,62 @@ body:has(.fab) .back-to-top {
 
 .staples .chips {
   margin-top: 8px;
+}
+
+/* --- Ustawienia → Wygląd → Motyw: kafelki w kolorach motywu --- */
+.box h3.appearance-sub {
+  margin: 4px 0 8px;
+  font-size: var(--fs-body);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.theme-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: var(--hit);
+  padding: 10px;
+  border: 2px solid;
+  border-radius: var(--radius);
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-small);
+}
+
+.theme-tile[aria-checked="true"] {
+  box-shadow: var(--shadow-1);
+}
+
+.theme-tile small {
+  line-height: 1.25;
+}
+
+.theme-swatches {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.theme-swatches i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+.theme-tile[aria-checked="true"] b::after {
+  content: " ✓";
+}
+
+.theme-mode {
+  margin-bottom: 14px;
 }

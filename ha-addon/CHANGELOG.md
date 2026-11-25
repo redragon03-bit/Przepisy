@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.27.0
+
+- Motywy kolorów: Ustawienia → Wygląd → Motyw. Do wyboru Klasyczny (dotychczasowy pomarańcz), Smocze złoto,
+  Leśne zioła, Księga czarów, Eliksir i Lodowy smok, każdy w wersji jasnej i ciemnej. Pod kafelkami
+  wybór trybu: jak w telefonie, zawsze jasny albo zawsze ciemny. Ustawienie dotyczy tego telefonu.
+
 ## 0.26.4
 
 - iPhone (aplikacja z ekranu głównego): mniej pustego miejsca nad nagłówkiem ekranu - tytuł
