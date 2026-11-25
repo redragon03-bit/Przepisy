@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.26.4
+
+- iPhone (aplikacja z ekranu głównego): mniej pustego miejsca nad nagłówkiem ekranu - tytuł
+  zaczyna się zaraz pod paskiem stanu (ok. 10 px wyżej niż w 0.26.3).
+
 ## 0.26.3
 
 - iPhone: pasek pod paskiem stanu z 0.26.2 miał w aplikacji z ekranu głównego wysokość 0 (iOS 26 nie podaje

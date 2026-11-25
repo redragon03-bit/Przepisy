@@ -978,12 +978,22 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
     ),
   );
   expect(standaloneRule).toBe(true);
-  // Tak wygląda tryb aplikacji: pasek 12 px nie zasłania nagłówka
-  await page.addStyleTag({ content: ":root { --safe-top: 12px; }" });
+  // Tryb aplikacji (reguły z @media display-mode: standalone włączone na stałe): pasek 12 px
+  // nie zasłania nagłówka, a nad nagłówkiem nie ma zbędnego odstępu
   await page.goto("/dodaj");
-  await page.addStyleTag({ content: ":root { --safe-top: 12px; }" });
+  await page.evaluate(() => {
+    for (const sheet of [...document.styleSheets]) {
+      for (const rule of [...sheet.cssRules]) {
+        if (rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone")) {
+          for (const inner of [...rule.cssRules]) sheet.insertRule(inner.cssText, sheet.cssRules.length);
+        }
+      }
+    }
+  });
   expect((await page.locator(".top-edge").boundingBox())!.height).toBe(12);
-  expect((await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y).toBeGreaterThan(12);
+  const titleY = (await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y;
+  expect(titleY).toBeGreaterThan(12);
+  expect(titleY).toBeLessThan(22);
 });
 
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {

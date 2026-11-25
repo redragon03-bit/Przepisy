@@ -161,7 +161,7 @@ p {
 .page {
   max-width: 720px;
   margin: 0 auto;
-  padding: calc(var(--safe-top) + 8px) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
+  padding: var(--page-top) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
 }
 
 .topbar {
@@ -513,11 +513,23 @@ button.small,
    stąd minimum 12 px tylko w trybie aplikacji. */
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
+  --page-top: calc(var(--safe-top) + 8px);
 }
 
+/* W aplikacji z ekranu głównego strona i tak zaczyna się pod paskiem stanu, więc nagłówek
+   bez dodatkowego odstępu: zaraz pod paskiem 12 px i bez marginesów tytułu (mniej pustego miejsca). */
 @media (display-mode: standalone) {
   :root {
     --safe-top: max(env(safe-area-inset-top, 0px), 12px);
+    --page-top: var(--safe-top);
+  }
+
+  .topbar {
+    min-height: 44px;
+  }
+
+  .topbar h1 {
+    margin: 0;
   }
 }
 
@@ -539,8 +551,8 @@ button.small,
   position: sticky;
   top: 0;
   z-index: 6;
-  margin: calc(-1 * (var(--safe-top) + 8px)) -16px 0;
-  padding: calc(var(--safe-top) + 8px) 16px 4px;
+  margin: calc(-1 * var(--page-top)) -16px 0;
+  padding: var(--page-top) 16px 4px;
   background: var(--bg);
 }
 
