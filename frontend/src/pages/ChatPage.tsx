@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { api, ChatMessage } from "../api";
 import AutoTextarea from "../components/AutoTextarea";
 import NewRecipeCard from "../components/NewRecipeCard";
 import RecipeCard from "../components/RecipeCard";
+import { newConversation, retryChat, sendChat, useChat } from "../lib/chatStore";
 
 // Czat z asystentem: "mam ochotę na...", "coś bez ryżu". Asystent poleca przepisy z bazy,
 // a gdy nic nie pasuje - wymyśla nowy, który można zapisać.
-// Rozmowę trzymamy w pamięci karty przeglądarki, żeby przejście do przepisu jej nie kasowało.
-const STORAGE_KEY = "chat-messages";
-// Serwer odpowiada najpóźniej po ok. 50 s; dłużej nie czekamy, żeby "Myślę…" nie wisiało w nieskończoność
-const TIMEOUT_MS = 60_000;
+// Rozmowa i trwające zapytanie są w lib/chatStore.ts, więc zmiana zakładki ich nie kasuje.
 
 const SUGGESTIONS = [
   "Mam ochotę na coś słodkiego",
@@ -18,75 +15,20 @@ const SUGGESTIONS = [
   "Coś lekkiego na kolację, bez mięsa",
 ];
 
-function loadSaved(): ChatMessage[] {
-  try {
-    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
 export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(loadSaved);
+  const { messages, thinking, error } = useChat();
   const [text, setText] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const [error, setError] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
-  // Trwające zapytanie - "Nowa rozmowa" i wyjście z ekranu je przerywają
-  const pending = useRef<AbortController | null>(null);
-
-  useEffect(() => () => pending.current?.abort(), []);
+  const first = useRef(true);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {
-      // brak dostępu do pamięci przeglądarki - rozmowa zniknie po wyjściu, trudno
-    }
-    bottom.current?.scrollIntoView({ behavior: "smooth" });
+    // Po wejściu na ekran od razu na dół rozmowy, potem płynnie przy nowych wiadomościach
+    bottom.current?.scrollIntoView({ behavior: first.current ? "auto" : "smooth" });
+    first.current = false;
   }, [messages, thinking]);
 
-  const ask = async (history: ChatMessage[]) => {
-    pending.current?.abort();
-    const controller = new AbortController();
-    pending.current = controller;
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, TIMEOUT_MS);
-    setError("");
-    setThinking(true);
-    try {
-      const reply = await api.chat(history, controller.signal);
-      setMessages([...history, { role: "assistant", text: reply.text, recipe: reply.new_recipe, recipes: reply.recipes }]);
-    } catch (e) {
-      if (timedOut) setError("AI nie odpowiedziało na czas - spróbuj jeszcze raz.");
-      else if (!controller.signal.aborted) setError((e as Error).message);
-    } finally {
-      clearTimeout(timer);
-      // Gdy w międzyczasie ruszyło nowe zapytanie, to ono decyduje o "Myślę…"
-      if (pending.current === controller) {
-        pending.current = null;
-        setThinking(false);
-      }
-    }
-  };
-
   const send = (question: string) => {
-    if (!question.trim() || thinking) return;
-    const history: ChatMessage[] = [...messages, { role: "user", text: question.trim() }];
-    setMessages(history);
-    setText("");
-    ask(history);
-  };
-
-  const newConversation = () => {
-    pending.current?.abort();
-    pending.current = null;
-    setThinking(false);
-    setError("");
-    setMessages([]);
+    if (sendChat(question)) setText("");
   };
 
   // Po błędzie ostatnia wiadomość użytkownika została bez odpowiedzi - wysyłamy ją jeszcze raz
@@ -155,7 +97,7 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
           <p className="error small">
             {error}{" "}
             {canRetry && (
-              <button type="button" className="link" onClick={() => ask(messages)}>
+              <button type="button" className="link" onClick={retryChat}>
                 Spróbuj ponownie
               </button>
             )}
