@@ -998,6 +998,31 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
   expect(titleY).toBeLessThan(12);
 });
 
+test("ten sam odstęp pod nagłówkiem na każdym ekranie (aplikacja z ekranu głównego)", async ({ page }) => {
+  await login(page);
+  for (const path of ["/", "/dodaj", "/zakupy", "/plan", "/ustawienia"]) {
+    await page.goto(path);
+    await expect(page.locator(".page .topbar")).toBeVisible();
+    await page.evaluate(() => {
+      for (const sheet of [...document.styleSheets]) {
+        for (const rule of [...sheet.cssRules]) {
+          if (rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone")) {
+            for (const inner of [...rule.cssRules]) sheet.insertRule(inner.cssText, sheet.cssRules.length);
+          }
+        }
+      }
+    });
+    const gap = await page.locator(".page .topbar").evaluate((bar) => {
+      const next = bar.nextElementSibling as HTMLElement;
+      const content = next.classList.contains("search") ? next.querySelector("input")! : next;
+      return content.getBoundingClientRect().top - bar.getBoundingClientRect().bottom;
+    });
+    expect(Math.round(gap), path).toBe(8);
+    expect((await page.locator(".page .topbar").boundingBox())!.height, path).toBeLessThanOrEqual(36);
+  }
+  expect(await page.goto("/").then(() => page.locator(".random-link").evaluate((el) => getComputedStyle(el).lineHeight))).toBe("24px");
+});
+
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {
   // AI włączone na niby; odpowiedź przychodzi po chwili, gdy jesteśmy już na innej zakładce
   await page.route("**/api/auth/status", async (route) => {
