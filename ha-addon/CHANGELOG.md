@@ -1,12 +1,17 @@
 # Zmiany
 
-## 0.25.2
+## 0.25.4
 
 - Ekran ładowania z logo smoka i nazwą „Smocza strawa” zamiast samego napisu „Ładowanie…”,
   przy starcie aplikacji i na stronach, które czekają na dane.
 - Aplikacja otwiera się od razu: nie czeka na serwer z logowaniem, a lista przepisów rysuje się
   z pamięci telefonu i odświeża w tle.
 - Zapytania wolniejsze niż 1 s trafiają do logu dodatku (łatwiej sprawdzić, czy czeka serwer, czy sieć).
+
+## 0.25.3
+
+- Przepis: górny pasek (Wróć, Inny, serce, …) zostaje na górze z pełnym tłem. Na iPhonie z iOS 26
+  przyciski nie są już rozmyte i wyblakłe zaraz pod paskiem stanu, a zdjęcie przewija się pod paskiem.
 
 ## 0.25.1
 

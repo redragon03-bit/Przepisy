@@ -1,4 +1,4 @@
-"""0.25.2: wolne zapytania API trafiają do logu dodatku."""
+"""0.25.4: wolne zapytania API trafiają do logu dodatku."""
 
 import logging
 

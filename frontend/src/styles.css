@@ -505,6 +505,18 @@ button.small,
 }
 
 /* Szczegóły przepisu */
+/* Górny pasek przepisu zostaje na górze z pełnym tłem. Bez tego Safari na iPhonie
+   (iOS 26) rozmywa pas pod paskiem stanu, który zachodził na Wróć, Inny i serce -
+   przyciski wyglądały na wyblakłe już na samej górze strony. */
+.recipe > .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: calc(-1 * (env(safe-area-inset-top) + 8px)) -16px 0;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 4px;
+  background: var(--bg);
+}
+
 .hero {
   width: calc(100% + 32px);
   margin: 0 -16px;
