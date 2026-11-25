@@ -3,11 +3,12 @@
 To nie są tabele bazy (te są w models.py) - to "umowa" z frontendem.
 """
 
+import re
 from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel as PydanticModel
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 
 from .services.ai import AiRecipe
 
@@ -126,6 +127,19 @@ class RecipeIn(BaseModel):
     ingredients: list[IngredientLine] = []
     steps: list[StepIn] = []
     categories: list[str] = []
+
+    @field_validator("source_url")
+    @classmethod
+    def _safe_source_url(cls, value: str) -> str:
+        """Link do źródła tylko http(s): "javascript:..." albo "data:..." w linku na stronie przepisu
+        mogłyby uruchomić kod. Adres bez schematu (www.kwestiasmaku.com/...) dostaje https://,
+        a inny tekst (np. "od babci") znika, żeby zapis przepisu się nie wywracał."""
+        value = value.strip()
+        if not value or re.match(r"https?://", value, re.IGNORECASE):
+            return value
+        if re.fullmatch(r"[\w-]+(\.[\w-]+)+(/\S*)?", value):
+            return "https://" + value
+        return ""
 
 
 class SectionsIn(BaseModel):

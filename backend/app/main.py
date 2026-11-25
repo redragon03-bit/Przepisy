@@ -32,7 +32,7 @@ from .routers import (
     timers,
 )
 from .services import backup as backup_service
-from .services import images, plan_sensor, ytdlp_update
+from .services import images, plan_sensor, timer_notify, ytdlp_update
 from .services import promotions as promotions_service
 from .services.importer import remove_stale_uploads
 
@@ -43,6 +43,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_app: FastAPI):
     init_db()
     remove_stale_uploads()
+    timer_notify.restore()
     backup_service.start_scheduler()
     plan_sensor.start_scheduler()
     ytdlp_update.start_scheduler()

@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.25.1
+
+- Minutnik nie ginie, gdy dodatek się zrestartuje albo zaktualizuje w trakcie gotowania: powiadomienie
+  z Home Assistant przyjdzie o czasie, a jeśli czas minął w trakcie restartu, przyjdzie od razu z dopiskiem.
+- Link „źródło” w przepisie przyjmuje tylko adresy http/https; adres bez „https://” dostaje go sam.
+- Domownik nie może już anulować minutnika właściciela.
+
 ## 0.25.0
 
 - Spiżarnia nazywa się wszędzie „W domu” (Zakupy, Ustawienia, Co ugotuję?, Pomoc, komunikaty).
