@@ -2348,7 +2348,7 @@ body:has(.fab) .back-to-top {
 }
 
 .server-down-stir {
-  min-height: 1.4em;
+  min-height: 2.8em; /* dopisek bywa na dwie linie - przyciski nie skaczą co 5 s */
   font-style: italic;
   color: var(--accent-strong);
 }

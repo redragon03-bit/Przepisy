@@ -4,7 +4,7 @@
 
 - Ekran aktualizacji: zamiast ikonki 🔄 smok z logo miesza w kotle – nad kotłem unosi się para,
   w zupie bulgocze, pod kotłem migocze ogień. Nowe teksty w klimacie D&D i smoczej kuchni
-  („Smok warzy nową miksturę”, zmieniające się co kilka sekund dopiski). Ten sam smok na ekranie startowym, gdy serwer nie odpowiada.
+  („Smok warzy nową miksturę”, a pod spodem co 5 s losowy dopisek z questu smoka). Ten sam smok na ekranie startowym, gdy serwer nie odpowiada.
 
 ## 0.25.4
 
