@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.25.5
+
+- Ekran aktualizacji: zamiast ikonki 🔄 smok z logo miesza w kotle – nad kotłem unosi się para,
+  w zupie bulgocze, pod kotłem migocze ogień. Nowe teksty w klimacie D&D i smoczej kuchni
+  („Smok warzy nową miksturę”, zmieniające się co kilka sekund dopiski). Ten sam smok na ekranie startowym, gdy serwer nie odpowiada.
+
 ## 0.25.4
 
 - Ekran ładowania z logo smoka i nazwą „Smocza strawa” zamiast samego napisu „Ładowanie…”,

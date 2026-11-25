@@ -2343,15 +2343,94 @@ body:has(.fab) .back-to-top {
   min-width: 220px;
 }
 
-.server-down-spinner {
-  font-size: 48px;
-  animation: server-down-spin 2s linear infinite;
+.server-down-lead {
+  font-size: 17px;
 }
 
-@keyframes server-down-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.server-down-stir {
+  min-height: 1.4em;
+  font-style: italic;
+  color: var(--accent-strong);
+}
+
+/* --- Smok gotuje (components/DragonCooking.tsx, kopia w index.html) --- */
+.dragon-cook {
+  position: relative;
+  flex: none;
+  margin: 56px 0 8px; /* miejsce na parę nad obrazkiem */
+}
+
+.dragon-cook img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 22%;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.dc-fire {
+  position: absolute;
+  left: 44%;
+  top: 70%;
+  width: 26%;
+  height: 20%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 200, 80, 0.9), rgba(255, 120, 30, 0.45) 55%, transparent);
+  mix-blend-mode: screen;
+  animation: dc-flicker 0.9s ease-in-out infinite alternate;
+}
+
+.dc-bubble {
+  position: absolute;
+  top: 60%;
+  width: 4.5%;
+  height: 4.5%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff4dc, #ffb566 60%, #e8692c);
+  opacity: 0;
+  animation: dc-bubble 1.8s ease-out infinite;
+}
+
+.dc-bubble.b1 { left: 49%; }
+.dc-bubble.b2 { left: 57%; animation-delay: 0.6s; }
+.dc-bubble.b3 { left: 63%; animation-delay: 1.2s; }
+
+.dc-steam {
+  position: absolute;
+  top: 46%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+  filter: blur(2px);
+  opacity: 0;
+  animation: dc-steam 3s ease-out infinite;
+}
+
+.dc-steam.s1 { left: 40%; }
+.dc-steam.s2 { left: 52%; animation-delay: 1s; }
+.dc-steam.s3 { left: 46%; animation-delay: 2s; }
+
+@keyframes dc-flicker {
+  from { opacity: 0.55; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes dc-bubble {
+  0% { opacity: 0; transform: translateY(6px) scale(0.4); }
+  30% { opacity: 1; }
+  80% { opacity: 1; transform: translateY(-4px) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-6px) scale(1.6); }
+}
+
+@keyframes dc-steam {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  25% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(12%, -230%) scale(2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragon-cook span { animation: none; opacity: 0; }
 }
 
 /* --- Ładowanie strony: logo smoka zamiast gołego napisu (components/Loading.tsx) --- */
