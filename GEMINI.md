@@ -93,6 +93,22 @@ bez podbicia wersji.
    `<adres-aplikacji>/api/health` (adres w prywatnym repo `home-assistant-bibice`).
 8. Napisz Darkowi jednym zdaniem: numer wersji, numer PR, co weszło.
 
+## Role (pliki w `.claude/agents/`)
+W tym repo są opisy ról przygotowane dla Claude. Ty nie wczytujesz ich automatycznie, więc gdy
+zadanie Darka pasuje do roli, sam przeczytaj jej plik (Read) i działaj według niego. Nie pytaj
+Darka o ścieżkę. Odwołania do skilli czytaj jako odwołania do zasad z tego pliku; opcje `model`
+i `tools` pomiń.
+
+| Gdy Darek prosi o… | Przeczytaj | Tryb |
+| --- | --- | --- |
+| przegląd zmian na gałęzi przed PR, „czy to dobrze” | `.claude/agents/recenzent-zmian.md` | tylko odczyt |
+| sprawdzenie przed PR lub scaleniem (wszystkie kontrole z CI, regresje) | `.claude/agents/straznik-weryfikacji.md` | uruchamia kontrole, niczego nie poprawia |
+| odtworzenie błędu na iPhonie, sprawdzenie poprawki UI | `.claude/agents/tester-iphone.md` | zrzuty i opis |
+| „coś nie działa między aplikacją a HA” | `.claude/agents/diagnosta-ha.md` | tylko odczyt |
+
+Roli `budowniczy-ui.md` nie używaj samodzielnie: zakłada izolowane worktree uruchamiane przez
+skill Claude. Zmiany UI rób według sekcji „Poprawki interfejsu na iPhonie” powyżej.
+
 ## Diagnoza integracji z Home Assistant
 Najpierw fakty (logi, stan encji), potem poprawka. Nie zgaduj przyczyny.
 - Log dodatku: `ha_get_logs` z `source=supervisor`. Od 0.8.5 aplikacja dokleja odpowiedź HA do
