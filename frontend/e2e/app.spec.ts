@@ -991,9 +991,11 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
     }
   });
   expect((await page.locator(".top-edge").boundingBox())!.height).toBe(12);
+  // Pasek ma kolor tła dla Safari, ale go nie widać (background-clip: text), więc tytuł może być tuż pod paskiem stanu
+  expect(await page.locator(".top-edge").evaluate((el) => getComputedStyle(el).backgroundClip)).toBe("text");
   const titleY = (await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y;
-  expect(titleY).toBeGreaterThan(12);
-  expect(titleY).toBeLessThan(22);
+  expect(titleY).toBeGreaterThan(2);
+  expect(titleY).toBeLessThan(12);
 });
 
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {
