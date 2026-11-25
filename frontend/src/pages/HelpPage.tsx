@@ -119,7 +119,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     items: [
       "Ikona z ekranu początkowego otwiera się także bez sieci – z przepisami, które ostatnio oglądałeś, i z planem na tydzień.",
       "Żeby dodawać i zapisywać zmiany, potrzebny jest internet i włączony Tailscale.",
-      "Podczas aktualizacji dodatku albo restartu Home Assistanta zobaczysz ekran „Trwa aktualizacja” – aplikacja sama się odświeży, gdy serwer wróci. „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.",
+      "Podczas aktualizacji dodatku albo restartu Home Assistanta zobaczysz smoka mieszającego w kotle („Smok warzy nową miksturę”) – aplikacja sama się odświeży, gdy serwer wróci. „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.",
     ],
   },
 ];

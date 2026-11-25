@@ -692,13 +692,13 @@ test("aktualizacja dodatku: ekran „Trwa aktualizacja” zamiast czarnego, pote
   // Tailscale/HA odpowiada 502 bez treści, gdy dodatek się aktualizuje
   await page.route("**/api/**", (route) => route.fulfill({ status: 502, body: "" }));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pracuj bez połączenia" })).toBeVisible();
 
   // Serwer wraca - aplikacja sama się przeładowuje
   await page.unroute("**/api/**");
   await expect(page.getByRole("heading", { name: "Przepisy" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toHaveCount(0);
 });
 
 test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", async ({ page }) => {
@@ -707,7 +707,7 @@ test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", as
   await page.route("**/api/recipes?**", (route) => route.fulfill({ status: 502, json: { detail: "Gemini nie odpowiada" } }));
   await page.reload();
   await page.waitForTimeout(1000);
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toHaveCount(0);
 });
 
 // Przeciągnięcie palcem (zdarzenia dotyku jak na iPhonie, nie myszą)
