@@ -186,6 +186,14 @@ export interface ImageSearchProgress {
   missing: number;
 }
 
+export interface ImageUpgradeProgress {
+  running: boolean;
+  done: number;
+  improved: number;
+  total: number;
+  low_res: number;
+}
+
 export interface ImportJobOut {
   id: number;
   kind: "url" | "image" | "text";
@@ -450,6 +458,7 @@ export interface RecipeOut {
   last_cooked_at: string | null;
   created_at: string;
   can_edit: boolean;
+  image_low_res: boolean;
   description: string;
   servings: string;
   prep_minutes: number | null;

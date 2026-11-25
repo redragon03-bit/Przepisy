@@ -6,6 +6,16 @@
   Pod paskiem stanu jest teraz cienki pasek w kolorze tła, przy którym Safari nie rozmywa nagłówków
   (Dodaj przepis, Zakupy, przycisków w przepisie).
 
+## 0.26.1
+
+- Ostrzejsze zdjęcia przepisów. Przy imporcie aplikacja bierze zdjęcie z danych przepisu
+  (zwykle pełny rozmiar), z kilku rozmiarów na stronie wybiera największy, a adresy miniatur
+  (WordPress „-300x200”, „?w=300”, Blogger, Wix) zamienia na pełną wersję. Z filmów TikTok/Instagram
+  bierze największą okładkę. Szukanie zdjęć w internecie pomija rozmazane, gdy są lepsze.
+- Przepis z rozmazanym zdjęciem ma pod nim „Zdjęcie jest w słabej jakości · 🔍 Znajdź lepsze”.
+- Ustawienia → Porządki → „🖼️ Popraw rozmazane zdjęcia”: szuka na stronie źródłowej tego samego
+  zdjęcia w większym rozmiarze i podmienia je tylko wtedy, gdy to na pewno to samo zdjęcie.
+
 ## 0.26.0
 
 - Czat nie gubi rozmowy: po wysłaniu pytania można przejść na inną zakładkę, odpowiedź przychodzi
