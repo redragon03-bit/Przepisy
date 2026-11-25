@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, ReceiptSettings } from "../api";
+import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, ImageUpgradeProgress, ReceiptSettings } from "../api";
 import { Link } from "react-router-dom";
 import AccountsSection from "../components/AccountsSection";
 import AppearanceSection from "../components/AppearanceSection";
@@ -12,6 +12,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [uncategorized, setUncategorized] = useState(0);
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
+  const [upgrade, setUpgrade] = useState<ImageUpgradeProgress | null>(null);
   const [working, setWorking] = useState("");
   const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
@@ -25,6 +26,7 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
     // Kopie i porządki w bazie to sprawy właściciela - domownik ich nie widzi
     if (!owner) return;
     api.listBackups().then(setBackups);
+    api.imageUpgradeStatus().then(setUpgrade, () => undefined);
     if (auth.ai_enabled) {
       api.recipeStats().then((s) => setUncategorized(s.uncategorized));
       api.imageSearchStatus().then(setImages);
@@ -73,6 +75,24 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
   };
 
   const skip = (group: DuplicateGroup) => setDuplicates((list) => list && list.filter((g) => g !== group));
+
+  // Postęp poprawiania zdjęć odświeżamy co kilka sekund, dopóki trwa
+  const upgrading = upgrade?.running ?? false;
+  useEffect(() => {
+    if (!upgrading) return;
+    const timer = window.setInterval(() => {
+      api.imageUpgradeStatus().then((status) => {
+        setUpgrade(status);
+        if (!status.running) toast(status.improved ? `Poprawiono zdjęcia: ${status.improved}` : "Nie znalazłem większych wersji tych zdjęć.");
+      }, () => undefined);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [upgrading, toast]);
+
+  const upgradeImages = async () => {
+    const status = await run(() => api.startImageUpgrade());
+    if (status) setUpgrade({ ...status, running: true });
+  };
 
   const findImages = async () => {
     const status = await run(() => api.startImageSearch());
@@ -229,6 +249,17 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
                   : `🔍 Znajdź zdjęcia w internecie (${images?.missing ?? 0} bez zdjęcia)`}
               </button>
             </>
+          )}
+          <button type="button" className="wide" disabled={!upgrade || upgrade.running || !upgrade.low_res} onClick={upgradeImages}>
+            {upgrade?.running
+              ? `🖼️ Poprawiam zdjęcia… ${upgrade.done}/${upgrade.total}`
+              : `🖼️ Popraw rozmazane zdjęcia (${upgrade?.low_res ?? 0})`}
+          </button>
+          {!!upgrade?.low_res && !upgrade.running && (
+            <p className="muted small">
+              Szuka na stronie, z której jest przepis, tego samego zdjęcia w większym rozmiarze. Przepisom bez linku do
+              źródła zmień zdjęcie na stronie przepisu („Znajdź lepsze”).
+            </p>
           )}
           <button type="button" className="wide" disabled={working === "duplicates"} onClick={findDuplicates}>
             {working === "duplicates" ? "Szukam…" : "🧹 Znajdź podwójne składniki"}

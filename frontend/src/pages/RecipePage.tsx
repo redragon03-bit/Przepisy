@@ -150,6 +150,14 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
         </button>
       )}
       {searching && recipe.image_url && <p className="muted small">Szukam zdjęć w internecie…</p>}
+      {recipe.image_low_res && recipe.can_edit && !searching && !candidates && (
+        <p className="muted small low-res-note">
+          Zdjęcie jest w słabej jakości.{" "}
+          <button type="button" className="link small" onClick={searchImages}>
+            🔍 Znajdź lepsze
+          </button>
+        </p>
+      )}
       {candidates && candidates.length > 0 && (
         <ImageCandidates
           recipe={recipe}
