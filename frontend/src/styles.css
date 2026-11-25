@@ -2354,6 +2354,43 @@ body:has(.fab) .back-to-top {
   }
 }
 
+/* --- Ładowanie strony: logo smoka zamiast gołego napisu (components/Loading.tsx) --- */
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 72px 16px;
+  color: var(--muted);
+  /* krótkie ładowanie (dane z pamięci) nie mignie logo - pokazuje się dopiero po chwili */
+  animation: page-loading-in 0.2s ease-out 0.25s both;
+}
+
+.page-loading-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  animation: boot-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes page-loading-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes boot-breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-logo {
+    animation: none;
+  }
+}
+
 /* --- Zakupy: przełącznik "Do kupienia | W domu" (spiżarnia) --- */
 .segmented {
   display: flex;

@@ -4,6 +4,7 @@ import { api, Recipe, RecipeSummary } from "../api";
 import type { SectionsOut } from "../api-types";
 import { forgetRecipe } from "../lib/recipeCache";
 import { applyOrder, groupBySection, WithSection } from "../lib/sections";
+import Loading from "../components/Loading";
 
 // Przegląd sekcji we wszystkich przepisach: po lewej jak jest, po prawej propozycja AI,
 // pod spodem "Pomiń" i "Akceptuj". Propozycję dla następnego przepisu AI liczy już
@@ -139,7 +140,7 @@ export default function SectionsReviewPage() {
     return (
       <div className="sections-review">
         {header}
-        {error ? <p className="error">{error}</p> : <p className="muted center">Ładowanie…</p>}
+        {error ? <p className="error">{error}</p> : <Loading />}
       </div>
     );
   }

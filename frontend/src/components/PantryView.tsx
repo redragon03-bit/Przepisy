@@ -11,6 +11,7 @@ import ExpirySheet, { expiresLabel, inDays, USE_FIRST_DAYS } from "./ExpirySheet
 import ReceiptSheet from "./ReceiptSheet";
 import RenameSheet from "./RenameSheet";
 import SwipeRow from "./SwipeRow";
+import Loading from "./Loading";
 
 // „W domu” (spiżarnia): co jest w domu. Trafia tu to, co odhaczysz na liście zakupów, to, co dopiszesz
 // tutaj, i produkty z paragonu (jeśli włączone w Ustawieniach). Przepisy oznaczają składniki,
@@ -117,7 +118,7 @@ export default function PantryView({ receipts, owner, onCount }: { receipts: boo
     }
   };
 
-  if (items === null) return <p className="muted center">Ładowanie…</p>;
+  if (items === null) return <Loading />;
 
   const soon = inDays(USE_FIRST_DAYS);
   const urgent = items.filter((i) => i.expires && i.expires <= soon).sort((a, b) => a.expires!.localeCompare(b.expires!));

@@ -6,6 +6,7 @@ import AutoTextarea from "../components/AutoTextarea";
 import { cachedRecipe, forgetRecipe } from "../lib/recipeCache";
 import { applyOrder, fromRows, isHeading, Row, toRows } from "../lib/sections";
 import { useReorder } from "../lib/useReorder";
+import Loading from "../components/Loading";
 
 // Formularz: składniki i kroki jako wiersze, wśród których są nagłówki sekcji
 type EditForm = Omit<RecipeInput, "ingredients" | "steps"> & {
@@ -110,7 +111,7 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
         </button>
       </div>
     ) : (
-      <p className="muted center">Ładowanie…</p>
+      <Loading />
     );
 
   const cancel = () => {

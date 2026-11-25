@@ -914,6 +914,28 @@ test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, kt�
   await expect(page.locator(".duplicate-card", { hasText: "rabarbar" })).toHaveCount(0);
 });
 
+test("start: ekran z logo, a potem lista od razu z pamięci telefonu", async ({ page }) => {
+  // Pierwsze otwarcie: serwer odpowiada wolno - widać ekran ładowania ze smokiem, nie goły napis
+  await page.route("**/api/auth/status", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue().catch(() => undefined);
+  });
+  await page.goto("/");
+  await expect(page.getByText("Smocza strawa")).toBeVisible();
+  await expect(page.locator(".boot-logo")).toBeVisible();
+  await page.getByPlaceholder("Hasło").fill("test");
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  await expect(page.getByText("Naleśniki")).toBeVisible();
+
+  // Kolejne otwarcie: serwer (np. Tailscale) wolno odpowiada, a lista jest od razu
+  await page.route("**/api/**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    await route.continue().catch(() => undefined);
+  });
+  await page.reload();
+  await expect(page.getByText("Naleśniki")).toBeVisible({ timeout: 2000 });
+});
+
 test("górny pasek przepisu zostaje na górze z pełnym tłem (bez rozmycia przycisków)", async ({ page }) => {
   const steps = Array.from({ length: 30 }, (_, i) => `Krok numer ${i + 1}, długi opis, żeby strona się przewijała.`);
   const { id } = await addRecipe("Długi przepis do paska", ["1 jajko"], steps);

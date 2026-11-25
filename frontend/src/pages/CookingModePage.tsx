@@ -11,6 +11,7 @@ import { canSpeak, readAloudPreference, saveReadAloudPreference, speak, stopSpea
 import { stepIngredients } from "../lib/stepIngredients";
 import { findDurations } from "../lib/timers";
 import { useTimers, useWakeLock } from "../lib/useTimers";
+import Loading from "../components/Loading";
 
 // Tryb gotowania: jeden krok na ekranie, duża czcionka, ekran nie gaśnie.
 // 🔊 czyta kroki na głos (ręce w cieście) - każdy kolejny krok czyta się sam.
@@ -62,7 +63,7 @@ export default function CookingModePage() {
   };
 
   if (error) return <p className="error center">{error}</p>;
-  if (!recipe) return <p className="muted center">Ładowanie…</p>;
+  if (!recipe) return <Loading />;
 
   const last = recipe.steps.length - 1;
   const current = step >= 0 ? recipe.steps[step] : null;

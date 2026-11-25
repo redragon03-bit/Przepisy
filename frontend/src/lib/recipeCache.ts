@@ -54,6 +54,11 @@ export async function prefetchPlanned() {
   }
 }
 
+// Ostatnio pobrana pełna lista (bez filtrów) - do narysowania od razu po starcie aplikacji
+export function storedRecipeList(): RecipeSummary[] | null {
+  return load<RecipeSummary[] | null>(LIST_KEY, null);
+}
+
 // Lista przepisów: bez filtrów zapamiętujemy ją, a bez połączenia pokazujemy zapamiętaną
 export async function listRecipes(q: string, ingredients: string[], category: string, favorite: boolean): Promise<RecipeSummary[]> {
   const filtered = Boolean(q || ingredients.length || category || favorite);

@@ -21,12 +21,20 @@
         justify-content: center; gap: 8px; padding: 24px; text-align: center; background: #fffaf5;
         color: #6f6256; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
       .boot strong { color: #2b2118; font-size: 22px; }
+      .boot-logo { width: 112px; height: 112px; border-radius: 26px; margin-bottom: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); animation: boot-breathe 1.8s ease-in-out infinite; }
+      @keyframes boot-breathe { 50% { transform: scale(1.05); } }
+      @media (prefers-reduced-motion: reduce) { .boot-logo { animation: none; } }
       @media (prefers-color-scheme: dark) {
         .boot { background: #1b1714; color: #b8a99c; }
         .boot strong { color: #f3ebe4; }
       }
     </style>
-    <div id="root"><div class="boot" id="boot"><span id="boot-text">Ładowanie…</span></div></div>
+    <div id="root"><div class="boot" id="boot">
+      <img class="boot-logo" src="/apple-touch-icon.png" alt="" width="112" height="112" />
+      <strong>Smocza strawa</strong>
+      <span id="boot-text">Ładowanie…</span>
+    </div></div>
     <script>
       setTimeout(function () {
         var boot = document.getElementById("boot");

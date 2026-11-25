@@ -17,6 +17,7 @@ import { cachedRecipe, cacheRecipe } from "../lib/recipeCache";
 import { parseServings } from "../lib/scale";
 import { useToast } from "../lib/toast";
 import { useWakeLock } from "../lib/useTimers";
+import Loading from "../components/Loading";
 
 // Szczegóły przepisu. Składniki i kroki można "odhaczać" w trakcie gotowania,
 // czasy w krokach uruchamiają minutniki, a porcje można przeliczyć.
@@ -70,7 +71,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
   });
 
   if (error) return <p className="error center">{error}</p>;
-  if (!recipe) return <p className="muted center">Ładowanie…</p>;
+  if (!recipe) return <Loading />;
 
   const baseServings = parseServings(recipe.servings);
   const scale = baseServings && servings ? servings / baseServings : factor;
