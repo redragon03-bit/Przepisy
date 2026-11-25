@@ -971,6 +971,7 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
     expect(style.events).not.toBe("none");
     expect(style.width).toBe(page.viewportSize()!.width);
   }
+});
 
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {
   // AI włączone na niby; odpowiedź przychodzi po chwili, gdy jesteśmy już na innej zakładce
