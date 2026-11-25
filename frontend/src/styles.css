@@ -161,7 +161,7 @@ p {
 .page {
   max-width: 720px;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
+  padding: calc(var(--safe-top) + 8px) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
 }
 
 .topbar {
@@ -508,13 +508,26 @@ button.small,
 /* Pasek pod paskiem stanu iPhone'a (element w index.html). iOS 26 nie rozmywa wtedy
    górnej części ekranu: musi być fixed, na całą szerokość, z jednolitym tłem i łapać
    dotknięcia (bez pointer-events: none). */
+/* Górny margines bezpieczny. W aplikacji z ekranu głównego iOS 26 podaje tu 0 (strona zaczyna
+   się pod paskiem stanu), a pasek .top-edge musi mieć co najmniej ~10 px, żeby Safari go uznał -
+   stąd minimum 12 px tylko w trybie aplikacji. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 12px);
+  }
+}
+
 .top-edge {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  height: env(safe-area-inset-top, 0px);
+  height: var(--safe-top);
   background-color: var(--bg);
 }
 
@@ -526,8 +539,8 @@ button.small,
   position: sticky;
   top: 0;
   z-index: 6;
-  margin: calc(-1 * (env(safe-area-inset-top) + 8px)) -16px 0;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px 4px;
+  margin: calc(-1 * (var(--safe-top) + 8px)) -16px 0;
+  padding: calc(var(--safe-top) + 8px) 16px 4px;
   background: var(--bg);
 }
 
@@ -824,7 +837,7 @@ span.drag-handle:not(.step-number) {
 .toast {
   position: fixed;
   left: 50%;
-  top: calc(env(safe-area-inset-top) + 12px);
+  top: calc(var(--safe-top) + 12px);
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -966,7 +979,7 @@ span.drag-handle:not(.step-number) {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 12px);
+  padding: calc(var(--safe-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 12px);
   background: var(--bg);
 }
 
@@ -1084,7 +1097,7 @@ body:has(.chat-input) .back-to-top {
   top: 0;
   z-index: 5;
   margin: 0 -16px;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  padding: calc(var(--safe-top) + 8px) 16px 8px;
   background: var(--bg);
 }
 
@@ -2360,7 +2373,7 @@ body:has(.fab) .back-to-top {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  padding: calc(24px + var(--safe-top)) 24px calc(24px + env(safe-area-inset-bottom));
   background: var(--bg);
   color: var(--text);
   text-align: center;

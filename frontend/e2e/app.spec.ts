@@ -971,6 +971,19 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
     expect(style.events).not.toBe("none");
     expect(style.width).toBe(page.viewportSize()!.width);
   }
+  // W aplikacji z ekranu głównego iOS 26 podaje safe-area-inset-top = 0, a pasek musi mieć > 10 px
+  const standaloneRule = await page.evaluate(() =>
+    [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).some(
+      (rule) => rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone") && rule.cssText.includes("12px"),
+    ),
+  );
+  expect(standaloneRule).toBe(true);
+  // Tak wygląda tryb aplikacji: pasek 12 px nie zasłania nagłówka
+  await page.addStyleTag({ content: ":root { --safe-top: 12px; }" });
+  await page.goto("/dodaj");
+  await page.addStyleTag({ content: ":root { --safe-top: 12px; }" });
+  expect((await page.locator(".top-edge").boundingBox())!.height).toBe(12);
+  expect((await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y).toBeGreaterThan(12);
 });
 
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {

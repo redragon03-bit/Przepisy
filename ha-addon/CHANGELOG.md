@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.26.3
+
+- iPhone: pasek pod paskiem stanu z 0.26.2 miał w aplikacji z ekranu głównego wysokość 0 (iOS 26 nie podaje
+  tam marginesu), więc góra ekranu dalej była rozmyta. Teraz ma co najmniej 12 px, a treść zaczyna się pod nim.
+
 ## 0.26.2
 
 - iPhone (iOS 26, aplikacja z ekranu głównego): górna część każdego ekranu nie jest już rozmyta.

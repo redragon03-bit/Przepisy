@@ -51,9 +51,10 @@
     <!-- iOS 26 w aplikacji z ekranu głównego rozmywa pas pod paskiem stanu (nagłówki wyglądały
          na rozmazane). Safari pomija to rozmycie, gdy przy górnej krawędzi jest stały (fixed),
          pełnej szerokości i nieprzezroczysty element - ten pasek. Wysokość = pasek stanu,
-         w zwykłej przeglądarce 0. Styl w styles.css (.top-edge), tu kopia na pierwszą klatkę. -->
+         w aplikacji z ekranu głównego co najmniej 12 px (iOS 26 podaje tam 0), w przeglądarce 0. Styl w styles.css (.top-edge), tu kopia na pierwszą klatkę. -->
     <style>
-      .top-edge { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: env(safe-area-inset-top, 0px); background-color: #fffaf5; }
+      .top-edge { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: var(--safe-top, env(safe-area-inset-top, 0px)); background-color: #fffaf5; }
+      @media (display-mode: standalone) { .top-edge { height: var(--safe-top, max(env(safe-area-inset-top, 0px), 12px)); } }
       @media (prefers-color-scheme: dark) { .top-edge { background-color: #1b1714; } }
     </style>
     <div class="top-edge" aria-hidden="true"></div>
