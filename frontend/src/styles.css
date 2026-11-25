@@ -521,15 +521,38 @@ button.small,
 @media (display-mode: standalone) {
   :root {
     --safe-top: max(env(safe-area-inset-top, 0px), 12px);
-    --page-top: var(--safe-top);
+    /* Treść może wejść pod pasek .top-edge, bo pasek jest niewidoczny (niżej) */
+    --page-top: calc(var(--safe-top) - 8px);
+  }
+
+  /* Pasek ma jednolity kolor tła (tego szuka Safari), ale nie jest rysowany:
+     background-clip: text bez tekstu = nic nie widać, treść pod nim zostaje widoczna. */
+  .top-edge {
+    -webkit-background-clip: text;
+    background-clip: text;
   }
 
   .topbar {
-    min-height: 44px;
+    min-height: 36px;
   }
 
   .topbar h1 {
     margin: 0;
+    line-height: 1.2;
+  }
+
+  /* Przyciski w nagłówku niższe (36 px), żeby nagłówek nie odpychał treści */
+  .topbar > button,
+  .topbar > .button,
+  .topbar > a {
+    min-height: 36px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* Wyszukiwarka na liście: przy przyklejeniu pasek 12 px + 4 px, bez dziury pod tytułem */
+  .search.sticky {
+    padding-top: var(--page-top);
   }
 }
 
