@@ -913,3 +913,20 @@ test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, kt�
   await again.getByRole("button", { name: "To różne produkty" }).click();
   await expect(page.locator(".duplicate-card", { hasText: "rabarbar" })).toHaveCount(0);
 });
+
+test("górny pasek przepisu zostaje na górze z pełnym tłem (bez rozmycia przycisków)", async ({ page }) => {
+  const steps = Array.from({ length: 30 }, (_, i) => `Krok numer ${i + 1}, długi opis, żeby strona się przewijała.`);
+  const { id } = await addRecipe("Długi przepis do paska", ["1 jajko"], steps);
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  const bar = page.locator(".recipe > .topbar");
+  await expect(bar.getByRole("button", { name: "‹ Wróć" })).toBeVisible();
+  // Pełne tło, nie przezroczyste - Safari na iPhonie nie rozmywa wtedy przycisków
+  const bg = await bar.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+  expect((await bar.boundingBox())!.y).toBeLessThanOrEqual(0.5);
+  await page.mouse.wheel(0, 1500);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  expect((await bar.boundingBox())!.y).toBeLessThanOrEqual(0.5);
+  await expect(bar.getByRole("button", { name: "‹ Wróć" })).toBeInViewport();
+});

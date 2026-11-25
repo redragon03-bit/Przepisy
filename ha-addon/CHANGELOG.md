@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.25.3
+
+- Przepis: górny pasek (Wróć, Inny, serce, …) zostaje na górze z pełnym tłem. Na iPhonie z iOS 26
+  przyciski nie są już rozmyte i wyblakłe zaraz pod paskiem stanu, a zdjęcie przewija się pod paskiem.
+
 ## 0.25.1
 
 - Minutnik nie ginie, gdy dodatek się zrestartuje albo zaktualizuje w trakcie gotowania: powiadomienie
