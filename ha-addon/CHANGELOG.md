@@ -1,5 +1,10 @@
 # Zmiany
 
+## Następna wersja
+
+- iPhone (aplikacja z ekranu głównego): ten sam odstęp 8 px pod nagłówkiem na każdym ekranie
+  (Przepisy, Dodaj, Zakupy, Plan, Ustawienia). Kostka losowania nie podnosi już nagłówka Przepisów.
+
 ## 0.26.5
 
 - iPhone (aplikacja z ekranu głównego): jeszcze mniej miejsca nad nagłówkiem - tytuł tuż pod paskiem stanu,
