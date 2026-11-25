@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.26.5
+
+- iPhone (aplikacja z ekranu głównego): jeszcze mniej miejsca nad nagłówkiem - tytuł tuż pod paskiem stanu,
+  niższy pasek nagłówka (36 px) i mniejszy odstęp nad wyszukiwarką na liście przepisów. Pasek chroniący
+  przed rozmyciem iOS jest teraz niewidoczny, więc nie zajmuje miejsca.
+
 ## 0.26.4
 
 - iPhone (aplikacja z ekranu głównego): mniej pustego miejsca nad nagłówkiem ekranu - tytuł
