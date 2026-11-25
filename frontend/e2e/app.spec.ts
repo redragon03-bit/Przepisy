@@ -119,7 +119,9 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
     await page.getByPlaceholder("Dopisz, np. papier do pieczenia").fill(item);
     await page.getByRole("button", { name: "Dodaj" }).click();
   }
-  // Działy przychodzą z serwera po zapisaniu
+  // Działy przychodzą z serwera po zapisaniu. Przeładowanie dopiero, gdy kolejka zmian jest pusta:
+  // przeładowanie w trakcie wysyłania zostawia w kolejce wysłane już „mleko” i dodaje je drugi raz.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("shopping-queue") ?? "[]").length)).toBe(0);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Warzywa i owoce" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nabiał i jajka" })).toBeVisible();
