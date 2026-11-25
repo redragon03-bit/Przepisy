@@ -1054,8 +1054,15 @@ test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym ot
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "las");
   await expect.poll(bg).toBe("rgb(17, 24, 19)");
-  // Powrót do domyślnego, żeby nie zmieniać innych testów
+  // Efekty: "Na bogato" pokazuje drobinki na każdym ekranie, "Bez" je chowa
   await page.goto("/ustawienia");
+  await page.getByRole("button", { name: "Na bogato" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-fx", "bold");
+  await expect(page.locator(".ambient")).toBeVisible();
+  await page.getByRole("button", { name: "Bez", exact: true }).click();
+  await expect(page.locator(".ambient")).toBeHidden();
+  await page.getByRole("button", { name: "Subtelne" }).click();
+  // Powrót do domyślnego, żeby nie zmieniać innych testów
   await page.getByRole("radio", { name: /Klasyczny/ }).click();
   await page.getByRole("button", { name: "Jak w telefonie" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-scheme", "light");

@@ -2734,3 +2734,354 @@ body:has(.fab) .back-to-top {
 .theme-mode {
   margin-bottom: 14px;
 }
+
+/* ===== Efekty motywu (Ustawienia → Wygląd → Efekty), data-fx na <html> =====
+   subtle: gradienty na przyciskach, połysk na "Gotuj", drobinki nad listą przepisów;
+   bold: do tego żywe tło z fakturą motywu, poświata, przezroczyste karty, mieniące się tytuły,
+   drobinki na całym ekranie (poza trybem gotowania). Ograniczony ruch w iOS wyłącza animacje. */
+:root {
+  --grad: linear-gradient(135deg, var(--accent-strong), var(--accent-2, var(--accent-strong)));
+  --glow: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+:root:not([data-fx="off"]) :is(.primary, .fab, .chip.selected, .step-number, .bubble.user, .stepper button.active) {
+  background: var(--grad);
+  border-color: transparent;
+}
+
+:root:not([data-fx="off"]) .toggle input.switch:checked {
+  background: var(--grad);
+}
+
+:root:not([data-fx="off"]) :is(.card-placeholder, .hero-placeholder) {
+  background: linear-gradient(150deg, var(--accent-soft), var(--surface-2) 70%);
+}
+
+:root:not([data-fx="off"]) :is(.tabbar a.active span, .tabbar button.active span) {
+  background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent-2, var(--accent)) 22%, var(--accent-soft)));
+  animation: fx-pop 360ms var(--ease-spring);
+}
+
+@keyframes fx-pop {
+  from { transform: scale(0.7); }
+}
+
+/* Połysk przesuwający się po "Gotuj" co kilka sekund */
+:root:not([data-fx="off"]) .fab {
+  overflow: hidden;
+}
+
+:root:not([data-fx="off"]) .fab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 45%) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: fx-shine 5s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes fx-shine {
+  0%, 70% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* --- Drobinki --- */
+.ambient {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 230px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1; /* pod treścią, nad tłem */
+  container-type: size;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+:root[data-fx="subtle"] .ambient.ambient-list,
+:root[data-fx="bold"] .ambient {
+  display: block;
+}
+
+:root[data-fx="bold"] .ambient {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.ambient i {
+  position: absolute;
+  left: var(--x);
+  bottom: -12px;
+  width: calc(7px * var(--s));
+  height: calc(7px * var(--s));
+  border-radius: 50%;
+  opacity: 0;
+  animation: fx-rise var(--t) linear var(--d) infinite;
+}
+
+/* Iskry z paleniska (klasyczny: para znad garnka) - w górę */
+@keyframes fx-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  15% { opacity: var(--o, 0.8); }
+  100% { opacity: 0; transform: translate(calc(var(--w) * 14px), -105cqh) scale(1.1); }
+}
+
+/* Liście i śnieg - w dół */
+@keyframes fx-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  12% { opacity: var(--o, 0.8); }
+  100% { opacity: 0; transform: translate(calc(var(--w) * 22px), 105cqh) rotate(calc(var(--w) * 160deg)); }
+}
+
+/* Iskierki z księgi - migoczą w miejscu i powoli dryfują */
+@keyframes fx-twinkle {
+  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.3) rotate(0deg); }
+  50% { opacity: var(--o, 0.9); transform: translate(calc(var(--w) * 6px), -18px) scale(1) rotate(45deg); }
+}
+
+:root[data-theme="klasyczny"] .ambient i {
+  width: calc(26px * var(--s));
+  height: calc(26px * var(--s));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  filter: blur(3px);
+  --o: 0.7;
+}
+
+:root[data-theme="smok"] .ambient i {
+  width: calc(5px * var(--s));
+  height: calc(5px * var(--s));
+  background: #ffd27a;
+  box-shadow: 0 0 6px 2px #ff8a2a, 0 0 14px 4px rgb(255 90 30 / 45%);
+  --o: 0.95;
+}
+
+:root[data-theme="las"] .ambient i {
+  top: -16px;
+  bottom: auto;
+  width: calc(12px * var(--s));
+  height: calc(7px * var(--s));
+  border-radius: 0 100% 0 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  animation-name: fx-fall;
+  --o: 0.75;
+}
+
+:root[data-theme="ksiega"] .ambient i {
+  top: calc(var(--x) * 0.9 + 8%);
+  bottom: auto;
+  width: calc(12px * var(--s));
+  height: calc(12px * var(--s));
+  border-radius: 0;
+  background: #f2c94c;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  filter: drop-shadow(0 0 4px #f2c94c);
+  animation-name: fx-twinkle;
+  animation-timing-function: ease-in-out;
+}
+
+:root[data-theme="eliksir"] .ambient i {
+  width: calc(12px * var(--s));
+  height: calc(12px * var(--s));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 70%), transparent 40%), color-mix(in srgb, var(--accent-2) 18%, transparent);
+  --o: 0.85;
+}
+
+:root[data-theme="lod"] .ambient i {
+  top: -12px;
+  bottom: auto;
+  width: calc(6px * var(--s));
+  height: calc(6px * var(--s));
+  background: #fff;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 80%, #fff);
+  animation-name: fx-fall;
+  --o: 0.9;
+}
+
+:root[data-theme="lod"][data-scheme="light"] .ambient i {
+  background: color-mix(in srgb, var(--accent) 45%, #fff);
+}
+
+/* --- Na bogato: żywe tło z fakturą motywu --- */
+:root[data-fx="bold"] body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 15% 10%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 90% 30%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 40% 95%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    var(--bg);
+  animation: fx-drift 24s ease-in-out infinite alternate;
+}
+
+@keyframes fx-drift {
+  to { transform: translate(6%, 4%) rotate(6deg) scale(1.08); }
+}
+
+:root[data-fx="bold"] body {
+  background: var(--bg);
+}
+
+/* Faktura nad poświatą: łuski smoka, włókna pergaminu, kropki światła w lesie… */
+:root[data-fx="bold"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+:root[data-fx="bold"][data-theme="smok"] body::after {
+  background: radial-gradient(circle at 50% 0, transparent 58%, color-mix(in srgb, var(--accent) 22%, transparent) 60%, transparent 68%) 0 0 / 26px 16px,
+    radial-gradient(circle at 50% 0, transparent 58%, color-mix(in srgb, var(--accent) 22%, transparent) 60%, transparent 68%) 13px 8px / 26px 16px;
+  -webkit-mask-image: linear-gradient(transparent, #000 40%, transparent);
+  mask-image: linear-gradient(transparent, #000 40%, transparent);
+}
+
+:root[data-fx="bold"][data-theme="ksiega"] body::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.8;
+}
+
+:root[data-fx="bold"][data-theme="las"] body::after {
+  background:
+    radial-gradient(12% 8% at 20% 30%, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent),
+    radial-gradient(10% 7% at 75% 55%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent),
+    radial-gradient(14% 9% at 40% 80%, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent);
+  animation: fx-dapple 9s ease-in-out infinite alternate;
+}
+
+@keyframes fx-dapple {
+  to { transform: translate(-4%, 3%); opacity: 0.25; }
+}
+
+:root[data-fx="bold"][data-theme="lod"] body::after {
+  top: -10%;
+  bottom: auto;
+  height: 45%;
+  background: linear-gradient(100deg, transparent 10%, color-mix(in srgb, var(--accent) 45%, transparent) 30%, color-mix(in srgb, var(--accent-2) 45%, transparent) 55%, transparent 80%);
+  filter: blur(30px);
+  animation: fx-aurora 12s ease-in-out infinite alternate;
+}
+
+@keyframes fx-aurora {
+  from { transform: translateX(-15%) skewY(-6deg); }
+  to { transform: translateX(15%) skewY(5deg); }
+}
+
+:root[data-fx="bold"][data-theme="eliksir"] body::after {
+  inset: -50%;
+  background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent 30%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 70%);
+  animation: fx-swirl 40s linear infinite;
+}
+
+@keyframes fx-swirl {
+  to { transform: rotate(360deg); }
+}
+
+:root[data-fx="bold"][data-theme="klasyczny"] body::after {
+  background: linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--accent) 18%, transparent));
+}
+
+/* Karty jak z przydymionego szkła, z poświatą w kolorze motywu */
+:root[data-fx="bold"] :is(.card, .box) {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 16%, transparent), var(--shadow-1);
+}
+
+:root[data-fx="bold"] .grid .card {
+  animation: fx-card-in 520ms var(--ease) both;
+}
+
+:root[data-fx="bold"] .grid .card:nth-child(2) { animation-delay: 60ms; }
+:root[data-fx="bold"] .grid .card:nth-child(3) { animation-delay: 120ms; }
+:root[data-fx="bold"] .grid .card:nth-child(4) { animation-delay: 180ms; }
+:root[data-fx="bold"] .grid .card:nth-child(n + 5) { animation-delay: 240ms; }
+
+@keyframes fx-card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+
+:root[data-fx="bold"] .card:active {
+  transform: scale(0.97) rotate(-0.6deg);
+}
+
+/* Przyklejone paski (szukanie, góra przepisu) przepuszczają tło, rozmyte */
+:root[data-fx="bold"] :is(.search.sticky, .recipe > .topbar) {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+:root[data-fx="bold"]:is([data-theme="lod"], [data-theme="las"], [data-theme="eliksir"]) .ambient i {
+  --o: 0.55;
+}
+
+/* Tytuły mienią się kolorami motywu */
+:root[data-fx="bold"] h1 {
+  background: linear-gradient(90deg, var(--text), var(--accent-strong), var(--accent-2), var(--text)) 0 0 / 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fx-shift 8s ease-in-out infinite alternate;
+}
+
+@keyframes fx-shift {
+  to { background-position: 100% 0; }
+}
+
+:root[data-fx="bold"] :is(.primary, .fab, .chip.selected) {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-fx="bold"] .fab {
+  animation: timer-in 320ms var(--ease-spring), fx-glow 2.6s ease-in-out 400ms infinite;
+}
+
+@keyframes fx-glow {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent), 0 6px 26px color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+
+:root[data-fx="bold"] .tabbar {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+:root[data-fx="bold"] :is(.tabbar a.active span, .tabbar button.active span) {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Zmiana motywu: nowe kolory rozlewają się kołem od stukniętego kafelka */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient {
+    display: none !important;
+  }
+
+  :root[data-fx] body::before,
+  :root[data-fx] body::after,
+  :root[data-fx] h1 {
+    animation: none !important;
+  }
+}
+
+.theme-fx-label {
+  margin: 0 0 6px;
+}

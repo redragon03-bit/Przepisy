@@ -5,8 +5,9 @@ import { DEFAULT_THEME, parseTheme, resolveScheme, THEMES, themeVars } from "./t
 test("zapisany motyw: zły albo brakujący zapis = klasyczny, jak w telefonie", () => {
   assert.deepEqual(parseTheme(null), DEFAULT_THEME);
   assert.deepEqual(parseTheme("{zepsute"), DEFAULT_THEME);
-  assert.deepEqual(parseTheme('{"theme":"nieznany","mode":"dark"}'), { theme: "klasyczny", mode: "dark" });
-  assert.deepEqual(parseTheme('{"theme":"smok","mode":"zly"}'), { theme: "smok", mode: "auto" });
+  assert.deepEqual(parseTheme('{"theme":"nieznany","mode":"dark"}'), { theme: "klasyczny", mode: "dark", fx: "subtle" });
+  assert.equal(parseTheme('{"theme":"las","mode":"dark","fx":"bold"}').fx, "bold");
+  assert.deepEqual(parseTheme('{"theme":"smok","mode":"zly"}'), { theme: "smok", mode: "auto", fx: "subtle" });
 });
 
 test("tryb: automatyczny idzie za telefonem, jasny/ciemny na sztywno", () => {
@@ -35,6 +36,7 @@ test("każdy motyw ma czytelne kolory w obu trybach", () => {
       assert.ok(contrast(p.muted, p.surface) >= 4.5, `${name}: szary tekst`);
       assert.ok(contrast(p["accent-strong"], p.bg) >= 4.5, `${name}: akcent jako tekst`);
       assert.ok(contrast(p["on-accent"], p["accent-strong"]) >= 4.5, `${name}: tekst na przycisku`);
+      assert.ok(contrast(p["on-accent"], p["accent-2"]) >= 4.5, `${name}: tekst na końcu gradientu`);
       assert.ok(contrast(p["on-accent-soft"], p["accent-soft"]) >= 4.5, `${name}: tekst na jasnym akcencie`);
       assert.equal(themeVars(t.id, scheme)["--timer-bg"], p.text);
     }

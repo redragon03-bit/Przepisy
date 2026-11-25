@@ -5,6 +5,7 @@ import BackToTop from "./components/BackToTop";
 import { LoadingScreen } from "./components/Loading";
 import ServerDownScreen from "./components/ServerDownScreen";
 import Sheet from "./components/Sheet";
+import ThemeAmbient from "./components/ThemeAmbient";
 import TimersBar from "./components/TimersBar";
 import { scrollToTop } from "./lib/navigation";
 import { prefetchPlanned } from "./lib/recipeCache";
@@ -115,6 +116,7 @@ export default function App() {
   return (
     <>
       <ServerDownScreen />
+      {!location.pathname.endsWith("/gotuj") && <ThemeAmbient list={location.pathname === "/"} />}
       <main className="page">
         <Routes>
           <Route path="/" element={<RecipesPage aiEnabled={auth.ai_enabled} />} />

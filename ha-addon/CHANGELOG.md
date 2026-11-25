@@ -5,6 +5,10 @@
 - Motywy kolorów: Ustawienia → Wygląd → Motyw. Do wyboru Klasyczny (dotychczasowy pomarańcz), Smocze złoto,
   Leśne zioła, Księga czarów, Eliksir i Lodowy smok, każdy w wersji jasnej i ciemnej. Pod kafelkami
   wybór trybu: jak w telefonie, zawsze jasny albo zawsze ciemny. Ustawienie dotyczy tego telefonu.
+- Efekty motywu: Bez, Subtelne (domyślnie: gradienty na przyciskach, połysk na „Gotuj”, drobinki
+  nad listą przepisów) albo Na bogato (żywe tło z fakturą motywu, przezroczyste karty z poświatą,
+  mieniące się tytuły, iskry/śnieg/liście/bąbelki na całym ekranie poza trybem gotowania).
+  Zmiana motywu rozlewa się kołem od stukniętego kafelka. Ograniczony ruch w iOS wyłącza animacje.
 
 ## 0.26.4
 
