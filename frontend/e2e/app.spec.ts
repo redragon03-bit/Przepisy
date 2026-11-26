@@ -426,15 +426,15 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   });
   await page.getByRole("link", { name: "Co ugotuję?" }).click();
   await expect(page.getByRole("heading", { name: "🏷️ Z promocji" })).toBeVisible();
-  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toBeVisible();
+  await expect(page.getByText("🏷️ 1 w promocji: mleko")).toBeVisible();
   // Wybór sklepu w sekcji: bez Biedronki przepis znika
   const promoBox = page.locator("section.box", { has: page.getByRole("heading", { name: "🏷️ Z promocji" }) });
   await promoBox.getByRole("button", { name: "Biedronka" }).click();
-  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toHaveCount(0);
+  await expect(page.getByText("🏷️ 1 w promocji: mleko")).toHaveCount(0);
   await promoBox.getByRole("button", { name: "Biedronka" }).click();
 
   // Plakietka przy składniku w przepisie
-  await page.getByText("🏷️ mleko (Biedronka 1,99 zł)").click();
+  await page.getByText("🏷️ 1 w promocji: mleko").click();
   await expect(page.getByRole("heading", { name: "Naleśniki" })).toBeVisible();
 });
 

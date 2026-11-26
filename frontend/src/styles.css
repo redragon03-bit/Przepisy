@@ -2327,6 +2327,15 @@ body:has(.fab) .back-to-top {
   font-weight: 600;
 }
 
+/* "Z promocji" w Co ugotuję?: najwyżej dwie linijki zamiast całej listy cen */
+.promo-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
 .missing-line {
   color: var(--missing);
   font-weight: 600;
