@@ -1431,6 +1431,7 @@ test("przepis: porcje słownie, „Nie wygaszaj” w menu ⋯, niski pasek zdję
   await page.screenshot({ path: "test-results/przepis-minutnik.png" });
   await page.getByRole("button", { name: "Zamknij minutnik" }).click();
   await server.put("/api/pantry", { data: { names: [] } });
+});
 
 test("nowy przepis i edycja: szkic wraca po zmianie zakładki, znika po zapisaniu", async ({ page }) => {
   const dialogs: string[] = [];
