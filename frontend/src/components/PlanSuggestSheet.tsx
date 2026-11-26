@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, PlanSuggestion } from "../api";
 import { dayLabel, shortDayLabel } from "../lib/days";
+import { clearPlanSuggestion, loadPlanSuggestion, savePlanSuggestion } from "../lib/planSuggestion";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
 import Sheet from "./Sheet";
@@ -13,9 +15,14 @@ export default function PlanSuggestSheet({ days, onSaved, onClose }: {
   onSaved: () => void;
   onClose: () => void;
 }) {
-  const [chosen, setChosen] = useState(() => new Set(days.filter((d) => d.free).map((d) => d.day)));
-  const [wishes, setWishes] = useState("");
-  const [suggestion, setSuggestion] = useState<PlanSuggestion | null>(null);
+  // Poprzednia propozycja (panel zamknięty albo wyjście do przepisu) wraca bez generowania od nowa
+  const [stored] = useState(loadPlanSuggestion);
+  const [chosen, setChosen] = useState(() => new Set(stored?.chosen ?? days.filter((d) => d.free).map((d) => d.day)));
+  const [wishes, setWishes] = useState(stored?.wishes ?? "");
+  const [suggestion, setSuggestion] = useState<PlanSuggestion | null>(stored?.suggestion ?? null);
+  useEffect(() => {
+    savePlanSuggestion({ suggestion, chosen: [...chosen], wishes, open: true });
+  }, [suggestion, chosen, wishes]);
   const [saving, setSaving] = useState(false);
   const { toast, run } = useToast();
 
@@ -55,6 +62,7 @@ export default function PlanSuggestSheet({ days, onSaved, onClose }: {
     });
     setSaving(false);
     if (saved) {
+      clearPlanSuggestion();
       toast(saved);
       onSaved();
     }
@@ -86,12 +94,20 @@ export default function PlanSuggestSheet({ days, onSaved, onClose }: {
           <ul className="plan-proposal">
             {suggestion.days.map((d) => (
               <li key={d.day} className="row">
-                <div className="grow">
-                  <span className="muted small">{dayLabel(d.day)}</span>
-                  <br />
-                  <strong>{d.recipe.title}</strong>
-                  {d.reason && <span className="muted small"> · {d.reason}</span>}
-                </div>
+                {/* Stuknięcie otwiera przepis; propozycja czeka na powrót (lib/planSuggestion.ts) */}
+                <Link to={`/przepis/${d.recipe.id}`} className="plan-proposal-recipe grow">
+                  {d.recipe.thumb_url ? (
+                    <img src={d.recipe.thumb_url} alt="" loading="lazy" />
+                  ) : (
+                    <span className="plan-proposal-thumb">🍽️</span>
+                  )}
+                  <span>
+                    <span className="muted small">{dayLabel(d.day)}</span>
+                    <br />
+                    <strong>{d.recipe.title}</strong>
+                    {d.reason && <span className="muted small"> · {d.reason}</span>}
+                  </span>
+                </Link>
                 <button type="button" className="icon" aria-label="Usuń z propozycji" onClick={() => drop(d.day)}>
                   ✕
                 </button>

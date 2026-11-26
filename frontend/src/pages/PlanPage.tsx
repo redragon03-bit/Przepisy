@@ -4,6 +4,7 @@ import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
 import PlanSuggestSheet from "../components/PlanSuggestSheet";
 import Sheet from "../components/Sheet";
 import { nextDays } from "../lib/days";
+import { loadPlanSuggestion, setPlanSuggestionOpen } from "../lib/planSuggestion";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
 
@@ -29,7 +30,8 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [message, setMessage] = useState("");
-  const [suggesting, setSuggesting] = useState(false);
+  // Po powrocie z przepisu otwartego z propozycji AI panel otwiera się znowu z tą samą propozycją
+  const [suggesting, setSuggesting] = useState(() => !!loadPlanSuggestion()?.open);
   // Pozycja planu, dla której wybieramy liczbę porcji
   const [servingsFor, setServingsFor] = useState<PlanEntry | null>(null);
   const { run } = useToast();
@@ -165,7 +167,10 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
           days={(days.some((d) => isoDay(d) >= today) ? days.map(isoDay).filter((day) => day >= today) : nextDays().map((d) => d.day)).map(
             (day) => ({ day, free: !entries.some((e) => e.day === day) }),
           )}
-          onClose={() => setSuggesting(false)}
+          onClose={() => {
+            setPlanSuggestionOpen(false);
+            setSuggesting(false);
+          }}
           onSaved={() => {
             setSuggesting(false);
             refresh();
