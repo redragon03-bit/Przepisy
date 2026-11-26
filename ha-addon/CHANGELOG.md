@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.27.5
+
+- Lista przepisów: tło motywu nie urywa się już pod nagłówkiem. Pole szukania dostaje pełniejsze tło
+  dopiero po przewinięciu, gdy lista chowa się pod nim.
+
 ## 0.27.4
 
 - iPhone: powrót do paska stanu z 0.27.1. Tło pod godziną w iOS 26 włączało z powrotem rozmycie góry ekranu,
