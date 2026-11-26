@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.28.3
+
+- Czat: przy otwartej klawiaturze mniejszy odstęp między polem a systemowym paskiem iPhone'a (˄˅✓).
+
 ## 0.28.2
 
 - Dodaj → Ostatnie importy: w panelu pod „⋯” widać wprowadzony adres, z „Kopiuj adres” i „Otwórz link”.
