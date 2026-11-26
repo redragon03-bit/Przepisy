@@ -550,9 +550,9 @@ button.small,
     padding-bottom: 4px;
   }
 
-  /* Wyszukiwarka na liście: przy przyklejeniu pasek 12 px + 4 px, bez dziury pod tytułem */
+  /* Pod nagłówkiem wszędzie ten sam odstęp 8 px: wyszukiwarka, przełącznik w Zakupach i karty */
   .search.sticky {
-    padding-top: var(--page-top);
+    padding-top: 8px;
   }
 }
 
@@ -1139,6 +1139,13 @@ body:has(.chat-input) .back-to-top {
 .random-link {
   font-size: 24px;
   text-decoration: none;
+  /* Emoji na iPhonie ma wysoką linię - bez tego kostka podnosiła nagłówek Przepisów
+     i lista zaczynała się niżej niż treść na innych ekranach */
+  line-height: 1;
+}
+
+.topbar + .segmented {
+  margin-top: 8px;
 }
 
 /* Przeciągnij w dół, żeby odświeżyć */

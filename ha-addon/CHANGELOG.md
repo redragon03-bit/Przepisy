@@ -9,6 +9,8 @@
   nad listą przepisów) albo Na bogato (żywe tło z fakturą motywu, przezroczyste karty z poświatą,
   mieniące się tytuły, iskry/śnieg/liście/bąbelki na całym ekranie poza trybem gotowania).
   Zmiana motywu rozlewa się kołem od stukniętego kafelka. Ograniczony ruch w iOS wyłącza animacje.
+- iPhone (aplikacja z ekranu głównego): ten sam odstęp 8 px pod nagłówkiem na każdym ekranie
+  (Przepisy, Dodaj, Zakupy, Plan, Ustawienia). Kostka losowania nie podnosi już nagłówka Przepisów.
 
 ## 0.26.5
 
