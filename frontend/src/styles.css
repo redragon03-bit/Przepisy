@@ -985,15 +985,13 @@ span.drag-handle:not(.step-number) {
   color: var(--muted, #8a7a6c);
 }
 
-/* Szukanie zdjęć */
+/* Szukanie zdjęć: przepis bez zdjęcia - jedna linia tekstu zamiast dużej ramki */
 .hero-placeholder {
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-bottom: 12px;
-  border: 2px dashed var(--border);
-  border-radius: 14px;
-  background: var(--accent-soft);
-  font-size: calc(16px * var(--s-body));
+  margin: 0 0 4px;
+  text-align: left;
+  font-weight: 600;
 }
 
 .candidates {
@@ -1396,9 +1394,10 @@ h2.aisle {
   background: var(--danger);
 }
 
-/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem */
+/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem
+   (--timers-h = wysokość paska, ustawia TimersBar) */
 body:has(.timers) .page {
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 96px);
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 24px);
 }
 
 /* Długie panele (dziennik, plan od AI) przewijają się w środku */
@@ -1771,10 +1770,21 @@ a.chip {
   box-shadow: inset 0 0 0 1.5px currentcolor;
 }
 
-/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu */
+/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu.
+   Kreska stoi w marginesie strony, więc kółko i tekst zostają w jednej linii z innymi wierszami. */
 .checklist li.missing {
-  box-shadow: inset 3px 0 0 var(--missing);
-  padding-left: 12px;
+  position: relative;
+}
+
+.checklist li.missing::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--missing);
 }
 
 .promo-price {
@@ -1982,8 +1992,10 @@ body:has(.timers) .chat {
   padding-bottom: 140px;
 }
 
-body:has(.timers) .cooking-body {
-  padding-bottom: 80px;
+/* Tryb gotowania: treść kończy się nad paskiem minutnika, więc nic pod nim nie znika
+   (przycisk minutnika kroku zostaje widoczny) */
+body:has(.cooking-timers) .cooking-body {
+  margin-bottom: calc(var(--timers-h, 72px) + 8px);
 }
 
 /* --- Pasek zakładek: "pigułka" pod aktywną ikoną (Material 3) --- */
@@ -2125,18 +2137,30 @@ body:has(.timers) .cooking-body {
   font-size: 24px;
 }
 
-/* Gdy chodzi minutnik: FAB robi się okrągły, a minutniki zajmują resztę szerokości */
+/* Po przewinięciu i gdy chodzi minutnik: sama ikona, mniej zasłania */
+.fab.compact,
 body:has(.timers) .fab {
   padding: 0;
   justify-content: center;
 }
 
+.fab.compact .fab-label,
 body:has(.timers) .fab .fab-label {
   display: none;
 }
 
-body:has(.fab) .timers {
-  right: 88px;
+/* Minutnik ma całą szerokość ekranu, a "Gotuj" stoi nad nim */
+body:has(.timers) .fab {
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px + var(--timers-h, 72px) + 8px);
+}
+
+/* Koniec przepisu (np. "Ugotowane") da się przewinąć ponad "Gotuj" */
+body:has(.fab) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 88px);
+}
+
+body:has(.fab):has(.timers) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 96px);
 }
 
 body:has(.fab) .back-to-top {
@@ -3027,7 +3051,7 @@ body:has(.fab) .back-to-top {
   background: var(--grad);
 }
 
-:root:not([data-fx="off"]) :is(.card-placeholder, .hero-placeholder) {
+:root:not([data-fx="off"]) .card-placeholder {
   background: linear-gradient(150deg, var(--accent-soft), var(--surface-2) 70%);
 }
 

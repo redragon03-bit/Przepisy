@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Recipe } from "../../api";
 import { useCheckedSet } from "../../lib/progress";
@@ -11,14 +12,21 @@ import { useTimers } from "../../lib/useTimers";
 export default function StepsSection({ recipe, scale }: { recipe: Recipe; scale: number }) {
   const [checked, toggle] = useCheckedSet(`checked-steps-${recipe.id}`);
   const { start } = useTimers();
+  // Po przewinięciu "Gotuj" zwija się do samej ikony - mniej zasłania treść
+  const [compact, setCompact] = useState(() => window.scrollY > 40);
+  useEffect(() => {
+    const onScroll = () => setCompact(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
       <h2>Przygotowanie</h2>
       {/* Pływający przycisk (FAB): zawsze pod kciukiem, także po przewinięciu do kroków.
-          Gdy chodzi minutnik, zwija się do samej ikony obok niego (styles.css: .fab). */}
+          Po przewinięciu i gdy chodzi minutnik zwija się do samej ikony (styles.css: .fab). */}
       {recipe.steps.length > 0 && (
-        <Link to={`/przepis/${recipe.id}/gotuj?skala=${scale}`} className="fab" aria-label="Tryb gotowania (krok po kroku)">
+        <Link to={`/przepis/${recipe.id}/gotuj?skala=${scale}`} className={`fab ${compact ? "compact" : ""}`} aria-label="Tryb gotowania (krok po kroku)">
           <span aria-hidden="true">👨‍🍳</span>
           <span className="fab-label">Gotuj</span>
         </Link>

@@ -1241,3 +1241,103 @@ test("pasek szukania: przezroczysty pod nagłówkiem, pełniejsze tło dopiero p
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(search).not.toHaveClass(/stuck/);
 });
+
+// Przepis z sekcjami jak szarlotka z audytu: masło i mąka są i w "Cieście", i w "Kruszonce"
+async function addSzarlotka() {
+  const ingredient = (text: string, name: string, section: string) => ({ text, name, section });
+  return addRecipe("Szarlotka z sekcjami", [], [], {
+    servings: "8",
+    prep_minutes: 30,
+    ingredients: [
+      ingredient("300 g mąki pszennej", "mąka pszenna", "Ciasto"),
+      ingredient("200 g masła", "masło", "Ciasto"),
+      ingredient("100 g cukru", "cukier", "Ciasto"),
+      ingredient("2 jajka", "jajka", "Ciasto"),
+      ingredient("1,5 kg jabłek", "jabłka", "Nadzienie"),
+      ingredient("50 g masła", "masło", "Kruszonka"),
+      ingredient("80 g mąki", "mąka", "Kruszonka"),
+    ],
+    steps: [
+      { text: "Zagnieść ciasto z mąki, masła, cukru i jajek. Schłodzić 30 min w lodówce.", section: "Ciasto" },
+      { text: "Jabłka obrać i dusić 10 min.", section: "Nadzienie" },
+      { text: "Masło zetrzeć z mąką.", section: "Kruszonka" },
+    ],
+  });
+}
+
+test("tryb gotowania: składniki z sekcji kroku, odmiana „cukru” i minutnik nie zasłania kroku", async ({ page }) => {
+  const { id } = await addSzarlotka();
+  await login(page);
+  await page.goto(`/przepis/${id}/gotuj`);
+  await page.getByRole("button", { name: "Zaczynamy ›" }).click();
+  const used = page.locator(".step-ingredients li");
+  await expect(used).toHaveText(["300 g mąki pszennej", "200 g masła", "100 g cukru", "2 jajka"]);
+
+  await page.getByRole("button", { name: "⏱ Minutnik 30 min" }).click();
+  const bar = page.locator(".timers");
+  // W trybie gotowania tego przepisu sam krok, bez ucinanej nazwy przepisu
+  await expect(bar.locator(".timer-label")).toHaveText("Krok 1 · 30 min");
+  const barTop = (await bar.boundingBox())!.y;
+  // Treść kończy się nad paskiem, przycisk minutnika kroku da się stuknąć
+  const body = (await page.locator(".cooking-body").boundingBox())!;
+  expect(body.y + body.height).toBeLessThanOrEqual(barTop + 1);
+  const button = page.getByRole("button", { name: "⏱ Minutnik 30 min" });
+  await button.scrollIntoViewIfNeeded();
+  const box = (await button.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(barTop + 1);
+  await page.screenshot({ path: "test-results/tryb-gotowania-sekcje.png" });
+  await page.getByRole("button", { name: "Dalej ›" }).click();
+  await page.getByRole("button", { name: "Dalej ›" }).click();
+  await expect(used).toHaveText(["50 g masła", "80 g mąki"]);
+  await page.getByRole("button", { name: "Zamknij minutnik" }).click();
+});
+
+test("przepis: porcje słownie, „Nie wygaszaj” w menu ⋯, niski pasek zdjęcia, „Gotuj” nad minutnikiem", async ({ page }) => {
+  const { id } = await addSzarlotka();
+  // Telefon pozwala trzymać włączony ekran (Chromium w testach nie zawsze)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "wakeLock", { configurable: true, value: { request: async () => ({ release: async () => {} }) } });
+  });
+  await server.put("/api/pantry", { data: { names: ["mąka pszenna"] } });
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  await expect(page.getByText(/^8 porcji · /)).toBeVisible();
+
+  // Bez zdjęcia: jedna linia, nie duża ramka
+  const photo = page.getByRole("button", { name: "🔍 Znajdź zdjęcie w internecie" });
+  expect((await photo.boundingBox())!.height).toBeLessThan(60);
+
+  // "brak": kreska z lewej nie przesuwa kółka
+  const checkX = async (text: string) => (await page.locator(".ingredients li", { hasText: text }).locator(".check").boundingBox())!.x;
+  await expect(page.locator(".ingredients li.missing", { hasText: "200 g masła" })).toBeVisible();
+  expect(await checkX("200 g masła")).toBe(await checkX("300 g mąki pszennej"));
+
+  // Zamiast pola na stronie - pozycja w menu ⋯
+  await expect(page.getByText("Nie wygaszaj ekranu")).toHaveCount(0);
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Nie wygaszaj: wył." }).click();
+  await expect(page.getByRole("status")).toContainText("Ekran nie zgaśnie");
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Nie wygaszaj: wł." })).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.click(200, 100);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/przepis-bez-zdjecia.png" });
+
+  // "Gotuj" z napisem na górze, po przewinięciu sama ikona
+  const fab = page.locator(".fab");
+  await expect(fab.locator(".fab-label")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(fab.locator(".fab-label")).toBeHidden();
+
+  // Minutnik ma całą szerokość i krótki opis, "Gotuj" stoi nad nim
+  await page.getByRole("button", { name: "⏱ 30 min" }).click();
+  const timer = page.locator(".timers .timer");
+  await expect(timer.locator(".timer-label")).toHaveText("Krok 1 · 30 min");
+  const timerBox = (await timer.boundingBox())!;
+  const fabBox = (await fab.boundingBox())!;
+  expect(timerBox.width).toBeGreaterThan(330);
+  expect(fabBox.y + fabBox.height).toBeLessThanOrEqual(timerBox.y);
+  await page.screenshot({ path: "test-results/przepis-minutnik.png" });
+  await page.getByRole("button", { name: "Zamknij minutnik" }).click();
+  await server.put("/api/pantry", { data: { names: [] } });
+});

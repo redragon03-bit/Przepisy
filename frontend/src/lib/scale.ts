@@ -47,6 +47,20 @@ export function parseServings(servings: string): number | null {
   return match ? Number(match[0]) : null;
 }
 
+// Polska odmiana: 1 porcja, 2-4 porcje (22-24...), 5+ porcji (12-14 też "porcji")
+export function servingsWord(n: number): string {
+  if (n === 1) return "porcja";
+  const ones = n % 10;
+  const tens = n % 100;
+  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? "porcje" : "porcji";
+}
+
+// Porcje z przepisu do pokazania: sama liczba "4" -> "4 porcje"; "na 6 osób" zostaje bez zmian
+export function servingsText(servings: string): string {
+  const t = servings.trim();
+  return /^\d+$/.test(t) ? `${t} ${servingsWord(Number(t))}` : t;
+}
+
 // Przelicza ilość albo zakres ("2-3" -> "4-6"). `after` = tekst po ilości (do rozpoznania jednostki).
 function scaleQuantity(quantity: string, factor: number, after: string): string {
   const format = METRIC.test(after) ? formatAmount : formatKitchenAmount;

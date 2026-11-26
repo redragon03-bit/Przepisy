@@ -14,7 +14,7 @@ import { nutritionText } from "../lib/nutrition";
 import { currentRandom, pickRandom, RandomState } from "../lib/random";
 import { rememberRecipe } from "../lib/recent";
 import { cachedRecipe, cacheRecipe } from "../lib/recipeCache";
-import { parseServings } from "../lib/scale";
+import { parseServings, servingsText } from "../lib/scale";
 import { useToast } from "../lib/toast";
 import { useWakeLock } from "../lib/useTimers";
 import { usePinchZoom } from "../lib/usePinchZoom";
@@ -65,7 +65,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
       });
   }, [id]);
 
-  // "Nie wygaszaj ekranu" - przydatne, gdy telefon leży w kuchni
+  // "Nie wygaszaj ekranu" (w menu ⋯) - przydatne, gdy telefon leży w kuchni
   useWakeLock(keepAwake, () => {
     setKeepAwake(false);
     toast("Telefon nie pozwolił utrzymać włączonego ekranu.");
@@ -140,7 +140,9 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
         <RecipeMenu
           recipe={recipe}
           scale={scale}
-          servings={baseServings && servings ? `${servings} porcje` : recipe.servings}
+          servings={baseServings && servings ? servingsText(String(servings)) : servingsText(recipe.servings)}
+          keepAwake={keepAwake}
+          onKeepAwake={setKeepAwake}
           onChange={setRecipe}
           onSearchImages={searchImages}
           aiEnabled={aiEnabled}
@@ -151,7 +153,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
         {recipe.image_url ? (
           <img className="hero" src={recipe.image_url} alt="" />
         ) : recipe.can_edit && (
-          <button type="button" className="hero-placeholder" disabled={searching} onClick={searchImages}>
+          <button type="button" className="link hero-placeholder" disabled={searching} onClick={searchImages}>
             {searching ? "Szukam zdjęć w internecie…" : "🔍 Znajdź zdjęcie w internecie"}
           </button>
         )}
@@ -203,7 +205,7 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
         <Stars value={recipe.rating} onChange={(rating) => patch({ rating })} />
         {recipe.description && <p>{recipe.description}</p>}
         <p className="muted small">
-          {[recipe.servings, ...times].filter(Boolean).join(" · ")}
+          {[servingsText(recipe.servings), ...times].filter(Boolean).join(" · ")}
           {/^https?:\/\//i.test(recipe.source_url) && (
             <>
               {" · "}
@@ -223,13 +225,6 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
             Ugotowane {recipe.cooked_count}× · ostatnio {new Date(recipe.last_cooked_at!).toLocaleDateString("pl-PL")}
             {recipe.cook_log.length > 0 && " · dziennik ›"}
           </button>
-        )}
-
-        {"wakeLock" in navigator && (
-          <label className="toggle">
-            <input type="checkbox" checked={keepAwake} onChange={(e) => setKeepAwake(e.target.checked)} />
-            Nie wygaszaj ekranu
-          </label>
         )}
 
         <IngredientsSection

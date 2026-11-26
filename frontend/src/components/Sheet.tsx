@@ -81,9 +81,15 @@ export default function Sheet({ title, onClose, children, list }: { title?: stri
 }
 
 // Kafelek w panelu: ikona + podpis
-export function SheetTile({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+// `active` - przełącznik włączony (np. "Nie wygaszaj: wł.")
+export function SheetTile({ icon, label, onClick, danger, active }: { icon: string; label: string; onClick: () => void; danger?: boolean; active?: boolean }) {
   return (
-    <button type="button" className={`sheet-tile ${danger ? "danger-tile" : ""}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`sheet-tile ${danger ? "danger-tile" : ""} ${active ? "active" : ""}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
       <span>{icon}</span>
       {label}
     </button>
