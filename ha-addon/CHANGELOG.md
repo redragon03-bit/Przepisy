@@ -21,6 +21,7 @@ Zbiorcze poprawki wyglądu i wygody (lista Dariusza + audyt UX).
   stuknięcie otwiera przepis, a propozycja zostaje po zamknięciu lub powrocie.
 - Co ugotuję?: promocje przy przepisie jako krótkie podsumowanie.
 - Promocje: produkt z tekstu gazetki i ten sam ze strony gazetki łączą się w jedną pozycję ze zdjęciem.
+  Nocą AI czyta do 150 stron gazetek (było 50), więc więcej produktów dostaje zdjęcie i cenę.
 - Ustawienia: krótka lista grup, każda na osobnej podstronie. „Jak używać”: tematy rozwijane stuknięciem.
 - Ikona 🗓️ zamiast 📅 (iPhone pokazywał „JUL 17”); przy otwartym „Więcej” podświetlona tylko ta zakładka.
 

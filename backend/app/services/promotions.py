@@ -502,7 +502,7 @@ def refresh() -> None:
 # --- Nocne czytanie obrazków stron (ceny, których Blix nie podaje w tekście) ---
 
 # Tyle stron najwyżej czyta AI w ciągu jednej nocy (darmowy limit Gemini jest też dla czatu i importu)
-PAGES_PER_NIGHT = 50
+PAGES_PER_NIGHT = 150
 # Godziny, w których czytamy strony (czas serwera)
 NIGHT_HOURS = range(1, 6)
 # Główne gazetki tygodnia - tylko je czytamy stronami (bez ogonków, jak zwraca fold)
