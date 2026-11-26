@@ -1,5 +1,13 @@
 # Zmiany
 
+## 0.28.1
+
+- Czat na iPhonie: stuknięcie w pole od razu chowa pasek zakładek, a pole siedzi tuż nad klawiaturą
+  (także w aplikacji z ekranu głównego, gdzie wcześniej nie wykrywało klawiatury i widok uciekał w górę).
+- Dodaj → Ostatnie importy: zwarty wiersz z miniaturą i nazwą przepisu zamiast linku,
+  „Usuń z listy” i „Usuń przepis” pod „⋯”.
+- Zakupy: bez menu „⋯” - „Wyczyść listę” widać od razu na dole listy (z Cofnij).
+
 ## 0.28.0
 
 Zbiorcze poprawki wyglądu i wygody (lista Dariusza + audyt UX).

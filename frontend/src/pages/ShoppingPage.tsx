@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { api, ShoppingItem } from "../api";
 import PantryView from "../components/PantryView";
 import RenameSheet from "../components/RenameSheet";
-import Sheet, { SheetTile } from "../components/Sheet";
 import SwipeRow from "../components/SwipeRow";
 import { useHiddenPromoStores, usePromoBadges } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
@@ -33,8 +32,6 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
   const [busy, setBusy] = useState(false);
   // Pozycja, której tekst zmieniamy (przytrzymanie wiersza)
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
-  // Panel "⋯" z rzadką akcją "Wyczyść listę"
-  const [menu, setMenu] = useState(false);
   // Gest (przytrzymanie, przesunięcie) użyty choć raz - podpowiedź już niepotrzebna
   const [gesturesKnown, setGesturesKnown] = useRemembered<boolean>("shopping-gestures-known", false);
   const { toast, undoable, run } = useToast();
@@ -261,11 +258,6 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
             Wyślij do HA
           </button>
         )}
-        {items.length > 0 && (
-          <button type="button" className="link more-button" onClick={() => setMenu(true)} aria-label="Opcje listy">
-            ⋯
-          </button>
-        )}
       </header>
       {switcher}
       {offline && <p className="box warning small">Brak połączenia - zmiany zapiszą się, gdy wróci internet.</p>}
@@ -321,20 +313,13 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
           )}
           {/* Podpowiedź o gestach tylko przy krótkiej liście, póki ktoś nie użyje gestu */}
           {!gesturesKnown && items.length <= 5 && <p className="muted small center gesture-hint">Przytrzymaj, aby zmienić; przesuń w lewo, aby usunąć.</p>}
+          {/* Jedyna rzadka akcja listy - na dole, bez chowania pod "⋯" (z Cofnij) */}
+          <p className="center">
+            <button type="button" className="link small danger" onClick={() => removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }])}>
+              Wyczyść listę
+            </button>
+          </p>
         </>
-      )}
-      {menu && (
-        <Sheet onClose={() => setMenu(false)}>
-          <SheetTile
-            icon="🗑️"
-            label="Wyczyść listę"
-            danger
-            onClick={() => {
-              setMenu(false);
-              removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }]);
-            }}
-          />
-        </Sheet>
       )}
       {editing && (
         <RenameSheet

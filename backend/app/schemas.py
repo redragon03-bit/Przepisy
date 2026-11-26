@@ -466,6 +466,9 @@ class ImportJobOut(BaseModel):
     recipe_id: int | None
     recipe_count: int
     created_at: datetime
+    # Nazwa i miniatura zaimportowanego przepisu (lista "Ostatnie importy"), "" gdy brak
+    recipe_title: str = ""
+    recipe_thumb: str = ""
 
 
 class LoginIn(BaseModel):

@@ -141,14 +141,13 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
   expect(toast.y + toast.height).toBeLessThanOrEqual(tabbar.y);
   expect(toast.y).toBeGreaterThan(header.y + header.height);
   await page.screenshot({ path: "test-results/zakupy-toast.png" });
-  // Jedna widoczna akcja przy kupionych; „Wyczyść listę” schowane pod „⋯”
-  await expect(page.getByRole("button", { name: "Wyczyść listę" })).toHaveCount(0);
+  // Bez menu „⋯” - „Wyczyść listę” widać od razu na dole listy
+  await expect(page.getByRole("button", { name: "Opcje listy" })).toHaveCount(0);
   await page.getByRole("button", { name: "Usuń kupione" }).click();
   await expect(page.getByRole("heading", { name: "Kupione" })).toHaveCount(0);
   await page.getByRole("button", { name: "Cofnij" }).click();
   await expect(page.getByRole("heading", { name: "Kupione" })).toBeVisible();
-  await page.getByRole("button", { name: "Opcje listy" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Wyczyść listę" }).click();
+  await page.getByRole("button", { name: "Wyczyść listę" }).click();
   await expect(page.getByText("Lista jest pusta")).toBeVisible();
   await page.getByRole("button", { name: "Cofnij" }).click();
   await expect(page.getByText("2 pomidory")).toBeVisible();
@@ -594,8 +593,8 @@ test("import: zawieszony import da się anulować", async ({ page }) => {
 
 test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje też przepis (z Cofnij)", async ({ page }) => {
   let jobs = [
-    { id: 2, kind: "url", source: "https://example.pl/bigos", status: "done", error: "", recipe_id: 77, recipe_count: 1, created_at: "2026-11-10T08:00:00" },
-    { id: 3, kind: "url", source: "https://example.pl/zurek", status: "done", error: "", recipe_id: 78, recipe_count: 1, created_at: "2026-11-10T08:00:00" },
+    { id: 2, kind: "url", source: "https://example.pl/bigos", status: "done", error: "", recipe_id: 77, recipe_count: 1, created_at: "2026-11-10T08:00:00", recipe_title: "Bigos", recipe_thumb: "" },
+    { id: 3, kind: "url", source: "https://example.pl/zurek", status: "done", error: "", recipe_id: 78, recipe_count: 1, created_at: "2026-11-10T08:00:00", recipe_title: "Żurek", recipe_thumb: "" },
   ];
   const deleted: string[] = [];
   await page.route("**/api/imports", (route) => route.fulfill({ json: jobs }));
@@ -607,12 +606,18 @@ test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje te
   });
   await login(page);
   await page.goto("/dodaj");
-  const bigos = page.locator(".jobs li", { hasText: "example.pl/bigos" });
-  await bigos.getByRole("button", { name: "usuń z listy" }).click();
+  // Zwarty wiersz: nazwa przepisu zamiast linku, akcje pod „⋯”
+  const bigos = page.locator(".jobs li", { hasText: "Bigos" });
+  await expect(page.getByText("example.pl/bigos")).toHaveCount(0);
+  const rowBox = (await bigos.boundingBox())!;
+  expect(rowBox.height).toBeLessThan(70);
+  await bigos.getByRole("button", { name: "Opcje importu" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Usuń z listy" }).click();
   await expect(bigos).toHaveCount(0);
   expect(deleted).toEqual(["/api/imports/2"]);
-  const zurek = page.locator(".jobs li", { hasText: "example.pl/zurek" });
-  await zurek.getByRole("button", { name: "🗑️ usuń przepis" }).click();
+  const zurek = page.locator(".jobs li", { hasText: "Żurek" });
+  await zurek.getByRole("button", { name: "Opcje importu" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Usuń przepis" }).click();
   await expect(zurek).toHaveCount(0);
   await expect(page.getByText("Usunięto przepis")).toBeVisible();
   // Po kilku sekundach (czas na "Cofnij") serwer usuwa przepis i wpis
@@ -1528,4 +1533,26 @@ test("przed zalogowaniem aplikacja nie pyta o plan (bez 401)", async ({ page }) 
   await page.getByRole("button", { name: "Zaloguj" }).click();
   // Po zalogowaniu przepisy z planu trafiają do pamięci telefonu
   await expect.poll(() => planRequests.length).toBeGreaterThan(0);
+});
+
+test("czat: stuknięcie w pole chowa pasek zakładek, pole siedzi na dole (klawiatura iPhone)", async ({ page }) => {
+  await page.route("**/api/auth/status", async (route) => {
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
+  });
+  await login(page);
+  await page.getByRole("link", { name: "Czat" }).click();
+  const html = page.locator("html");
+  await expect(html).not.toHaveClass(/kb-open/);
+  await expect(page.locator(".tabbar")).toBeVisible();
+  // W aplikacji z ekranu głównego wysokości okna się nie różnią - liczy się samo stuknięcie w pole
+  await page.getByLabel("Wiadomość").tap();
+  await expect(html).toHaveClass(/kb-open/);
+  await expect(page.locator(".tabbar")).toBeHidden();
+  const input = (await page.locator(".chat-input").boundingBox())!;
+  const height = await page.evaluate(() => window.visualViewport!.height);
+  expect(Math.abs(input.y + input.height - height)).toBeLessThan(2);
+  await page.getByLabel("Wiadomość").blur();
+  await expect(html).not.toHaveClass(/kb-open/);
+  await expect(page.locator(".tabbar")).toBeVisible();
 });

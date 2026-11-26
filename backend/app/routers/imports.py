@@ -13,7 +13,7 @@ from ..auth import CurrentUser, current_user, owned, require_auth
 from ..config import get_settings
 from ..database import get_db
 from ..models import ImportJob, Recipe
-from ..schemas import ImportJobOut, TextImportIn, UrlImportIn
+from ..schemas import ImportJobOut, TextImportIn, UrlImportIn, thumb_url
 from ..services.importer import (
     job_upload_dir,
     mark_stuck_jobs,
@@ -105,7 +105,18 @@ def list_imports(db: Session = Depends(get_db), user: CurrentUser = Depends(curr
     """Ostatnie importy tej osoby."""
     mark_stuck_jobs(db)
     query = db.query(ImportJob).filter(owned(ImportJob.user_id, user))
-    return query.order_by(ImportJob.id.desc()).limit(20).all()
+    jobs = query.order_by(ImportJob.id.desc()).limit(20).all()
+    # Nazwa i miniatura przepisu zamiast długiego linku - lista na telefonie jest wtedy zwarta
+    ids = {j.recipe_id for j in jobs if j.recipe_id}
+    recipes = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(ids))} if ids else {}
+    out = []
+    for job in jobs:
+        item = ImportJobOut.model_validate(job)
+        recipe = recipes.get(job.recipe_id)
+        if recipe is not None:
+            item.recipe_title, item.recipe_thumb = recipe.title, thumb_url(recipe.image) or ""
+        out.append(item)
+    return out
 
 
 def _get_job(db: Session, job_id: int, user: CurrentUser) -> ImportJob:

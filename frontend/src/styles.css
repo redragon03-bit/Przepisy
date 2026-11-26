@@ -836,7 +836,7 @@ span.drag-handle:not(.step-number) {
 }
 
 .jobs li {
-  padding: 10px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -846,15 +846,52 @@ span.drag-handle:not(.step-number) {
   white-space: nowrap;
 }
 
-/* Pod gotowym importem: "usuń z listy" i "usuń przepis" */
-.job-actions {
+/* Gotowy import: jeden zwarty wiersz z miniaturą i nazwą przepisu, usuwanie pod ⋯ */
+.job-row {
   display: flex;
-  gap: 16px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 8px;
 }
 
-.job-actions .danger-link {
-  color: var(--danger);
+.job-recipe {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.job-recipe img,
+.job-thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--accent-soft);
+}
+
+.job-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.job-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-more {
+  flex: none;
+  min-width: var(--hit);
+  min-height: var(--hit);
+  font-size: 22px;
+  color: var(--muted);
+  text-decoration: none;
 }
 
 .jobs .small-button {
