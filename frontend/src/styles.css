@@ -521,8 +521,32 @@ button.small,
 @media (display-mode: standalone) {
   :root {
     --safe-top: max(env(safe-area-inset-top, 0px), 12px);
-    /* Treść może wejść pod pasek .top-edge, bo pasek jest niewidoczny (niżej) */
-    --page-top: calc(var(--safe-top) - 8px);
+    /* Tło aplikacji sięga pod pasek stanu (black-translucent), tytuł zaczyna się tuż pod godziną.
+       Gdy iOS podaje 0 (stara ikona z paskiem "default"), tytuł 4 px pod górą jak dotąd. */
+    --status-bar: env(safe-area-inset-top, 0px);
+    --page-top: calc(var(--status-bar) + 4px);
+  }
+
+  /* Pod godziną i baterią: lekka zasłona w kolorze tła, żeby przewijana treść nie mieszała się
+     z godziną. Efekty motywu prześwitują. Po jasnemu godzina jest biała, więc zasłona ciemniejsza. */
+  .top-edge::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: var(--status-bar);
+    background: linear-gradient(
+      color-mix(in srgb, var(--bg) 92%, transparent),
+      color-mix(in srgb, var(--bg) 75%, transparent)
+    );
+  }
+
+  :root[data-scheme="light"] .top-edge::after {
+    background: linear-gradient(rgba(0, 0, 0, 0.38), rgba(0, 0, 0, 0.12) 75%, transparent);
+  }
+
+  /* Przyklejona wyszukiwarka zatrzymuje się pod paskiem stanu, nie pod godziną */
+  .search.sticky {
+    top: var(--status-bar);
   }
 
   /* Pasek ma jednolity kolor tła (tego szuka Safari), ale nie jest rysowany:

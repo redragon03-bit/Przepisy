@@ -996,6 +996,14 @@ test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 2
   const titleY = (await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y;
   expect(titleY).toBeGreaterThan(2);
   expect(titleY).toBeLessThan(12);
+  // Tło aplikacji sięga pod godzinę i baterię (bez czarnego paska), zasłona pod paskiem stanu ma jego wysokość
+  expect(await page.locator('meta[name="apple-mobile-web-app-status-bar-style"]').getAttribute("content")).toBe("black-translucent");
+  const scrim = await page.locator(".top-edge").evaluate((el) => {
+    const s = getComputedStyle(el, "::after");
+    return { content: s.content, image: s.backgroundImage };
+  });
+  expect(scrim.content).toBe('""');
+  expect(scrim.image).toContain("gradient");
 });
 
 test("ten sam odstęp pod nagłówkiem na każdym ekranie (aplikacja z ekranu głównego)", async ({ page }) => {
