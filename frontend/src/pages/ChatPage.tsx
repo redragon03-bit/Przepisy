@@ -3,6 +3,7 @@ import AutoTextarea from "../components/AutoTextarea";
 import NewRecipeCard from "../components/NewRecipeCard";
 import RecipeCard from "../components/RecipeCard";
 import { newConversation, retryChat, sendChat, useChat } from "../lib/chatStore";
+import { useChatKeyboard } from "../lib/useChatKeyboard";
 
 // Czat z asystentem: "mam ochotę na...", "coś bez ryżu". Asystent poleca przepisy z bazy,
 // a gdy nic nie pasuje - wymyśla nowy, który można zapisać.
@@ -26,6 +27,9 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
     bottom.current?.scrollIntoView({ behavior: first.current ? "auto" : "smooth" });
     first.current = false;
   }, [messages, thinking]);
+
+  // Po wysunięciu klawiatury pokazujemy koniec rozmowy tuż nad polem wpisywania
+  useChatKeyboard(() => bottom.current?.scrollIntoView({ block: "end" }));
 
   const send = (question: string) => {
     if (sendChat(question)) setText("");

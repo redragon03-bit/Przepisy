@@ -2239,6 +2239,33 @@ body:has(.fab) .back-to-top {
   border-top: 1px solid var(--border);
 }
 
+/* Otwarta klawiatura w czacie (lib/useChatKeyboard.ts): strona przypięta do widocznej części
+   ekranu i przewijana w środku, pole wpisywania nad klawiaturą, bez paska zakładek */
+:root.kb-open body:has(.chat-input) .page {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 76px;
+}
+
+:root.kb-open body:has(.chat-input) .tabbar {
+  display: none;
+}
+
+:root.kb-open .chat-input {
+  top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
+  bottom: auto;
+  transform: translateY(-100%);
+}
+
+:root.kb-open .chat {
+  padding-bottom: 0;
+}
+
 .chat-input textarea {
   flex: 1;
   min-width: 0;
