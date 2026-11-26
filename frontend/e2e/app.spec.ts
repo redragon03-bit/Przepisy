@@ -501,6 +501,46 @@ test("import: zawieszony import da się anulować", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Ostatnie importy" })).toHaveCount(0);
 });
 
+test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje też przepis (z Cofnij)", async ({ page }) => {
+  let jobs = [
+    { id: 2, kind: "url", source: "https://example.pl/bigos", status: "done", error: "", recipe_id: 77, recipe_count: 1, created_at: "2026-11-10T08:00:00" },
+    { id: 3, kind: "url", source: "https://example.pl/zurek", status: "done", error: "", recipe_id: 78, recipe_count: 1, created_at: "2026-11-10T08:00:00" },
+  ];
+  const deleted: string[] = [];
+  await page.route("**/api/imports", (route) => route.fulfill({ json: jobs }));
+  await page.route(/\/api\/(imports|recipes)\/(2|3|77|78)$/, (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    deleted.push(new URL(route.request().url()).pathname);
+    jobs = jobs.filter((j) => !route.request().url().endsWith(`/imports/${j.id}`));
+    return route.fulfill({ status: 204 });
+  });
+  await login(page);
+  await page.goto("/dodaj");
+  const bigos = page.locator(".jobs li", { hasText: "example.pl/bigos" });
+  await bigos.getByRole("button", { name: "usuń z listy" }).click();
+  await expect(bigos).toHaveCount(0);
+  expect(deleted).toEqual(["/api/imports/2"]);
+  const zurek = page.locator(".jobs li", { hasText: "example.pl/zurek" });
+  await zurek.getByRole("button", { name: "🗑️ usuń przepis" }).click();
+  await expect(zurek).toHaveCount(0);
+  await expect(page.getByText("Usunięto przepis")).toBeVisible();
+  // Po kilku sekundach (czas na "Cofnij") serwer usuwa przepis i wpis
+  await expect.poll(() => deleted, { timeout: 10000 }).toEqual(["/api/imports/2", "/api/recipes/78", "/api/imports/3"]);
+});
+
+test("lista przepisów: wybór widoku (lista, kafelki) zostaje zapamiętany", async ({ page }) => {
+  await login(page);
+  await expect(page.locator(".grid.view-medium")).toBeVisible();
+  await page.getByRole("button", { name: "Widok listy przepisów" }).click();
+  await page.getByRole("button", { name: "Lista" }).click();
+  await expect(page.locator(".grid.view-list")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".grid.view-list")).toBeVisible();
+  await page.getByRole("button", { name: "Widok listy przepisów" }).click();
+  await page.getByRole("button", { name: "Średnie kafelki" }).click();
+  await expect(page.locator(".grid.view-medium")).toBeVisible();
+});
+
 test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", async ({ page }) => {
   const promo = (id: number, name: string, ingredient: string, price: string) => ({
     id, store: "Biedronka", name, category: "jedzenie", ingredient, price, note: "", leaflet: "Gazetka",
