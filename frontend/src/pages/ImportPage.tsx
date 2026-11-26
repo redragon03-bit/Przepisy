@@ -46,7 +46,7 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const { undoable } = useToast();
+  const { undoable, toast } = useToast();
 
   const refresh = () => api.listImports().then(setJobs);
 
@@ -285,6 +285,27 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
       )}
       {menuJob && (
         <Sheet title={menuJob.recipe_title || "Import"} onClose={() => setMenuJob(null)}>
+          {/* Wprowadzony adres (albo początek tekstu) - do podejrzenia i zaznaczenia */}
+          {menuJob.kind !== "image" && <p className="job-source small muted">{menuJob.source}</p>}
+          {menuJob.kind === "url" && (
+            <>
+              <SheetTile
+                icon="📋"
+                label="Kopiuj adres"
+                onClick={async () => {
+                  const url = menuJob.source;
+                  setMenuJob(null);
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast("Skopiowano adres.");
+                  } catch {
+                    window.prompt("Adres:", url);
+                  }
+                }}
+              />
+              <SheetTile icon="🔗" label="Otwórz link" onClick={() => window.open(menuJob.source, "_blank", "noopener")} />
+            </>
+          )}
           <SheetTile
             icon="🧹"
             label="Usuń z listy"

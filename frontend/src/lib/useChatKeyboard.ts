@@ -17,6 +17,9 @@ export function useChatKeyboard(onOpen: () => void) {
     // Największa widoczna wysokość = ekran bez klawiatury (rośnie np. po obróceniu telefonu)
     let full = Math.max(vv.height, window.innerHeight);
     let open = false;
+    // Przez chwilę po otwarciu klawiatury przewijamy na dół po każdej zmianie wysokości:
+    // iOS wysuwa klawiaturę stopniowo i sam przesuwa widok, co zostawiało czat na górze
+    let openedAt = 0;
     let timers: number[] = [];
     const typing = () => touch && !!document.activeElement?.closest(".chat-input");
     const update = () => {
@@ -26,14 +29,16 @@ export function useChatKeyboard(onOpen: () => void) {
       root.style.setProperty("--vv-top", `${vv.offsetTop}px`);
       root.style.setProperty("--vv-h", `${vv.height}px`);
       root.classList.toggle("kb-open", nowOpen);
-      if (nowOpen && !open) requestAnimationFrame(onOpen);
+      if (nowOpen && !open) openedAt = Date.now();
+      if (nowOpen && Date.now() - openedAt < 1000) requestAnimationFrame(onOpen);
+      if (!nowOpen && open) requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
       open = nowOpen;
     };
     // Klawiatura wysuwa się chwilę - poprawiamy położenie jeszcze kilka razy po stuknięciu
     const settle = () => {
       update();
       timers.forEach(clearTimeout);
-      timers = [100, 300, 600].map((ms) => window.setTimeout(update, ms));
+      timers = [100, 300, 600, 900].map((ms) => window.setTimeout(update, ms));
     };
     const onOrientation = () => {
       full = 0;

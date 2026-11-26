@@ -612,7 +612,12 @@ test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje te
   const rowBox = (await bigos.boundingBox())!;
   expect(rowBox.height).toBeLessThan(70);
   await bigos.getByRole("button", { name: "Opcje importu" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Usuń z listy" }).click();
+  // W panelu widać wprowadzony adres, można go skopiować albo otworzyć
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText("https://example.pl/bigos")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Kopiuj adres" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Otwórz link" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Usuń z listy" }).click();
   await expect(bigos).toHaveCount(0);
   expect(deleted).toEqual(["/api/imports/2"]);
   const zurek = page.locator(".jobs li", { hasText: "Żurek" });
@@ -1540,14 +1545,25 @@ test("czat: stuknięcie w pole chowa pasek zakładek, pole siedzi na dole (klawi
     const response = await route.fetch();
     route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
   });
+  // Długa rozmowa - po stuknięciu w pole ma być widać jej koniec
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ json: { text: "Pomysł.\n\n".repeat(30) + "Ostatnia odpowiedź", new_recipe: null, recipes: [] } }),
+  );
   await login(page);
   await page.getByRole("link", { name: "Czat" }).click();
+  await page.getByLabel("Wiadomość").fill("Coś na obiad");
+  await page.getByRole("button", { name: "Wyślij" }).click();
+  await expect(page.getByText("Ostatnia odpowiedź")).toBeVisible();
+  await page.getByLabel("Wiadomość").blur();
+  await page.evaluate(() => window.scrollTo(0, 0));
   const html = page.locator("html");
   await expect(html).not.toHaveClass(/kb-open/);
   await expect(page.locator(".tabbar")).toBeVisible();
   // W aplikacji z ekranu głównego wysokości okna się nie różnią - liczy się samo stuknięcie w pole
   await page.getByLabel("Wiadomość").tap();
   await expect(html).toHaveClass(/kb-open/);
+  // Widać ostatnią wiadomość, nie początek rozmowy
+  await expect(page.getByText("Ostatnia odpowiedź")).toBeInViewport();
   await expect(page.locator(".tabbar")).toBeHidden();
   const input = (await page.locator(".chat-input").boundingBox())!;
   const height = await page.evaluate(() => window.visualViewport!.height);
