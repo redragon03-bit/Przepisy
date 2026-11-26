@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, formatMinutes, Recipe } from "../api";
 import CookedSheet from "../components/recipe/CookedSheet";
@@ -17,6 +17,7 @@ import { cachedRecipe, cacheRecipe } from "../lib/recipeCache";
 import { parseServings } from "../lib/scale";
 import { useToast } from "../lib/toast";
 import { useWakeLock } from "../lib/useTimers";
+import { usePinchZoom } from "../lib/usePinchZoom";
 import Loading from "../components/Loading";
 
 // Szczegóły przepisu. Składniki i kroki można "odhaczać" w trakcie gotowania,
@@ -69,6 +70,10 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
     setKeepAwake(false);
     toast("Telefon nie pozwolił utrzymać włączonego ekranu.");
   });
+
+  // Treść przepisu (bez paska u góry) powiększa się dwoma palcami
+  const zoomed = useRef<HTMLDivElement>(null);
+  usePinchZoom(zoomed, !!recipe);
 
   if (error) return <p className="error center">{error}</p>;
   if (!recipe) return <Loading />;
@@ -142,102 +147,104 @@ export default function RecipePage({ aiEnabled }: { aiEnabled: boolean }) {
         />
       </header>
 
-      {recipe.image_url ? (
-        <img className="hero" src={recipe.image_url} alt="" />
-      ) : recipe.can_edit && (
-        <button type="button" className="hero-placeholder" disabled={searching} onClick={searchImages}>
-          {searching ? "Szukam zdjęć w internecie…" : "🔍 Znajdź zdjęcie w internecie"}
-        </button>
-      )}
-      {searching && recipe.image_url && <p className="muted small">Szukam zdjęć w internecie…</p>}
-      {recipe.image_low_res && recipe.can_edit && !searching && !candidates && (
-        <p className="muted small low-res-note">
-          Zdjęcie jest w słabej jakości.{" "}
-          <button type="button" className="link small" onClick={searchImages}>
-            🔍 Znajdź lepsze
+      <div ref={zoomed} className="recipe-zoom">
+        {recipe.image_url ? (
+          <img className="hero" src={recipe.image_url} alt="" />
+        ) : recipe.can_edit && (
+          <button type="button" className="hero-placeholder" disabled={searching} onClick={searchImages}>
+            {searching ? "Szukam zdjęć w internecie…" : "🔍 Znajdź zdjęcie w internecie"}
           </button>
-        </p>
-      )}
-      {candidates && candidates.length > 0 && (
-        <ImageCandidates
-          recipe={recipe}
-          urls={candidates}
-          onPicked={(r) => {
-            setRecipe(r);
-            setCandidates(null);
-          }}
-          onClose={() => setCandidates(null)}
-        />
-      )}
-      <h1>{recipe.title}</h1>
-      {family.length > 0 && (
-        <div className="chips variants">
-          {family.map((v) =>
-            v.id === recipe.id ? (
-              <span key={v.id} className="chip selected">
-                {v.variant_name}
-              </span>
-            ) : (
-              <Link key={v.id} to={`/przepis/${v.id}`} replace className="chip">
-                {v.variant_name}
-              </Link>
-            ),
-          )}
-        </div>
-      )}
-      {recipe.categories.length > 0 && (
-        <div className="chips">
-          {recipe.categories.map((c) => (
-            <span key={c} className="chip">
-              {c}
-            </span>
-          ))}
-        </div>
-      )}
-      <Stars value={recipe.rating} onChange={(rating) => patch({ rating })} />
-      {recipe.description && <p>{recipe.description}</p>}
-      <p className="muted small">
-        {[recipe.servings, ...times].filter(Boolean).join(" · ")}
-        {/^https?:\/\//i.test(recipe.source_url) && (
-          <>
-            {" · "}
-            <a href={recipe.source_url} target="_blank" rel="noreferrer">
-              źródło
-            </a>
-          </>
         )}
-      </p>
-      {recipe.kcal !== null && (
-        <p className="small">
-          {nutritionText(recipe)} <span className="muted">na porcję (szacunek AI)</span>
+        {searching && recipe.image_url && <p className="muted small">Szukam zdjęć w internecie…</p>}
+        {recipe.image_low_res && recipe.can_edit && !searching && !candidates && (
+          <p className="muted small low-res-note">
+            Zdjęcie jest w słabej jakości.{" "}
+            <button type="button" className="link small" onClick={searchImages}>
+              🔍 Znajdź lepsze
+            </button>
+          </p>
+        )}
+        {candidates && candidates.length > 0 && (
+          <ImageCandidates
+            recipe={recipe}
+            urls={candidates}
+            onPicked={(r) => {
+              setRecipe(r);
+              setCandidates(null);
+            }}
+            onClose={() => setCandidates(null)}
+          />
+        )}
+        <h1>{recipe.title}</h1>
+        {family.length > 0 && (
+          <div className="chips variants">
+            {family.map((v) =>
+              v.id === recipe.id ? (
+                <span key={v.id} className="chip selected">
+                  {v.variant_name}
+                </span>
+              ) : (
+                <Link key={v.id} to={`/przepis/${v.id}`} replace className="chip">
+                  {v.variant_name}
+                </Link>
+              ),
+            )}
+          </div>
+        )}
+        {recipe.categories.length > 0 && (
+          <div className="chips">
+            {recipe.categories.map((c) => (
+              <span key={c} className="chip">
+                {c}
+              </span>
+            ))}
+          </div>
+        )}
+        <Stars value={recipe.rating} onChange={(rating) => patch({ rating })} />
+        {recipe.description && <p>{recipe.description}</p>}
+        <p className="muted small">
+          {[recipe.servings, ...times].filter(Boolean).join(" · ")}
+          {/^https?:\/\//i.test(recipe.source_url) && (
+            <>
+              {" · "}
+              <a href={recipe.source_url} target="_blank" rel="noreferrer">
+                źródło
+              </a>
+            </>
+          )}
         </p>
-      )}
-      {recipe.cooked_count > 0 && (
-        <button type="button" className="link muted small cooked-line" onClick={() => setPanel("log")}>
-          Ugotowane {recipe.cooked_count}× · ostatnio {new Date(recipe.last_cooked_at!).toLocaleDateString("pl-PL")}
-          {recipe.cook_log.length > 0 && " · dziennik ›"}
-        </button>
-      )}
+        {recipe.kcal !== null && (
+          <p className="small">
+            {nutritionText(recipe)} <span className="muted">na porcję (szacunek AI)</span>
+          </p>
+        )}
+        {recipe.cooked_count > 0 && (
+          <button type="button" className="link muted small cooked-line" onClick={() => setPanel("log")}>
+            Ugotowane {recipe.cooked_count}× · ostatnio {new Date(recipe.last_cooked_at!).toLocaleDateString("pl-PL")}
+            {recipe.cook_log.length > 0 && " · dziennik ›"}
+          </button>
+        )}
 
-      {"wakeLock" in navigator && (
-        <label className="toggle">
-          <input type="checkbox" checked={keepAwake} onChange={(e) => setKeepAwake(e.target.checked)} />
-          Nie wygaszaj ekranu
-        </label>
-      )}
+        {"wakeLock" in navigator && (
+          <label className="toggle">
+            <input type="checkbox" checked={keepAwake} onChange={(e) => setKeepAwake(e.target.checked)} />
+            Nie wygaszaj ekranu
+          </label>
+        )}
 
-      <IngredientsSection
-        recipe={recipe}
-        baseServings={baseServings}
-        servings={servings}
-        setServings={setServings}
-        factor={factor}
-        setFactor={setFactor}
-        scale={scale}
-        aiEnabled={aiEnabled}
-      />
-      <StepsSection recipe={recipe} scale={scale} />
-      <NotesSection recipe={recipe} onChange={setRecipe} />
+        <IngredientsSection
+          recipe={recipe}
+          baseServings={baseServings}
+          servings={servings}
+          setServings={setServings}
+          factor={factor}
+          setFactor={setFactor}
+          scale={scale}
+          aiEnabled={aiEnabled}
+        />
+        <StepsSection recipe={recipe} scale={scale} />
+        <NotesSection recipe={recipe} onChange={setRecipe} />
+      </div>
 
       <div className="actions">
         <button type="button" className="primary" onClick={() => setPanel("cooked")}>

@@ -25,6 +25,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "📖",
     title: "Przepisy",
     items: [
+      "W przepisie rozsuń lub zsuń dwa palce, żeby powiększyć albo pomniejszyć treść - aplikacja zapamięta tę wielkość.",
       "Szukaj po nazwie, składniku, opisie, krokach albo notatkach – „zurawina” znajdzie też „żurawinę”.",
       "„Filtry” obok wyszukiwania: kategorie, ❤️ ulubione, sortowanie i przepisy z wybranymi składnikami.",
       "W przepisie: +/− zmienia liczbę porcji, stuknięcie w składnik go odhacza, a przytrzymanie podpowiada zamiennik.",
