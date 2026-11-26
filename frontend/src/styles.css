@@ -2547,6 +2547,8 @@ body:has(.fab) .back-to-top {
 }
 
 :root.kb-open .chat-input {
+  /* Nad klawiaturą iOS stawia swój pasek ˄˅✓ - odstęp do niego tak mały jak między paskiem a klawiaturą */
+  padding-bottom: 3px;
   top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
   bottom: auto;
   transform: translateY(-100%);
