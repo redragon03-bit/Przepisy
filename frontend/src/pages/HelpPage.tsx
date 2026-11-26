@@ -130,17 +130,19 @@ export default function HelpPage() {
       <header className="topbar">
         <h1>Jak używać</h1>
       </header>
+      <p className="muted small">Stuknij temat, żeby go rozwinąć.</p>
+      {/* Same tytuły na start - od razu widać wszystkie tematy, a treść rozwija się po stuknięciu */}
       {SECTIONS.map((section) => (
-        <section key={section.title} className="box">
-          <h2>
+        <details key={section.title} className="box help-section">
+          <summary>
             {section.icon} {section.title}
-          </h2>
+          </summary>
           <ul className="help-list">
             {section.items.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-        </section>
+        </details>
       ))}
     </>
   );

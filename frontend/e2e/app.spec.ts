@@ -65,7 +65,12 @@ test("przewodnik „Jak używać” pod „Więcej”", async ({ page }) => {
   await page.getByRole("button", { name: "Więcej" }).click();
   await page.getByRole("link", { name: "Jak używać" }).click();
   await expect(page.getByRole("heading", { name: "Jak używać" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Tryb gotowania/ })).toBeVisible();
+  // Tematy zwinięte - widać wszystkie tytuły, treść po stuknięciu
+  const cooking = page.locator("details.help-section", { hasText: "Tryb gotowania" });
+  await expect(cooking.locator("summary")).toBeVisible();
+  await expect(cooking.locator(".help-list")).toBeHidden();
+  await cooking.locator("summary").click();
+  await expect(cooking.locator(".help-list")).toBeVisible();
 });
 
 test("menu ⋯ na przepisie, przeliczanie ilości w krokach i minutnik na innych ekranach", async ({ page }) => {
