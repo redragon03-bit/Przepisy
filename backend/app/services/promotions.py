@@ -564,6 +564,8 @@ def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
     if not _lock.acquire(blocking=False):
         return 0
     status.running, read = True, 0
+    # Wpisy dopisane ze stron gazetek (nie z tekstu) - z nimi nie łączymy kolejnych produktów
+    from_pages: set[int] = set()
     try:
         today = date.today()
         with SessionLocal() as db:
@@ -599,12 +601,18 @@ def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
                     if old is None:
                         # Ten sam produkt pod inną nazwą z tekstu Blixa - zdjęcie trafia do niego, bez dubletu
                         new = _promotion(product)
-                        old = next((p for p in leaflet.promotions if not p.image and same_product(p, new)), None)
+                        # (tylko wpisy z tekstu - nie te dopisane już ze stron, np. dwa warianty w tej samej cenie)
+                        old = next((p for p in leaflet.promotions
+                                    if p.id is not None and not p.image and p.id not in from_pages
+                                    and same_product(p, new)), None)
                     if old is not None and old.image:
                         continue
                     image = crop_product(jpeg, product.box)
                     if old is None:
-                        leaflet.promotions.append(_promotion(product, image))
+                        added = _promotion(product, image)
+                        leaflet.promotions.append(added)
+                        db.flush()
+                        from_pages.add(added.id)
                     else:  # znany już z tekstu - dokładamy zdjęcie i rabat
                         old.image = image
                         old.discount = old.discount or _promotion(product).discount
