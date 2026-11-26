@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 // Ile trzeba przeciągnąć w dół (px), żeby panel się zamknął
 const CLOSE_AT = 80;
@@ -67,20 +68,28 @@ export default function Sheet({ title, onClose, children, list }: { title?: stri
     };
   }, []);
 
-  return (
+  // Do <body>, żeby panel nie dziedziczył powiększenia treści przepisu (usePinchZoom) ani przesunięć rodzica
+  return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
       <div ref={ref} className={`sheet ${list ? "sheet-list" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         {title && <p className="sheet-title">{title}</p>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // Kafelek w panelu: ikona + podpis
-export function SheetTile({ icon, label, onClick, danger }: { icon: string; label: string; onClick: () => void; danger?: boolean }) {
+// `active` - przełącznik włączony (np. "Nie wygaszaj: wł.")
+export function SheetTile({ icon, label, onClick, danger, active }: { icon: string; label: string; onClick: () => void; danger?: boolean; active?: boolean }) {
   return (
-    <button type="button" className={`sheet-tile ${danger ? "danger-tile" : ""}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`sheet-tile ${danger ? "danger-tile" : ""} ${active ? "active" : ""}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
       <span>{icon}</span>
       {label}
     </button>

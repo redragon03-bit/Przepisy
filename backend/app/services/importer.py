@@ -186,9 +186,9 @@ def _run(job_id: int, work) -> None:
             add_missing_images(db, recipes)
         except (fetcher.FetchError, ai.AiError) as exc:
             _fail(db, job_id, started_at, str(exc))
-        except Exception as exc:
+        except Exception:
             log.exception("Import %s failed", job_id)
-            _fail(db, job_id, started_at, f"Nieoczekiwany błąd: {exc}")
+            _fail(db, job_id, started_at, "Nie udało się odczytać przepisu – spróbuj ponownie.")
 
 
 def _import_url(db: Session, job: ImportJob) -> list[Recipe]:

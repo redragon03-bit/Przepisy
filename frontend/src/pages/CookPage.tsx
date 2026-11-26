@@ -71,7 +71,10 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
         <div className="grid">
           {shown.map((m) => (
             <RecipeCard key={m.recipe.id} recipe={m.recipe}>
-              <span className="small promo-badge card-tag">🏷️ {m.promos.map((p) => `${p.ingredient} (${p.label})`).join(", ")}</span>
+              {/* Krótko: ile składników i które; ceny są w Promocjach i przy składnikach w przepisie */}
+              <span className="small promo-badge card-tag promo-summary">
+                🏷️ {m.promos.length} w promocji: {[...new Set(m.promos.map((p) => p.ingredient))].join(", ")}
+              </span>
             </RecipeCard>
           ))}
         </div>

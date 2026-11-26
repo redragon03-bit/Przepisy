@@ -1,7 +1,7 @@
 // Testy przeliczania porcji: npm test (Node uruchamia TypeScript bez budowania)
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatKitchenAmount, scaleStep, scaleText } from "./scale.ts";
+import { formatKitchenAmount, scaleStep, scaleText, servingsText } from "./scale.ts";
 
 test("ułamki w linijce składnika", () => {
   assert.equal(scaleText("1/2 szklanki mleka", null, 2), "1 szklanki mleka");
@@ -31,4 +31,14 @@ test("bez zmian i z dopiskiem", () => {
   assert.equal(scaleText("szczypta soli", null, 2), "szczypta soli");
   assert.equal(scaleText("sól do smaku", 1, 2), "sól do smaku (×2)");
   assert.equal(scaleText("jajka rozmiar L, 2 sztuki", 5, 2), "jajka rozmiar L, 2 sztuki (×2)");
+});
+
+test("porcje z odmianą, gdy w przepisie jest sama liczba", () => {
+  assert.equal(servingsText("1"), "1 porcja");
+  assert.equal(servingsText("4"), "4 porcje");
+  assert.equal(servingsText("5"), "5 porcji");
+  assert.equal(servingsText("12"), "12 porcji");
+  assert.equal(servingsText("22"), "22 porcje");
+  assert.equal(servingsText("na 6 osób"), "na 6 osób");
+  assert.equal(servingsText(""), "");
 });

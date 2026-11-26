@@ -361,6 +361,47 @@ def _promotion(product: ai.AiPromotion, image: str = "") -> Promotion:
                      discount=discount, image=image)
 
 
+# Słowa z nazw w gazetce, które nie mówią, który to produkt
+_PACKAGE_WORDS = {"zestaw", "opakowanie", "rodzaje", "różne", "puszka", "pudełko", "butelka", "sztuka",
+                  "produkt", "produkty", "wybrane", "smaki", "rodzaj", "gramatura"}
+
+
+def _marks(name: str, ingredient: str) -> set[str]:
+    """Wyróżniki produktu (marka, odmiana) bez słów składnika i opakowania, po 5 liter (odmiana słów)."""
+    skip = {w[:5] for w in _long_words(ingredient)}
+    return {w[:5] for w in _long_words(clean_name(name))
+            if len(w) >= 4 and not w.isdigit() and w not in _PACKAGE_WORDS and w[:5] not in skip}
+
+
+def same_product(a: Promotion, b: Promotion) -> bool:
+    """Ten sam produkt opisany dwa razy: z tekstu Blixa ("Herbata Basilur", bez zdjęcia) i ze strony
+    gazetki ("BASILUR Herbata różne rodzaje 75 g puszka", ze zdjęciem). Ta sama cena i wspólna marka."""
+    price = price_value(a.price)
+    if price is None or price != price_value(b.price):
+        return False
+    return bool(_marks(a.name, a.ingredient) & _marks(b.name, b.ingredient or a.ingredient))
+
+
+def with_photo_twins(rows: list[Promotion]) -> tuple[list[Promotion], dict[int, Promotion]]:
+    """Łączy dublety tekst/strona w tej samej gazetce: zostaje wpis z tekstu (krótsza, ładniejsza nazwa),
+    a zdjęcie bierze od bliźniaka ze strony, który znika z listy. Zwraca (lista, id -> wpis ze zdjęciem)."""
+    photo_of: dict[int, Promotion] = {}
+    used: set[int] = set()
+    by_leaflet: dict[int, list[Promotion]] = {}
+    for row in rows:
+        by_leaflet.setdefault(row.leaflet_id, []).append(row)
+    for group in by_leaflet.values():
+        photos = [p for p in group if p.image]
+        for row in group:
+            if row.image:
+                continue
+            twin = next((p for p in photos if same_product(row, p)), None)
+            if twin is not None:
+                photo_of[row.id] = twin
+                used.add(twin.id)
+    return [r for r in rows if r.id not in used], photo_of
+
+
 # Wycinek produktu ze strony gazetki: tyle pikseli najwyżej (miniatura na liście)
 CROP_SIZE = 240
 
@@ -461,7 +502,7 @@ def refresh() -> None:
 # --- Nocne czytanie obrazków stron (ceny, których Blix nie podaje w tekście) ---
 
 # Tyle stron najwyżej czyta AI w ciągu jednej nocy (darmowy limit Gemini jest też dla czatu i importu)
-PAGES_PER_NIGHT = 50
+PAGES_PER_NIGHT = 150
 # Godziny, w których czytamy strony (czas serwera)
 NIGHT_HOURS = range(1, 6)
 # Główne gazetki tygodnia - tylko je czytamy stronami (bez ogonków, jak zwraca fold)
@@ -523,6 +564,8 @@ def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
     if not _lock.acquire(blocking=False):
         return 0
     status.running, read = True, 0
+    # Wpisy dopisane ze stron gazetek (nie z tekstu) - z nimi nie łączymy kolejnych produktów
+    from_pages: set[int] = set()
     try:
         today = date.today()
         with SessionLocal() as db:
@@ -555,11 +598,21 @@ def read_pages(limit: int = PAGES_PER_NIGHT) -> int:
                 known = {p.name.lower(): p for p in leaflet.promotions}
                 for product in products:
                     old = known.get(clean_name(product.name).lower())
+                    if old is None:
+                        # Ten sam produkt pod inną nazwą z tekstu Blixa - zdjęcie trafia do niego, bez dubletu
+                        new = _promotion(product)
+                        # (tylko wpisy z tekstu - nie te dopisane już ze stron, np. dwa warianty w tej samej cenie)
+                        old = next((p for p in leaflet.promotions
+                                    if p.id is not None and not p.image and p.id not in from_pages
+                                    and same_product(p, new)), None)
                     if old is not None and old.image:
                         continue
                     image = crop_product(jpeg, product.box)
                     if old is None:
-                        leaflet.promotions.append(_promotion(product, image))
+                        added = _promotion(product, image)
+                        leaflet.promotions.append(added)
+                        db.flush()
+                        from_pages.add(added.id)
                     else:  # znany już z tekstu - dokładamy zdjęcie i rabat
                         old.image = image
                         old.discount = old.discount or _promotion(product).discount

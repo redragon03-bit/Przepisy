@@ -68,7 +68,7 @@ export default function CookingModePage() {
   const last = recipe.steps.length - 1;
   const current = step >= 0 ? recipe.steps[step] : null;
   // Składniki użyte w tym kroku - żeby nie wracać do listy
-  const used = current ? stepIngredients(recipe.ingredients, [current.text])[0] : [];
+  const used = current ? stepIngredients(recipe.ingredients, [current])[0] : [];
 
   // Przesunięcie palcem w lewo = następny krok, w prawo = poprzedni
   const onTouchStart = (e: TouchEvent) => {

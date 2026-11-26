@@ -1,5 +1,30 @@
 # Zmiany
 
+## 0.28.0
+
+Zbiorcze poprawki wyglądu i wygody (lista Dariusza + audyt UX).
+
+- Przepisy: przycisk obok kostki zmienia widok listy (lista, małe, średnie, duże kafelki), wybór zostaje.
+  Rząd kategorii zanika na krawędzi, gdy jest więcej do przewinięcia.
+- Przepis: powiększanie treści dwoma palcami (zapamiętane). Porcje słownie („4 porcje”), „Nie wygaszaj ekranu”
+  w menu ⋯, niski pasek „Znajdź zdjęcie”, równa kolumna składników z „brak”, „Gotuj” zwija się do ikony
+  po przewinięciu i nie zasłania treści ani minutnika.
+- Tryb gotowania: pod krokiem tylko składniki z jego sekcji, lepsze dopasowanie odmian (cukier/cukru);
+  pasek minutnika nie zasłania kroku i ma krótszy opis.
+- Czat: podpowiedzi zawijają się w kilka rzędów; przy klawiaturze rozmowa zostaje widoczna nad polem.
+- Dodaj: przy gotowym imporcie „usuń z listy” i „usuń przepis” (z Cofnij); zrozumiały komunikat błędu;
+  wyłączony „Importuj” wyraźnie szary. Nowy i edytowany przepis zapisuje się jako szkic i wraca po zmianie zakładki.
+  Krótsze podpowiedzi w formularzu (reszta pod „?”).
+- Zakupy i W domu: działy jako zaokrąglone, półprzezroczyste karty. „Usuń kupione” przy nagłówku kupionych,
+  „Wyczyść listę” pod ⋯, podpowiedź o gestach tylko na początku. Komunikaty z „Cofnij” na dole ekranu.
+- Plan: zaczyna od dziś (minione dni zwinięte), przepis dodaje się z panelu od dołu. Plan od AI: miniatury,
+  stuknięcie otwiera przepis, a propozycja zostaje po zamknięciu lub powrocie.
+- Co ugotuję?: promocje przy przepisie jako krótkie podsumowanie.
+- Promocje: produkt z tekstu gazetki i ten sam ze strony gazetki łączą się w jedną pozycję ze zdjęciem.
+  Nocą AI czyta do 150 stron gazetek (było 50), więc więcej produktów dostaje zdjęcie i cenę.
+- Ustawienia: krótka lista grup, każda na osobnej podstronie. „Jak używać”: tematy rozwijane stuknięciem.
+- Ikona 🗓️ zamiast 📅 (iPhone pokazywał „JUL 17”); przy otwartym „Więcej” podświetlona tylko ta zakładka.
+
 ## 0.27.5
 
 - Lista przepisów: tło motywu nie urywa się już pod nagłówkiem. Pole szukania dostaje pełniejsze tło

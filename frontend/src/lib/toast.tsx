@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-// Krótkie komunikaty u góry ekranu, wspólne dla całej aplikacji:
+// Krótkie komunikaty na dole ekranu (nad paskiem zakładek), wspólne dla całej aplikacji:
 // - toast("Zapisane!") - zwykła informacja albo błąd,
 // - undoable("Usunięto przepis", commit, undo) - zmiana wykona się za kilka sekund,
 //   chyba że użytkownik stuknie "Cofnij" (zamiast pytania "Na pewno?").

@@ -36,7 +36,7 @@ const TABS = [
 // Rzadziej używane strony chowamy pod zakładką "Więcej", żeby pasek był czytelny.
 const MORE = [
   { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
-  { to: "/plan", icon: "📅", label: "Plan" },
+  { to: "/plan", icon: "🗓️", label: "Plan" },
   { to: "/promocje", icon: "🏷️", label: "Promocje" },
   { to: "/ustawienia", icon: "⚙️", label: "Ustawienia" },
   { to: "/pomoc", icon: "💡", label: "Jak używać" },
@@ -53,7 +53,7 @@ export default function App() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const [moreOpen, setMoreOpen] = useState(false);
-  const inMore = MORE.some((m) => m.to === location.pathname);
+  const inMore = MORE.some((m) => location.pathname === m.to || location.pathname.startsWith(`${m.to}/`));
   const swipe = useEdgeSwipeBack();
 
   useEffect(() => setMoreOpen(false), [location.key]);
@@ -81,21 +81,20 @@ export default function App() {
     api.authStatus().then((status) => {
       setAuth(status);
       saveAuth(status);
+      // Przepisy z planu na tydzień trafiają do pamięci telefonu - do gotowania bez internetu.
+      // Dopiero po zalogowaniu (wcześniej serwer odpowiadał 401).
+      if (status.authenticated) prefetchPlanned().catch(() => {});
     });
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth((a) => (a ? { ...a, authenticated: false } : a)));
     // Bez internetu (np. w sklepie) otwieramy aplikację z ostatnio zapamiętanym stanem -
     // lista zakupów działa wtedy z pamięci telefonu
-    refreshAuth().then(
-      // Przepisy z planu na tydzień trafiają do pamięci telefonu - do gotowania bez internetu
-      () => prefetchPlanned().catch(() => {}),
-      () => {
-        const saved = savedAuth();
-        if (saved) setAuth((current) => current ?? saved);
-        setOffline(true);
-      },
-    );
+    refreshAuth().catch(() => {
+      const saved = savedAuth();
+      if (saved) setAuth((current) => current ?? saved);
+      setOffline(true);
+    });
   }, []);
 
   if (!auth)
@@ -131,6 +130,7 @@ export default function App() {
           <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} owner={auth.is_owner} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
+          <Route path="/ustawienia/:group" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
           <Route path="/pomoc" element={<HelpPage />} />
           <Route path="/sekcje" element={<SectionsReviewPage />} />
         </Routes>
@@ -144,7 +144,14 @@ export default function App() {
       )}
       <nav className="tabbar">
         {TABS.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} end={tab.to === "/"} onClick={(e) => onTabClick(e, tab.to)}>
+          // Przy otwartym panelu "Więcej" wyróżniona jest tylko ta zakładka
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.to === "/"}
+            className={({ isActive }) => (isActive && !moreOpen ? "active" : "")}
+            onClick={(e) => onTabClick(e, tab.to)}
+          >
             <span>{tab.icon}</span>
             {tab.label}
           </NavLink>

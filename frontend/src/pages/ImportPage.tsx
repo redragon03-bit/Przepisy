@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, ImportJob } from "../api";
+import { api, ApiError, ImportJob } from "../api";
 import AutoTextarea from "../components/AutoTextarea";
+import { hideRecipe, unhideRecipe } from "../lib/hidden";
+import { forgetRecipe } from "../lib/recipeCache";
+import { useToast } from "../lib/toast";
 
 const STATUS_LABEL: Record<ImportJob["status"], string> = {
   pending: "⏳ w kolejce",
@@ -41,6 +44,7 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const { undoable } = useToast();
 
   const refresh = () => api.listImports().then(setJobs);
 
@@ -100,6 +104,31 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
     } catch (e) {
       setError((e as Error).message);
     }
+  };
+
+  // Usunięcie zaimportowanego przepisu razem z wpisem na liście, z "Cofnij" (jak w menu przepisu)
+  const removeRecipe = (job: ImportJob) => {
+    const recipeId = job.recipe_id;
+    if (!recipeId) return;
+    setError("");
+    hideRecipe(recipeId);
+    setJobs((list) => list.filter((j) => j.id !== job.id));
+    undoable(
+      "Usunięto przepis",
+      async () => {
+        await api.deleteRecipe(recipeId).catch((e: unknown) => {
+          // Przepis usunięty już wcześniej (np. z jego menu) - wystarczy zdjąć wpis z listy
+          if (!(e instanceof ApiError && e.status === 404)) throw e;
+        });
+        forgetRecipe(recipeId);
+        unhideRecipe(recipeId);
+        await api.deleteImport(job.id);
+      },
+      () => {
+        unhideRecipe(recipeId);
+        refresh();
+      },
+    );
   };
 
   const paste = async () => {
@@ -197,12 +226,28 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
                     </>
                   )}
                 </div>
+                {job.status === "done" && (
+                  <div className="job-actions small">
+                    <button type="button" className="link" onClick={() => remove(job.id)}>
+                      usuń z listy
+                    </button>
+                    {job.recipe_count <= 1 && job.recipe_id && (
+                      <button type="button" className="link danger-link" onClick={() => removeRecipe(job)}>
+                        🗑️ usuń przepis
+                      </button>
+                    )}
+                  </div>
+                )}
                 {job.status === "duplicate" && job.recipe_id && (
                   <div className="small">
                     <Link to={`/przepis/${job.recipe_id}`}>otwórz</Link>
                     {" · "}
                     <button type="button" className="link" onClick={() => startUrlImport(job.source, true)}>
                       importuj mimo to
+                    </button>
+                    {" · "}
+                    <button type="button" className="link" onClick={() => remove(job.id)}>
+                      usuń z listy
                     </button>
                   </div>
                 )}

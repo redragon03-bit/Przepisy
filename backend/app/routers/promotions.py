@@ -57,15 +57,19 @@ def is_favorite(promo: Promotion, favorites: list[str]) -> bool:
     return any(fav == key or promotions.matches(fav, key) for fav in favorites)
 
 
-def to_out(promo: Promotion, favorites: list[str] = ()) -> PromotionOut:
+def to_out(promo: Promotion, favorites: list[str] = (), photo: Promotion | None = None) -> PromotionOut:
     leaflet = promo.leaflet
     name = promo_aisle(promo)
     return PromotionOut(id=promo.id, store=leaflet.store, name=promotions.clean_name(promo.name),
                         category=promo.category, ingredient=promo.ingredient, price=promo.price, note=promo.note,
                         discount=promotions.discount_of(promo), aisle=name, aisle_order=AISLE_ORDER[name],
-                        image_url=f"/api/promotions/{promo.id}/image" if promo.image else "",
+                        image_url=_image_url(promo if promo.image else photo),
                         key=promo_key(promo), favorite=is_favorite(promo, list(favorites)), leaflet=leaflet.title,
                         valid_from=leaflet.valid_from, valid_to=leaflet.valid_to)
+
+
+def _image_url(promo: Promotion | None) -> str:
+    return f"/api/promotions/{promo.id}/image" if promo is not None and promo.image else ""
 
 
 @router.get("", response_model=list[PromotionOut])
@@ -73,8 +77,10 @@ def list_promotions(db: Session = Depends(get_db), user: CurrentUser = Depends(c
     """Produkty w promocji z gazetek, które jeszcze obowiązują (ten sam produkt w sklepie raz)."""
     favorites = _favorite_keys(db, user)
     seen, found = set(), []
-    for promo in promotions.current(db):
-        out = to_out(promo, favorites)
+    # Produkt z tekstu i ten sam ze strony gazetki pokazujemy raz, ze zdjęciem
+    rows, photo_of = promotions.with_photo_twins(promotions.current(db))
+    for promo in rows:
+        out = to_out(promo, favorites, photo_of.get(promo.id))
         key = (out.store, out.name.lower(), out.price)
         if key not in seen:
             seen.add(key)

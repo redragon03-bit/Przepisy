@@ -216,10 +216,11 @@ input[type="date"] {
   min-height: 44px;
 }
 
+/* Podpowiedź w polu wyraźnie bledsza od wpisanego tekstu - nie wygląda jak wartość */
 input::placeholder,
 textarea::placeholder {
   color: var(--muted);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 /* Aktywne pole: pomarańczowa ramka, od razu widać, gdzie się pisze */
@@ -441,6 +442,12 @@ button.small,
   -webkit-overflow-scrolling: touch;
 }
 
+/* Więcej chipów po prawej: rząd łagodnie zanika zamiast urywać się na krawędzi */
+.category-bar.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+
 .category-bar .chip {
   flex: none;
   white-space: nowrap;
@@ -503,6 +510,58 @@ button.small,
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px 10px;
+}
+
+/* Widoki listy przepisów (lib/recipeView.ts). Średnie kafelki = domyślna siatka powyżej. */
+.grid.view-small {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.grid.view-small .card-body {
+  padding: 6px 8px 8px;
+  font-size: var(--fs-small);
+}
+
+.grid.view-small .card-placeholder {
+  font-size: 28px;
+}
+
+.grid.view-large {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.grid.view-large .card img,
+.grid.view-large .card-placeholder {
+  aspect-ratio: 16 / 9;
+}
+
+.grid.view-large .card-body {
+  padding: 10px 14px 12px;
+}
+
+.grid.view-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.grid.view-list .card {
+  flex-direction: row;
+  align-items: center;
+}
+
+.grid.view-list .card img,
+.grid.view-list .card-placeholder {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 1;
+  font-size: 28px;
+}
+
+.grid.view-list .card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
 }
 
 /* Pasek pod paskiem stanu iPhone'a (element w index.html). iOS 26 nie rozmywa wtedy
@@ -787,6 +846,17 @@ span.drag-handle:not(.step-number) {
   white-space: nowrap;
 }
 
+/* Pod gotowym importem: "usuń z listy" i "usuń przepis" */
+.job-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.job-actions .danger-link {
+  color: var(--danger);
+}
+
 .jobs .small-button {
   margin-top: 6px;
   padding: 6px 14px;
@@ -869,11 +939,14 @@ span.drag-handle:not(.step-number) {
 }
 
 
+/* Komunikat na dole, nad paskiem zakładek - nie zasłania nagłówka strony */
 .toast {
+  --toast-lift: 0px;
   position: fixed;
   left: 50%;
-  top: calc(var(--safe-top) + 12px);
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 12px + var(--toast-lift));
   transform: translateX(-50%);
+  box-shadow: var(--shadow-2);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -914,6 +987,42 @@ span.drag-handle:not(.step-number) {
   padding: 6px 0;
 }
 
+/* Mały „+” w karcie dnia - otwiera panel z wyszukiwarką przepisów */
+.plan-day .plan-add {
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.plan-day.past {
+  opacity: 0.75;
+}
+
+/* Minione dni tygodnia zwinięte w jeden wiersz */
+.plan-past {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--muted);
+  text-align: left;
+}
+
+/* Pole szukania zostaje u góry panelu, gdy lista przepisów się przewija */
+.plan-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 0;
+  background: var(--bg);
+}
+
 .shopping .icon,
 .plan-entry .icon {
   border: none;
@@ -922,15 +1031,13 @@ span.drag-handle:not(.step-number) {
   color: var(--muted, #8a7a6c);
 }
 
-/* Szukanie zdjęć */
+/* Szukanie zdjęć: przepis bez zdjęcia - jedna linia tekstu zamiast dużej ramki */
 .hero-placeholder {
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-bottom: 12px;
-  border: 2px dashed var(--border);
-  border-radius: 14px;
-  background: var(--accent-soft);
-  font-size: calc(16px * var(--s-body));
+  margin: 0 0 4px;
+  text-align: left;
+  font-weight: 600;
 }
 
 .candidates {
@@ -995,6 +1102,58 @@ span.drag-handle:not(.step-number) {
 
 .bubble .card-body .muted {
   font-size: calc(12px * var(--s-chat));
+}
+
+/* Formularz przepisu: podpowiedź w jednym zdaniu, reszta po stuknięciu w "?" */
+.form-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.form-hint summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.form-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-hint summary::after {
+  content: "?";
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.form-hint[open] summary::after {
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.form-hint p {
+  margin: 6px 0 0;
+}
+
+/* "Przywrócono szkic · Wyczyść" nad formularzem przepisu */
+.draft-note {
+  margin: 0 0 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.draft-note .link {
+  min-height: 40px;
+  font-weight: 600;
 }
 
 .new-recipe summary {
@@ -1136,6 +1295,15 @@ body:has(.chat-input) .back-to-top {
   background: var(--bg);
 }
 
+/* Przełącznik widoku listy przepisów (lista / kafelki) obok kostki */
+.view-link {
+  font-size: 22px;
+  line-height: 1;
+  min-width: 36px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
 .random-link {
   font-size: 24px;
   text-decoration: none;
@@ -1198,6 +1366,38 @@ body:has(.chat-input) .back-to-top {
 
 .recent-item .card-placeholder {
   font-size: 28px;
+}
+
+/* Komunikat nad polem czatu, minutnikami, przyciskiem "Gotuj" i paskiem sekcji */
+body:has(.chat-input) .toast,
+body:has(.fab) .toast,
+body:has(.review-actions) .toast {
+  --toast-lift: 72px;
+}
+
+body:has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1));
+}
+
+body:has(.timer + .timer) .toast {
+  --timer-count: 2;
+}
+
+body:has(.timer + .timer + .timer) .toast {
+  --timer-count: 3;
+}
+
+body:has(.chat-input):has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1) + 72px);
+}
+
+/* Tryb gotowania zakrywa pasek zakładek: komunikat nad przyciskami kroków */
+body:has(.cooking) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+body:has(.cooking):has(.timers) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px + 68px * var(--timer-count, 1));
 }
 
 /* "Cofnij" w komunikacie po usunięciu */
@@ -1302,6 +1502,24 @@ h2.aisle {
   text-transform: uppercase;
 }
 
+/* Nagłówek działu z małą akcją po prawej ("Usuń kupione") */
+.aisle-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.aisle-row .link {
+  min-height: 0;
+  font-size: calc(14px * var(--s-small));
+  padding: 12px 0 0.25rem 12px;
+}
+
+.gesture-hint {
+  padding: 16px;
+}
+
 .swipe-row {
   position: relative;
   overflow: hidden;
@@ -1324,9 +1542,10 @@ h2.aisle {
   background: var(--danger);
 }
 
-/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem */
+/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem
+   (--timers-h = wysokość paska, ustawia TimersBar) */
 body:has(.timers) .page {
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 96px);
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 24px);
 }
 
 /* Długie panele (dziennik, plan od AI) przewijają się w środku */
@@ -1408,6 +1627,33 @@ a.chip {
   border-bottom: 1px solid var(--border);
 }
 
+/* Pozycja propozycji: miniaturka + dzień i nazwa, całość otwiera przepis */
+.plan-proposal-recipe {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.plan-proposal-recipe img,
+.plan-proposal-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--accent-soft);
+}
+
+.plan-proposal-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
 .use-first {
   color: var(--accent-strong);
 }
@@ -1432,6 +1678,34 @@ a.chip {
 }
 
 /* Jak używać */
+/* "Jak używać": tematy rozwijane po stuknięciu */
+.help-section summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--hit);
+  font-weight: 600;
+  font-size: calc(1.1rem * var(--s-title));
+  list-style: none;
+  cursor: pointer;
+}
+
+.help-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.help-section summary::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 22px;
+  transition: transform 0.2s var(--ease);
+}
+
+.help-section[open] summary::after {
+  transform: rotate(90deg);
+}
+
 .help-list {
   margin: 0;
   padding-left: 18px;
@@ -1644,10 +1918,21 @@ a.chip {
   box-shadow: inset 0 0 0 1.5px currentcolor;
 }
 
-/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu */
+/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu.
+   Kreska stoi w marginesie strony, więc kółko i tekst zostają w jednej linii z innymi wierszami. */
 .checklist li.missing {
-  box-shadow: inset 3px 0 0 var(--missing);
-  padding-left: 12px;
+  position: relative;
+}
+
+.checklist li.missing::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--missing);
 }
 
 .promo-price {
@@ -1855,8 +2140,10 @@ body:has(.timers) .chat {
   padding-bottom: 140px;
 }
 
-body:has(.timers) .cooking-body {
-  padding-bottom: 80px;
+/* Tryb gotowania: treść kończy się nad paskiem minutnika, więc nic pod nim nie znika
+   (przycisk minutnika kroku zostaje widoczny) */
+body:has(.cooking-timers) .cooking-body {
+  margin-bottom: calc(var(--timers-h, 72px) + 8px);
 }
 
 /* --- Pasek zakładek: "pigułka" pod aktywną ikoną (Material 3) --- */
@@ -1946,13 +2233,30 @@ body:has(.timers) .cooking-body {
   align-items: center;
   gap: 12px;
   min-height: calc(40px * var(--s-space));
-  padding: calc(5px * var(--s-space)) 4px;
-  background: var(--bg);
+  padding: calc(5px * var(--s-space)) 12px;
   transition: transform 0.2s var(--ease);
   /* Przytrzymanie zmienia tekst pozycji - bez systemowego zaznaczania tekstu iPhone'a */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Przesuwany wiersz zasłania czerwoną warstwę "usuń" pod spodem */
+.swipe-content.swiping {
+  background: var(--surface);
+}
+
+/* Lista zakupów i "W domu": każdy dział to zaokrąglona, lekko przezroczysta karta (jak .box),
+   zamiast pełnych ciemnych pasów zasłaniających tło motywu */
+.checklist.shopping {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.checklist.shopping li:last-child {
+  border-bottom: none;
 }
 
 /* --- Pływający przycisk akcji (FAB) "Gotuj" na przepisie --- */
@@ -1981,18 +2285,30 @@ body:has(.timers) .cooking-body {
   font-size: 24px;
 }
 
-/* Gdy chodzi minutnik: FAB robi się okrągły, a minutniki zajmują resztę szerokości */
+/* Po przewinięciu i gdy chodzi minutnik: sama ikona, mniej zasłania */
+.fab.compact,
 body:has(.timers) .fab {
   padding: 0;
   justify-content: center;
 }
 
+.fab.compact .fab-label,
 body:has(.timers) .fab .fab-label {
   display: none;
 }
 
-body:has(.fab) .timers {
-  right: 88px;
+/* Minutnik ma całą szerokość ekranu, a "Gotuj" stoi nad nim */
+body:has(.timers) .fab {
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px + var(--timers-h, 72px) + 8px);
+}
+
+/* Koniec przepisu (np. "Ugotowane") da się przewinąć ponad "Gotuj" */
+body:has(.fab) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 88px);
+}
+
+body:has(.fab):has(.timers) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 96px);
 }
 
 body:has(.fab) .back-to-top {
@@ -2167,6 +2483,33 @@ body:has(.fab) .back-to-top {
   border-top: 1px solid var(--border);
 }
 
+/* Otwarta klawiatura w czacie (lib/useChatKeyboard.ts): strona przypięta do widocznej części
+   ekranu i przewijana w środku, pole wpisywania nad klawiaturą, bez paska zakładek */
+:root.kb-open body:has(.chat-input) .page {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 76px;
+}
+
+:root.kb-open body:has(.chat-input) .tabbar {
+  display: none;
+}
+
+:root.kb-open .chat-input {
+  top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
+  bottom: auto;
+  transform: translateY(-100%);
+}
+
+:root.kb-open .chat {
+  padding-bottom: 0;
+}
+
 .chat-input textarea {
   flex: 1;
   min-width: 0;
@@ -2186,17 +2529,20 @@ body:has(.fab) .back-to-top {
   line-height: 1;
 }
 
+/* Podpowiedzi czatu zawijają się w kilka rzędów wewnątrz karty - wszystkie widać od razu,
+   bez przewijania w bok (wcześniej wystawały za ramkę i nie było wiadomo, że jest ich więcej) */
 .chat-suggestions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 4px 16px 8px;
-  scrollbar-width: none;
+  margin-top: 12px;
 }
 
 .chat-suggestions .chip {
   flex: none;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 
 /* Na kartach "Co ugotuję?": żółta cenówka i czerwony brak, ten sam język co na liście składników */
@@ -2206,6 +2552,15 @@ body:has(.fab) .back-to-top {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-weight: 600;
+}
+
+/* "Z promocji" w Co ugotuję?: najwyżej dwie linijki zamiast całej listy cen */
+.promo-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .missing-line {
@@ -2273,6 +2628,67 @@ body:has(.fab) .back-to-top {
 .toggle input.switch:focus-visible {
   outline: 2px solid var(--accent-strong, var(--accent));
   outline-offset: 2px;
+}
+
+/* Ustawienia: lista grup jak w iPhonie - karta (.box) z wierszami, ikona, nazwa, stan i strzałka */
+.box.settings-list {
+  list-style: none;
+  padding: 0 0 0 12px;
+  overflow: hidden;
+}
+
+.settings-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: calc(var(--hit) + 8px);
+  padding: 8px 12px 8px 0;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-row:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.settings-row .grow {
+  min-width: 0;
+}
+
+/* Stan pod nazwą w jednej linii - dłuższy ucina się wielokropkiem */
+.settings-row .block {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 18px;
+}
+
+.settings-row::after {
+  content: "›";
+  flex: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.settings-subpage .settings-note {
+  margin: 8px 4px;
 }
 
 /* Ustawienia → Konta */
@@ -2783,7 +3199,7 @@ body:has(.fab) .back-to-top {
   background: var(--grad);
 }
 
-:root:not([data-fx="off"]) :is(.card-placeholder, .hero-placeholder) {
+:root:not([data-fx="off"]) .card-placeholder {
   background: linear-gradient(150deg, var(--accent-soft), var(--surface-2) 70%);
 }
 
@@ -2893,7 +3309,7 @@ body:has(.fab) .back-to-top {
 }
 
 :root[data-theme="las"] .ambient i {
-  top: -16px;
+  top: 0;
   bottom: auto;
   width: calc(12px * var(--s));
   height: calc(7px * var(--s));
@@ -3070,13 +3486,20 @@ body:has(.fab) .back-to-top {
   );
 }
 
-/* Wyłączony przycisk z gradientem (np. Importuj przy pustym polu) - nadal wyraźny */
-:root:not([data-fx="off"]) .primary:disabled {
-  opacity: 0.8;
+/* Wyłączony przycisk główny (np. Importuj przy pustym polu): szary, bez gradientu i poświaty -
+   od razu widać, że nieaktywny, w każdym motywie i przy każdym poziomie efektów
+   (button. - reguła gradientu wyżej ma przez :is(.stepper button.active) wyższą wagę) */
+.primary:disabled,
+:root:not([data-fx="off"]) button.primary:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 1;
 }
 
 /* Poświata wybranego chipa mieści się w pasku kategorii (wcześniej ucinało ją góra i dół paska) */
-:root[data-fx="bold"] :is(.category-bar, .chat-suggestions) {
+:root[data-fx="bold"] .category-bar {
   margin: -8px -16px -2px;
   padding: 8px 16px 12px;
 }
