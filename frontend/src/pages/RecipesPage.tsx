@@ -95,6 +95,11 @@ function RecipeStrip({ title, recipes }: { title: string; recipes: RecipeSummary
 // i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
 let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: number; total: number } | null = null;
 
+// Rząd kategorii zanika po prawej, gdy dalej są jeszcze chipy do przewinięcia
+function markMoreRight(bar: HTMLElement | null) {
+  bar?.classList.toggle("more-right", bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 4);
+}
+
 // Strona główna: lista przepisów z wyszukiwaniem (nazwa, składniki, opis, kroki, notatki), kategorią i składnikami.
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
@@ -102,6 +107,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [viewSheet, setViewSheet] = useState(false);
   const [q, setQ] = useState(saved.q);
   const searchInput = useRef<HTMLInputElement>(null);
+  const categoryBar = useRef<HTMLDivElement>(null);
   const [ingredients, setIngredients] = useState<string[]>(saved.ingredients);
   const [category, setCategory] = useState(saved.category);
   const [favorites, setFavorites] = useState(saved.favorites);
@@ -157,6 +163,14 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Zanikanie rzędu kategorii: po każdej zmianie listy i po obrocie ekranu
+  useLayoutEffect(() => markMoreRight(categoryBar.current));
+  useEffect(() => {
+    const onResize = () => markMoreRight(categoryBar.current);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // W trakcie szukania zdjęć co 3 sekundy sprawdzamy postęp; listę pobieramy od nowa
@@ -286,7 +300,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         </button>
       </div>
       {recipes !== null && (recipes.length > 0 || category || favorites) && (
-        <div className="category-bar">
+        <div className="category-bar" ref={categoryBar} onScroll={(e) => markMoreRight(e.currentTarget)}>
           <button type="button" className={`chip ${category === "" && !favorites ? "selected" : ""}`} onClick={() => { setCategory(""); setFavorites(false); }}>
             Wszystkie <span className="muted">{total}</span>
           </button>

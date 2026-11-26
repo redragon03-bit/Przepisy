@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api, isoDay, PlanEntry, RecipeSummary } from "../api";
 import PlanSuggestSheet from "../components/PlanSuggestSheet";
 import Sheet from "../components/Sheet";
-import { nextDays } from "../lib/days";
+import { dayLabel, nextDays } from "../lib/days";
 import { loadPlanSuggestion, setPlanSuggestionOpen } from "../lib/planSuggestion";
 import { shoppingMessage } from "../lib/shopping";
 import { useToast } from "../lib/toast";
@@ -29,6 +29,9 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<RecipeSummary[]>([]);
+  const [searched, setSearched] = useState(false);
+  // Minione dni bieżącego tygodnia są zwinięte w jeden wiersz - tydzień zaczyna się od dziś
+  const [showPast, setShowPast] = useState(false);
   const [message, setMessage] = useState("");
   // Po powrocie z przepisu otwartego z propozycji AI panel otwiera się znowu z tą samą propozycją
   const [suggesting, setSuggesting] = useState(() => !!loadPlanSuggestion()?.open);
@@ -49,14 +52,27 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   // Wyszukiwarka przepisów przy dodawaniu do dnia
   useEffect(() => {
     if (addingTo === null) return;
-    const timer = setTimeout(() => api.listRecipes(q, []).then((r) => setResults(r.slice(0, 20))), 250);
+    const timer = setTimeout(
+      () =>
+        api.listRecipes(q, []).then((r) => {
+          setResults(r.slice(0, 20));
+          setSearched(true);
+        }),
+      250,
+    );
     return () => clearTimeout(timer);
   }, [q, addingTo]);
 
-  const add = async (recipe: RecipeSummary) => {
-    if (!(await run(() => api.addToPlan(addingTo!, recipe.id)))) return;
-    setAddingTo(null);
+  const startAdding = (day: string) => {
     setQ("");
+    setSearched(false);
+    setAddingTo(day);
+  };
+
+  const add = async (recipe: RecipeSummary) => {
+    const day = addingTo!;
+    setAddingTo(null);
+    if (!(await run(() => api.addToPlan(day, recipe.id)))) return;
     refresh();
   };
 
@@ -67,6 +83,9 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
   };
 
   const today = isoDay(new Date());
+  const thisWeek = days.some((d) => isoDay(d) === today);
+  const past = thisWeek ? days.filter((d) => isoDay(d) < today) : [];
+  const shown = showPast ? days : days.filter((d) => !past.includes(d));
   const range = `${days[0].toLocaleDateString("pl-PL", { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString("pl-PL", { day: "numeric", month: "short" })}`;
 
   return (
@@ -81,15 +100,28 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
         </button>
       </header>
 
-      {days.map((day) => {
+      {thisWeek && past.length > 0 && (
+        <button type="button" className="box plan-past" aria-expanded={showPast} onClick={() => setShowPast(!showPast)}>
+          <span className="grow">Wcześniej w tym tygodniu ({past.length})</span>
+          <span aria-hidden="true">{showPast ? "▾" : "▸"}</span>
+        </button>
+      )}
+      {shown.map((day) => {
         const key = isoDay(day);
         const planned = entries.filter((e) => e.day === key);
         return (
-          <section key={key} className={`box plan-day ${key === today ? "today" : ""}`}>
+          // Stuknięcie w pustą część karty (albo w „+”) otwiera panel z wyszukiwarką przepisów
+          <section
+            key={key}
+            className={`box plan-day ${key === today ? "today" : ""} ${key < today ? "past" : ""}`}
+            onClick={(e) => {
+              if (!(e.target as HTMLElement).closest("a, button")) startAdding(key);
+            }}
+          >
             <div className="row">
               <h2>{day.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric" })}</h2>
-              <button type="button" className="link" onClick={() => setAddingTo(addingTo === key ? null : key)}>
-                {addingTo === key ? "Anuluj" : "+ Dodaj"}
+              <button type="button" className="icon plan-add" aria-label={`Dodaj przepis: ${dayLabel(key)}`} onClick={() => startAdding(key)}>
+                +
               </button>
             </div>
             {planned.map((entry) => (
@@ -115,24 +147,31 @@ export default function PlanPage({ aiEnabled }: { aiEnabled: boolean }) {
                 </button>
               </div>
             ))}
-            {addingTo === key && (
-              <div>
-                <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Szukaj przepisu…" autoFocus />
-                <ul className="suggestions">
-                  {results.map((r) => (
-                    <li key={r.id}>
-                      <button type="button" onClick={() => add(r)}>
-                        {r.favorite ? "❤️ " : ""}
-                        {r.title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </section>
         );
       })}
+      {addingTo && (
+        <Sheet title={`Dodaj na: ${dayLabel(addingTo)}`} onClose={() => setAddingTo(null)} list>
+          <div className="plan-search">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Szukaj przepisu…"
+              aria-label="Szukaj przepisu"
+              enterKeyHint="search"
+              autoFocus
+            />
+          </div>
+          {results.map((r) => (
+            <button key={r.id} type="button" className="sheet-row" onClick={() => add(r)}>
+              {r.favorite ? "❤️ " : ""}
+              {r.title}
+            </button>
+          ))}
+          {searched && !results.length && <p className="muted small center">Nic nie znaleziono.</p>}
+        </Sheet>
+      )}
 
       {aiEnabled && (
         <button type="button" className="wide" onClick={() => setSuggesting(true)}>

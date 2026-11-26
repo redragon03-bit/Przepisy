@@ -102,7 +102,7 @@ export default function RecipeMenu({ recipe, scale, servings, keepAwake, onKeepA
       {panel === "menu" && (
         <Sheet onClose={close}>
           {recipe.can_edit && <SheetTile icon="✏️" label="Edytuj" onClick={() => navigate(`/przepis/${recipe.id}/edytuj`)} />}
-          <SheetTile icon="📅" label="Zaplanuj" onClick={() => setPanel("plan")} />
+          <SheetTile icon="🗓️" label="Zaplanuj" onClick={() => setPanel("plan")} />
           <SheetTile icon="🛒" label="Do zakupów" onClick={toShopping} />
           <SheetTile icon="📤" label="Udostępnij" onClick={() => setPanel("share")} />
           {aiEnabled && <SheetTile icon="🔀" label="Wariant" onClick={() => setPanel("variant")} />}

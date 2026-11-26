@@ -115,7 +115,7 @@ export default function PlanSuggestSheet({ days, onSaved, onClose }: {
             ))}
           </ul>
           <button type="button" className="primary wide" disabled={saving || !suggestion.days.length} onClick={() => save(true)}>
-            📅 Zapisz plan i 🛒 dodaj do zakupów
+            🗓️ Zapisz plan i 🛒 dodaj do zakupów
           </button>
           <button type="button" className="wide" disabled={saving || !suggestion.days.length} onClick={() => save(false)}>
             Zapisz tylko plan

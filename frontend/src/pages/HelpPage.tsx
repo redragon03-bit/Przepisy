@@ -63,6 +63,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
       "Stuknięcie odhacza pozycję: kupione jedzenie od razu trafia do „W domu” (chemia i rzeczy dla domu – nie). „Cofnij” albo ponowne stuknięcie je stamtąd zabiera.",
       "Dopisanie czegoś do listy (ręcznie, z promocji albo w Home Assistant) znaczy, że tego nie masz – produkt znika z „W domu”. Z przepisu do listy trafia tylko to, czego nie masz, a „Zawsze w domu” (sól, olej…) jest pomijane.",
       "Ten sam produkt pod inną nazwą („Kurczak piersi” i „Pierś z kurczaka”, „pomidory” i „2 kg pomidorów”) się nie dubluje: przy wpisywaniu zobaczysz „Już jest na liście”, a „Dodaj” nic nie doda (kupione wcześniej wróci na listę). Gdy chcesz mieć obie pozycje – „Dodaj osobno”. Dwie podobne pozycje, które już są na liście, łączy „Połącz”.",
+      "„Usuń kupione” (przy kupionych) czyści odhaczone, a „⋯” → „Wyczyść listę” usuwa wszystko – oba można cofnąć.",
       "Listę można wysłać do Home Assistant; odhaczone tam też trafia do „W domu”.",
     ],
   },
@@ -80,10 +81,11 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     ],
   },
   {
-    icon: "📅",
+    icon: "🗓️",
     title: "Plan (pod „Więcej”)",
     items: [
-      "Przepisy na każdy dzień tygodnia; „N por.” ustawia, na ile osób gotujesz.",
+      "Przepisy na każdy dzień tygodnia: stuknij dzień (albo „+”), żeby dodać przepis; „N por.” ustawia, na ile osób gotujesz.",
+      "Tydzień zaczyna się od dziś – minione dni są zwinięte w „Wcześniej w tym tygodniu”.",
       "„✨ Zaplanuj z AI” układa tydzień z Twoich przepisów, a „🛒 Składniki z tygodnia” robi z niego listę zakupów.",
       "Przepisy z planu na 7 dni telefon trzyma w pamięci – otworzysz je bez internetu.",
     ],
