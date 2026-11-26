@@ -505,6 +505,58 @@ button.small,
   padding: 8px 10px 10px;
 }
 
+/* Widoki listy przepisów (lib/recipeView.ts). Średnie kafelki = domyślna siatka powyżej. */
+.grid.view-small {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.grid.view-small .card-body {
+  padding: 6px 8px 8px;
+  font-size: var(--fs-small);
+}
+
+.grid.view-small .card-placeholder {
+  font-size: 28px;
+}
+
+.grid.view-large {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.grid.view-large .card img,
+.grid.view-large .card-placeholder {
+  aspect-ratio: 16 / 9;
+}
+
+.grid.view-large .card-body {
+  padding: 10px 14px 12px;
+}
+
+.grid.view-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.grid.view-list .card {
+  flex-direction: row;
+  align-items: center;
+}
+
+.grid.view-list .card img,
+.grid.view-list .card-placeholder {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 1;
+  font-size: 28px;
+}
+
+.grid.view-list .card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
 /* Pasek pod paskiem stanu iPhone'a (element w index.html). iOS 26 nie rozmywa wtedy
    górnej części ekranu: musi być fixed, na całą szerokość, z jednolitym tłem i łapać
    dotknięcia (bez pointer-events: none). */
@@ -1134,6 +1186,15 @@ body:has(.chat-input) .back-to-top {
   margin: 0 -16px;
   padding: calc(var(--safe-top) + 8px) 16px 8px;
   background: var(--bg);
+}
+
+/* Przełącznik widoku listy przepisów (lista / kafelki) obok kostki */
+.view-link {
+  font-size: 22px;
+  line-height: 1;
+  min-width: 36px;
+  color: var(--muted);
+  text-decoration: none;
 }
 
 .random-link {

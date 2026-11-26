@@ -3,10 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
+import Sheet, { SheetTile } from "../components/Sheet";
 import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
 import { listRecipes, storedRecipeList } from "../lib/recipeCache";
+import { RECIPE_VIEWS, useRecipeView } from "../lib/recipeView";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
 import Loading from "../components/Loading";
 
@@ -96,6 +98,8 @@ let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: nu
 // Strona główna: lista przepisów z wyszukiwaniem (nazwa, składniki, opis, kroki, notatki), kategorią i składnikami.
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
+  const [view, setView] = useRecipeView();
+  const [viewSheet, setViewSheet] = useState(false);
   const [q, setQ] = useState(saved.q);
   const searchInput = useRef<HTMLInputElement>(null);
   const [ingredients, setIngredients] = useState<string[]>(saved.ingredients);
@@ -221,12 +225,35 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       )}
       <header className="topbar">
         <h1>Przepisy</h1>
+        <button
+          type="button"
+          className="link view-link"
+          onClick={() => setViewSheet(true)}
+          aria-label="Widok listy przepisów"
+        >
+          {RECIPE_VIEWS.find((v) => v.id === view)?.icon}
+        </button>
         {shown && shown.length > 1 && (
           <button type="button" className="link random-link" onClick={randomRecipe} aria-label="Losuj przepis">
             🎲
           </button>
         )}
       </header>
+      {viewSheet && (
+        <Sheet title="Widok przepisów" onClose={() => setViewSheet(false)}>
+          {RECIPE_VIEWS.map((v) => (
+            <SheetTile
+              key={v.id}
+              icon={v.icon}
+              label={v.id === view ? `${v.label} ✓` : v.label}
+              onClick={() => {
+                setView(v.id);
+                setViewSheet(false);
+              }}
+            />
+          ))}
+        </Sheet>
+      )}
       <div ref={searchRef} className={searchStuck ? "search sticky stuck" : "search sticky"}>
         <div className="search-field">
           <input
@@ -310,7 +337,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           {filtering ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
         </p>
       ) : (
-        <div className="grid">
+        <div className={`grid view-${view}`}>
           {shown.map((r) => (
             <RecipeCard key={r.id} recipe={r} />
           ))}
