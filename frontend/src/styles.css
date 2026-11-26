@@ -2186,17 +2186,20 @@ body:has(.fab) .back-to-top {
   line-height: 1;
 }
 
+/* Podpowiedzi czatu zawijają się w kilka rzędów wewnątrz karty - wszystkie widać od razu,
+   bez przewijania w bok (wcześniej wystawały za ramkę i nie było wiadomo, że jest ich więcej) */
 .chat-suggestions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 4px 16px 8px;
-  scrollbar-width: none;
+  margin-top: 12px;
 }
 
 .chat-suggestions .chip {
   flex: none;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 
 /* Na kartach "Co ugotuję?": żółta cenówka i czerwony brak, ten sam język co na liście składników */
@@ -3076,7 +3079,7 @@ body:has(.fab) .back-to-top {
 }
 
 /* Poświata wybranego chipa mieści się w pasku kategorii (wcześniej ucinało ją góra i dół paska) */
-:root[data-fx="bold"] :is(.category-bar, .chat-suggestions) {
+:root[data-fx="bold"] .category-bar {
   margin: -8px -16px -2px;
   padding: 8px 16px 12px;
 }
