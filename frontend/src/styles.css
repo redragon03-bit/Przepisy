@@ -2018,13 +2018,30 @@ body:has(.timers) .cooking-body {
   align-items: center;
   gap: 12px;
   min-height: calc(40px * var(--s-space));
-  padding: calc(5px * var(--s-space)) 4px;
-  background: var(--bg);
+  padding: calc(5px * var(--s-space)) 12px;
   transition: transform 0.2s var(--ease);
   /* Przytrzymanie zmienia tekst pozycji - bez systemowego zaznaczania tekstu iPhone'a */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Przesuwany wiersz zasłania czerwoną warstwę "usuń" pod spodem */
+.swipe-content.swiping {
+  background: var(--surface);
+}
+
+/* Lista zakupów i "W domu": każdy dział to zaokrąglona, lekko przezroczysta karta (jak .box),
+   zamiast pełnych ciemnych pasów zasłaniających tło motywu */
+.checklist.shopping {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.checklist.shopping li:last-child {
+  border-bottom: none;
 }
 
 /* --- Pływający przycisk akcji (FAB) "Gotuj" na przepisie --- */
