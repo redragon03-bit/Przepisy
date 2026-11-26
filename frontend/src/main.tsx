@@ -5,6 +5,7 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { ToastProvider } from "./lib/toast";
 import { TimersProvider } from "./lib/useTimers";
+import { applyTheme, loadTheme } from "./lib/theme";
 import { applyScales, loadScales } from "./lib/uiScale";
 import "./styles.css";
 
@@ -13,6 +14,8 @@ history.scrollRestoration = "manual";
 
 // Skala czcionek i odstępów z Ustawień → Wygląd - przed pierwszym rysowaniem, bez mrugnięcia
 applyScales(loadScales());
+// Motyw kolorów (też z Wyglądu) i tryb jasny/ciemny
+applyTheme(loadTheme());
 
 // Nowa wersja aplikacji: przy starcie i przy każdym powrocie do aplikacji pytamy serwer,
 // czy jest nowsza. Jeśli tak, nowy service worker przejmuje stronę i ta przeładowuje się

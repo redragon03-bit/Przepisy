@@ -1,5 +1,6 @@
 import { MouseEvent, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import ThemePicker from "./ThemePicker";
 import {
   applyScales,
   clampScale,
@@ -70,6 +71,8 @@ export default function AppearanceSection() {
   return (
     <section className="box">
       <h2>Wygląd</h2>
+      <ThemePicker />
+      <h3 className="appearance-sub">Wielkość</h3>
       <p className="muted small">Wielkość każdej grupy osobno, co {SCALE_STEP}%. Podgląd zmienia się od razu, ustawienia dotyczą tego telefonu.</p>
       {/* Podgląd: przykładowy przepis z prawdziwymi stylami aplikacji - zmienia się od razu */}
       <div className={`scale-preview${picked === "space" ? " picked" : ""}`} onClick={pickFromPreview} aria-label="Podgląd wyglądu">

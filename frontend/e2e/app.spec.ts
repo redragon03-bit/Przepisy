@@ -1065,3 +1065,32 @@ test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość c
   await page.goto("/ustawienia");
   await page.getByRole("button", { name: "Przywróć 100%" }).click();
 });
+
+test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym otwarciu", async ({ page }) => {
+  await login(page);
+  await page.goto("/ustawienia");
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const before = await bg();
+  await page.getByRole("radio", { name: /Leśne zioła/ }).click();
+  await expect(page.getByRole("radio", { name: /Leśne zioła/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Ciemny" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-scheme", "dark");
+  await expect.poll(bg).toBe("rgb(17, 24, 19)");
+  expect(before).not.toBe("rgb(17, 24, 19)");
+  // Zostaje po przeładowaniu, na każdym ekranie
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "las");
+  await expect.poll(bg).toBe("rgb(17, 24, 19)");
+  // Efekty: "Na bogato" pokazuje drobinki na każdym ekranie, "Bez" je chowa
+  await page.goto("/ustawienia");
+  await page.getByRole("button", { name: "Na bogato" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-fx", "bold");
+  await expect(page.locator(".ambient")).toBeVisible();
+  await page.getByRole("button", { name: "Bez", exact: true }).click();
+  await expect(page.locator(".ambient")).toBeHidden();
+  await page.getByRole("button", { name: "Subtelne" }).click();
+  // Powrót do domyślnego, żeby nie zmieniać innych testów
+  await page.getByRole("radio", { name: /Klasyczny/ }).click();
+  await page.getByRole("button", { name: "Jak w telefonie" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-scheme", "light");
+});
