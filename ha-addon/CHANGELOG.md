@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.27.4
+
+- iPhone: powrót do paska stanu z 0.27.1. Tło pod godziną w iOS 26 włączało z powrotem rozmycie góry ekranu,
+  więc zostaje ciemny pasek, ale bez rozmycia. Trzeba znowu usunąć i dodać ikonę.
+- Efekty: przy przewijaniu listy przepisów chipy filtrów i zdjęcia nie prześwitują już nad polem szukania.
+
 ## 0.27.3
 
 - „Co ugotuję?” i „Promocje” otwierają się od razu z ostatnio pobranymi wynikami (zapamiętanymi w telefonie),
