@@ -28,7 +28,7 @@ import ShoppingPage from "./pages/ShoppingPage";
 
 const TABS = [
   { to: "/", icon: "📖", label: "Przepisy" },
-  { to: "/dodaj", icon: "➕", label: "Dodaj" },
+  { to: "/dodaj", icon: "+", label: "Dodaj" },
   { to: "/czat", icon: "💬", label: "Czat" },
   { to: "/zakupy", icon: "🛒", label: "Zakupy" },
 ];

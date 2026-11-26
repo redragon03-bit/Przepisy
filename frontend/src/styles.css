@@ -3048,11 +3048,31 @@ body:has(.fab) .back-to-top {
   transform: scale(0.97) rotate(-0.6deg);
 }
 
-/* Przyklejone paski (szukanie, góra przepisu) przepuszczają tło, rozmyte */
-:root[data-fx="bold"] :is(.search.sticky, .recipe > .topbar) {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
+/* Przyklejone paski (szukanie, góra przepisu) przepuszczają tło i miękko przechodzą w treść -
+   bez rozmycia, które dawało ostre krawędzie pasa na górze i na dole */
+:root:not([data-fx="off"]) .search.sticky,
+:root[data-fx="bold"] .recipe > .topbar {
+  background: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--bg) 70%, transparent) 30%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 70%,
+    transparent
+  );
+}
+
+/* Wyłączony przycisk z gradientem (np. Importuj przy pustym polu) - nadal wyraźny */
+:root:not([data-fx="off"]) .primary:disabled {
+  opacity: 0.8;
+}
+
+/* Poświata wybranego chipa mieści się w pasku kategorii (wcześniej ucinało ją góra i dół paska) */
+:root[data-fx="bold"] :is(.category-bar, .chat-suggestions) {
+  margin: -8px -16px -2px;
+  padding: 8px 16px 12px;
+}
+
+:root[data-fx="bold"] .chip.selected {
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 :root[data-fx="bold"]:is([data-theme="lod"], [data-theme="las"], [data-theme="eliksir"]) .ambient i {
@@ -3072,7 +3092,7 @@ body:has(.fab) .back-to-top {
   to { background-position: 100% 0; }
 }
 
-:root[data-fx="bold"] :is(.primary, .fab, .chip.selected) {
+:root[data-fx="bold"] :is(.primary, .fab) {
   box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
@@ -3114,4 +3134,10 @@ body:has(.fab) .back-to-top {
 
 .theme-fx-label {
   margin: 0 0 6px;
+}
+
+/* Ikona „Dodaj”: zwykły plus w kolorze tekstu (szare emoji ➕ ginęło na ciemnym pasku), jak „⋯” przy Więcej */
+.tabbar a[href="/dodaj"] span {
+  font-size: 30px;
+  font-weight: 500;
 }

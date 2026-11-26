@@ -1,5 +1,11 @@
 # Zmiany
 
+## 0.27.1
+
+- Ikona „Dodaj” na dolnym pasku to teraz plus w kolorze tekstu - dobrze widoczny też po ciemku.
+- Efekty: pasek wyszukiwania nie zasłania już drobinek (też w „Subtelne”) i miękko przechodzi w tło.
+- Efekty „Na bogato”: poświata wybranego chipa (Wszystkie, Ulubione…) nie jest już ucinana od góry i dołu; wyłączony „Importuj” jest wyraźniejszy.
+
 ## 0.27.0
 
 - Motywy kolorów: Ustawienia → Wygląd → Motyw. Do wyboru Klasyczny (dotychczasowy pomarańcz), Smocze złoto,
