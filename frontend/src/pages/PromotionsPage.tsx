@@ -7,6 +7,8 @@ import { useHiddenPromoStores } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
 import { fold } from "../lib/stepIngredients";
 import { useToast } from "../lib/toast";
+import { readCached, SLOW_MS } from "../lib/cachedLoad";
+import { loadPromotions, rememberPromotions, storedPromotions } from "../lib/usePromotions";
 import Loading from "../components/Loading";
 
 // "Promocje": jedzenie, pieluchy i środki czystości w promocji z gazetek, pogrupowane na sklepy.
@@ -102,8 +104,10 @@ function checkedLabel(status: PromoStatus): string {
 }
 
 export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
-  const [promos, setPromos] = useState<Promotion[] | null>(null);
-  const [status, setStatus] = useState<PromoStatus | null>(null);
+  // Ostatnie promocje z telefonu od razu (przez Tailscale odpowiedź bywa wolna), świeże w tle
+  const [promos, setPromosState] = useState<Promotion[] | null>(storedPromotions);
+  const [status, setStatusState] = useState<PromoStatus | null>(() => readCached<PromoStatus>("promo-status"));
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
   // Sklepy i grupy ukryte na liście (stuknięcie chowa/pokazuje) - zapamiętane w telefonie.
@@ -118,8 +122,36 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [chosen, setChosen] = useState<Promotion | null>(null);
   const { toast, run } = useToast();
 
+  const setPromos = (fresh: Promotion[]) => {
+    setPromosState(fresh);
+    rememberPromotions(fresh);
+  };
+  const setStatus = (fresh: PromoStatus) => {
+    setStatusState(fresh);
+    try {
+      localStorage.setItem("screen-cache:promo-status", JSON.stringify(fresh));
+    } catch {
+      // tryb prywatny - bez zapamiętania
+    }
+  };
+
   const load = () => {
-    api.listPromotions().then(setPromos, () => setPromos([]));
+    setLoadError(null);
+    // Bez zapamiętanej listy nie wisimy w nieskończoność - po chwili błąd i „Spróbuj ponownie”
+    const slow = setTimeout(
+      () => setLoadError("Serwer długo nie odpowiada - sprawdź połączenie (Tailscale) i spróbuj ponownie."),
+      SLOW_MS,
+    );
+    loadPromotions(true).then(
+      (fresh) => {
+        clearTimeout(slow);
+        setPromosState(fresh);
+      },
+      (e) => {
+        clearTimeout(slow);
+        setLoadError(e instanceof Error ? e.message : "Nie udało się wczytać promocji.");
+      },
+    );
     api.promoStatus().then(setStatus, () => {});
     api.promoFavorites().then(setFavorites, () => {});
   };
@@ -156,8 +188,23 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
     if (await run(() => api.promoToShopping(promo.id))) toast(`Dodano do zakupów: ${promo.name}`);
   };
 
-  if (promos === null || status === null) return <Loading />;
+  if (promos === null)
+    return loadError ? (
+      <>
+        <header className="topbar">
+          <h1>Promocje</h1>
+        </header>
+        <p className="error">{loadError}</p>
+        <button type="button" className="wide" onClick={load}>
+          ↻ Spróbuj ponownie
+        </button>
+      </>
+    ) : (
+      <Loading />
+    );
 
+  // Stan gazetek dochodzi osobno - do tego czasu lista bez linijki „sprawdzone …”
+  const st: PromoStatus = status ?? { stores: [], running: false, progress: "", last_check: null, errors: [], leaflets: [] };
   const stores = [...new Set(promos.map((p) => p.store))];
   const categories = CATEGORIES.filter(([key]) => promos.some((p) => p.category === key));
   const term = fold(q.trim());
@@ -201,7 +248,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
     else next.add(key);
     return next;
   };
-  const failed = status.leaflets.filter((l) => l.status === "failed");
+  const failed = st.leaflets.filter((l) => l.status === "failed");
 
   return (
     <>
@@ -209,8 +256,8 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
         <h1>Promocje</h1>
       </header>
       <p className="muted small">
-        {[status.stores.join(", "), checkedLabel(status)].filter(Boolean).join(" · ")}
-        {aiEnabled && status.stores.length > 0 && !status.running && (
+        {[st.stores.join(", "), checkedLabel(st)].filter(Boolean).join(" · ")}
+        {aiEnabled && st.stores.length > 0 && !st.running && (
           <>
             {" · "}
             <button type="button" className="link small" onClick={refresh}>
@@ -220,7 +267,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
         )}
       </p>
       {!aiEnabled && <p className="error small">Promocje z gazetek wymagają klucza do AI (opcje dodatku).</p>}
-      {status.errors.map((e) => (
+      {st.errors.map((e) => (
         <p key={e} className="error small">
           {e}
         </p>
@@ -228,7 +275,7 @@ export default function PromotionsPage({ aiEnabled }: { aiEnabled: boolean }) {
 
       {promos.length === 0 ? (
         <p className="muted center">
-          {status.running
+          {st.running
             ? "AI czyta nowe gazetki – to potrwa kilka minut."
             : "Nie ma jeszcze promocji. Aplikacja sprawdza gazetki co 12 godzin – możesz też stuknąć „Sprawdź teraz”."}
         </p>

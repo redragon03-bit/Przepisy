@@ -1,4 +1,4 @@
-import { APIRequestContext, expect, Page, request, test } from "@playwright/test";
+import { APIRequestContext, expect, Page, request, Route, test } from "@playwright/test";
 
 // Główne ścieżki aplikacji na ekranie telefonu. Dane tworzymy przez API (szybciej niż klikając).
 let server: APIRequestContext;
@@ -1101,4 +1101,45 @@ test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym ot
   await page.getByRole("radio", { name: /Klasyczny/ }).click();
   await page.getByRole("button", { name: "Jak w telefonie" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-scheme", "light");
+});
+
+test("co ugotuję i promocje: zapamiętane wyniki od razu, a bez nich błąd zamiast wiecznego ładowania", async ({ page }) => {
+  const promo = {
+    id: 1, store: "Biedronka", name: "Mleko UHT 3,2%", category: "jedzenie", ingredient: "mleko", price: "1,99 zł", note: "",
+    leaflet: "Gazetka", valid_from: null, valid_to: null, discount: 0, aisle: "Nabiał i jajka", aisle_order: 4, image_url: "",
+    key: "mleko", favorite: false,
+  };
+  let hang = false;
+  // Gdy serwer „wisi” (np. aktualizacja dodatku), odpowiedź nie przychodzi wcale
+  const maybeHang = (json: unknown) => (route: Route) => (hang ? new Promise<void>(() => {}) : route.fulfill({ json }));
+  await page.route("**/api/promotions", maybeHang([promo]));
+  await page.route("**/api/promotions/favorites", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/promotions/status", (route) =>
+    route.fulfill({ json: { stores: ["Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
+  );
+  await page.route("**/api/pantry/items", async (route) => (hang ? new Promise<void>(() => {}) : route.fallback()));
+
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Promocje" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+  await page.getByRole("link", { name: "Co ugotuję?" }).click();
+  await expect(page.getByRole("heading", { name: "Z tego, co masz w domu" })).toBeVisible();
+
+  // Serwer przestaje odpowiadać - oba ekrany i tak od razu pokazują ostatnie wyniki
+  hang = true;
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Z tego, co masz w domu" })).toBeVisible();
+  await page.goto("/promocje");
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+
+  // Bez zapamiętanych danych i z błędem serwera: komunikat i „Spróbuj ponownie” zamiast „Ładowanie…”
+  hang = false;
+  await page.evaluate(() => localStorage.removeItem("screen-cache:promotions"));
+  await page.route("**/api/promotions", (route) => route.fulfill({ status: 500, json: { detail: "Błąd serwera" } }));
+  await page.reload();
+  await expect(page.getByText("Błąd serwera")).toBeVisible();
+  await page.route("**/api/promotions", (route) => route.fulfill({ json: [promo] }));
+  await page.getByRole("button", { name: "↻ Spróbuj ponownie" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
 });

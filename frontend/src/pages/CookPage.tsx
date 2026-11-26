@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, CookMatch, PantryItem, PromoRecipe } from "../api";
 import { expiresLabel, inDays, USE_FIRST_DAYS } from "../components/ExpirySheet";
@@ -6,6 +6,7 @@ import PromoIdeasSheet from "../components/PromoIdeasSheet";
 import RecipeCard from "../components/RecipeCard";
 import { useHiddenPromoStores } from "../lib/promoBadges";
 import { usePromotions } from "../lib/usePromotions";
+import { useCachedLoad } from "../lib/cachedLoad";
 import Loading from "../components/Loading";
 
 // "Co mogę ugotować?" - przepisy z produktów z Zakupy → W domu (spiżarnia).
@@ -29,15 +30,12 @@ const PROMO_PREVIEW = 4;
 // "Z promocji": Twoje przepisy ze składnikami w promocji i nowe pomysły od AI
 function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
   const promos = usePromotions();
-  const [recipes, setRecipes] = useState<PromoRecipe[] | null>(null);
+  // Ostatnie wyniki z telefonu od razu, świeże z serwera w tle
+  const recipes = useCachedLoad<PromoRecipe[]>("promo-recipes", api.promoRecipes).data;
   const [all, setAll] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   // Sklepy odznaczone (tutaj albo w Promocjach - to ten sam wybór), zapamiętane w telefonie
   const [hidden, setHidden] = useHiddenPromoStores();
-
-  useEffect(() => {
-    api.promoRecipes().then(setRecipes, () => setRecipes([]));
-  }, []);
 
   if (!promos.length || recipes === null) return null;
   const stores = [...new Set(promos.map((p) => p.store))];
@@ -93,28 +91,39 @@ function PromoSection({ aiEnabled }: { aiEnabled: boolean }) {
   );
 }
 
+// Spiżarnia (i jednorazowe przeniesienie starego wyboru z przeglądarki)
+async function loadPantry(): Promise<PantryItem[]> {
+  const old = takeOldSelection();
+  const pantry = await api.pantryItems();
+  return !pantry.length && old.length ? api.addToPantry(old) : pantry;
+}
+
 export default function CookPage({ aiEnabled }: { aiEnabled: boolean }) {
-  const [items, setItems] = useState<PantryItem[] | null>(null);
   const [maxMissing, setMaxMissing] = useState(1);
-  const [matches, setMatches] = useState<CookMatch[] | null>(null);
+  // Spiżarnia i pasujące przepisy: zapamiętane w telefonie pokazujemy od razu, odświeżamy w tle
+  const pantry = useCachedLoad<PantryItem[]>("cook-pantry", loadPantry);
+  const items = pantry.data;
+  const names = (items ?? []).map((i) => i.name);
+  const matches = useCachedLoad<CookMatch[]>(
+    names.length ? `cook-matches-${maxMissing}` : null,
+    () => api.whatCanICook(names, maxMissing),
+    [names.join("\n")],
+  ).data;
 
-  useEffect(() => {
-    const old = takeOldSelection();
-    api.pantryItems().then((pantry) => {
-      if (!pantry.length && old.length) api.addToPantry(old).then(setItems);
-      else setItems(pantry);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!items?.length) {
-      setMatches(null);
-      return;
-    }
-    api.whatCanICook(items.map((i) => i.name), maxMissing).then(setMatches);
-  }, [items, maxMissing]);
-
-  if (items === null) return <Loading />;
+  if (items === null)
+    return pantry.error ? (
+      <>
+        <header className="topbar">
+          <h1>Co ugotuję?</h1>
+        </header>
+        <p className="error">{pantry.error}</p>
+        <button type="button" className="wide" onClick={pantry.reload}>
+          ↻ Spróbuj ponownie
+        </button>
+      </>
+    ) : (
+      <Loading />
+    );
 
   const soon = inDays(USE_FIRST_DAYS);
   const urgent = items.filter((i) => i.expires && i.expires <= soon).sort((a, b) => a.expires!.localeCompare(b.expires!));

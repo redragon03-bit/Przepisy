@@ -1,5 +1,15 @@
 # Zmiany
 
+## 0.27.3
+
+- „Co ugotuję?” i „Promocje” otwierają się od razu z ostatnio pobranymi wynikami (zapamiętanymi w telefonie),
+  a świeże dane z serwera podmieniają się w tle. Przez Tailscale albo w trakcie aktualizacji dodatku
+  ekran nie wisi już na „Ładowanie…”.
+- Gdy nie ma zapamiętanych wyników, a serwer nie odpowiada przez 15 sekund albo zwraca błąd, ekran pokazuje
+  komunikat i przycisk „Spróbuj ponownie” zamiast wiecznego ładowania.
+- Plakietki promocji przy składnikach też pokazują się od razu z pamięci telefonu; chwilowy błąd serwera
+  nie chowa ich już na 5 minut.
+
 ## 0.27.2
 
 - iPhone (aplikacja z ekranu głównego): koniec z czarnym paskiem pod godziną i baterią - tło motywu
