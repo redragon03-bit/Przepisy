@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError, ImportJob } from "../api";
 import AutoTextarea from "../components/AutoTextarea";
+import Sheet, { SheetTile } from "../components/Sheet";
 import { hideRecipe, unhideRecipe } from "../lib/hidden";
 import { forgetRecipe } from "../lib/recipeCache";
 import { useToast } from "../lib/toast";
@@ -41,6 +42,7 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [params, setParams] = useSearchParams();
   const [url, setUrl] = useState("");
   const [jobs, setJobs] = useState<ImportJob[]>([]);
+  const [menuJob, setMenuJob] = useState<ImportJob | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -210,33 +212,42 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
           <ul className="jobs">
             {jobs.map((job) => (
               <li key={job.id}>
-                <div className="job-source">{JOB_ICON[job.kind] + job.source}</div>
-                <div className="small">
-                  {STATUS_LABEL[job.status]}
-                  {job.status === "done" && job.recipe_count > 1 && (
-                    <>
-                      {" · "}
-                      <Link to="/">{job.recipe_count} {recipesWord(job.recipe_count)} - zobacz listę</Link>
-                    </>
-                  )}
-                  {job.status === "done" && job.recipe_count <= 1 && job.recipe_id && (
-                    <>
-                      {" · "}
-                      <Link to={`/przepis/${job.recipe_id}`}>otwórz przepis</Link>
-                    </>
-                  )}
-                </div>
-                {job.status === "done" && (
-                  <div className="job-actions small">
-                    <button type="button" className="link" onClick={() => remove(job.id)}>
-                      usuń z listy
+                {job.status === "done" && job.recipe_count <= 1 && job.recipe_id ? (
+                  // Gotowy import: jeden zwarty wiersz - miniatura, nazwa przepisu, ⋯ z usuwaniem
+                  <div className="job-row">
+                    <Link to={`/przepis/${job.recipe_id}`} className="job-recipe">
+                      {job.recipe_thumb ? <img src={job.recipe_thumb} alt="" loading="lazy" /> : <span className="job-thumb">🍽️</span>}
+                      <span className="job-title">{job.recipe_title || job.source}</span>
+                    </Link>
+                    <button type="button" className="link job-more" aria-label="Opcje importu" onClick={() => setMenuJob(job)}>
+                      ⋯
                     </button>
-                    {job.recipe_count <= 1 && job.recipe_id && (
-                      <button type="button" className="link danger-link" onClick={() => removeRecipe(job)}>
-                        🗑️ usuń przepis
-                      </button>
-                    )}
                   </div>
+                ) : (
+                  <>
+                    <div className="job-source">{JOB_ICON[job.kind] + job.source}</div>
+                    <div className="small">
+                      {STATUS_LABEL[job.status]}
+                      {job.status === "done" && job.recipe_count > 1 && (
+                        <>
+                          {" · "}
+                          <Link to="/">{job.recipe_count} {recipesWord(job.recipe_count)} - zobacz listę</Link>
+                          {" · "}
+                          <button type="button" className="link" onClick={() => remove(job.id)}>
+                            usuń z listy
+                          </button>
+                        </>
+                      )}
+                      {job.status === "done" && !job.recipe_id && job.recipe_count <= 1 && (
+                        <>
+                          {" · "}
+                          <button type="button" className="link" onClick={() => remove(job.id)}>
+                            usuń z listy
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
                 {job.status === "duplicate" && job.recipe_id && (
                   <div className="small">
@@ -271,6 +282,27 @@ export default function ImportPage({ aiEnabled }: { aiEnabled: boolean }) {
             ))}
           </ul>
         </section>
+      )}
+      {menuJob && (
+        <Sheet title={menuJob.recipe_title || "Import"} onClose={() => setMenuJob(null)}>
+          <SheetTile
+            icon="🧹"
+            label="Usuń z listy"
+            onClick={() => {
+              remove(menuJob.id);
+              setMenuJob(null);
+            }}
+          />
+          <SheetTile
+            icon="🗑️"
+            label="Usuń przepis"
+            danger
+            onClick={() => {
+              removeRecipe(menuJob);
+              setMenuJob(null);
+            }}
+          />
+        </Sheet>
       )}
     </>
   );

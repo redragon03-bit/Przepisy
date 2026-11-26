@@ -203,6 +203,8 @@ export interface ImportJobOut {
   recipe_id: number | null;
   recipe_count: number;
   created_at: string;
+  recipe_title: string;
+  recipe_thumb: string;
 }
 
 export interface IngredientLineInput {
