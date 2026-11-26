@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.28.2
+
+- Dodaj → Ostatnie importy: w panelu pod „⋯” widać wprowadzony adres, z „Kopiuj adres” i „Otwórz link”.
+- Czat: po stuknięciu w pole widać ostatnią wiadomość, a nie początek rozmowy.
+
 ## 0.28.1
 
 - Czat na iPhonie: stuknięcie w pole od razu chowa pasek zakładek, a pole siedzi tuż nad klawiaturą

@@ -29,7 +29,12 @@ export default function ChatPage({ aiEnabled }: { aiEnabled: boolean }) {
   }, [messages, thinking]);
 
   // Po wysunięciu klawiatury pokazujemy koniec rozmowy tuż nad polem wpisywania
-  useChatKeyboard(() => bottom.current?.scrollIntoView({ block: "end" }));
+  // Przy klawiaturze przewija się sama treść czatu (przypięta do widocznej części ekranu) - na sam dół
+  useChatKeyboard(() => {
+    const page = bottom.current?.closest<HTMLElement>(".page");
+    if (page) page.scrollTop = page.scrollHeight;
+    bottom.current?.scrollIntoView({ block: "end" });
+  });
 
   const send = (question: string) => {
     if (sendChat(question)) setText("");

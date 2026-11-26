@@ -1448,6 +1448,15 @@ body:has(.cooking):has(.timers) .toast {
 }
 
 /* Panel od dołu: tytuł, wiersze do wyboru (np. dni planu) i kafelek "Usuń" */
+.job-source {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .sheet-title {
   grid-column: 1 / -1;
   margin: 0 0 4px;
