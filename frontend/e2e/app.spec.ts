@@ -1135,3 +1135,16 @@ test("co ugotuję i promocje: zapamiętane wyniki od razu, a bez nich błąd zam
   await page.getByRole("button", { name: "↻ Spróbuj ponownie" }).click();
   await expect(page.locator(".promo-row")).toHaveCount(1);
 });
+
+test("pasek szukania: przezroczysty pod nagłówkiem, pełniejsze tło dopiero po przyklejeniu", async ({ page }) => {
+  await login(page);
+  const search = page.locator(".search.sticky");
+  await expect(search).not.toHaveClass(/stuck/);
+  await page.evaluate(() => {
+    document.body.style.paddingBottom = "3000px";
+    window.scrollTo(0, 600);
+  });
+  await expect(search).toHaveClass(/stuck/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(search).not.toHaveClass(/stuck/);
+});

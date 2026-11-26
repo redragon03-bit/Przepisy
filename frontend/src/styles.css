@@ -3048,11 +3048,21 @@ body:has(.fab) .back-to-top {
   transform: scale(0.97) rotate(-0.6deg);
 }
 
-/* Przyklejone paski (szukanie, góra przepisu) przepuszczają trochę tła i miękko przechodzą
-   w treść na dole - bez rozmycia, które dawało ostre krawędzie pasa. U góry prawie pełne tło,
-   żeby przewijane chipy i zdjęcia nie prześwitywały nad polem szukania. */
+/* Przyklejone paski (szukanie, góra przepisu) przepuszczają tło i miękko przechodzą w treść -
+   bez rozmycia, które dawało ostre krawędzie pasa na górze i na dole */
 :root:not([data-fx="off"]) .search.sticky,
 :root[data-fx="bold"] .recipe > .topbar {
+  background: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--bg) 70%, transparent) 30%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 70%,
+    transparent
+  );
+}
+
+/* Gdy pasek szukania jest przyklejony u góry, lista przewija się pod nim: u góry prawie pełne
+   tło, żeby chipy i zdjęcia nie prześwitywały nad polem szukania */
+:root:not([data-fx="off"]) .search.sticky.stuck {
   background: linear-gradient(
     color-mix(in srgb, var(--bg) 96%, transparent),
     color-mix(in srgb, var(--bg) 88%, transparent) 70%,

@@ -137,8 +137,20 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
     window.scrollTo(0, saved.scrollY);
   }, [recipes]);
 
+  // Pasek szukania dostaje pełniejsze tło dopiero, gdy przyklei się u góry (lista przewija się
+  // pod nim). Wcześniej jest przezroczysty, żeby tło motywu nie urywało się pod nagłówkiem.
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [searchStuck, setSearchStuck] = useState(false);
+
   useLayoutEffect(() => {
-    const onScroll = () => save({ ...loadSaved(), scrollY: window.scrollY });
+    const onScroll = () => {
+      save({ ...loadSaved(), scrollY: window.scrollY });
+      const el = searchRef.current;
+      if (el) {
+        const stuck = el.getBoundingClientRect().top <= parseFloat(getComputedStyle(el).top) + 1 && window.scrollY > 0;
+        setSearchStuck((prev) => (prev === stuck ? prev : stuck));
+      }
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -215,7 +227,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
           </button>
         )}
       </header>
-      <div className="search sticky">
+      <div ref={searchRef} className={searchStuck ? "search sticky stuck" : "search sticky"}>
         <div className="search-field">
           <input
             ref={searchInput}
