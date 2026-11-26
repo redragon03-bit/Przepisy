@@ -53,7 +53,7 @@ export default function App() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const [moreOpen, setMoreOpen] = useState(false);
-  const inMore = MORE.some((m) => m.to === location.pathname);
+  const inMore = MORE.some((m) => location.pathname === m.to || location.pathname.startsWith(`${m.to}/`));
   const swipe = useEdgeSwipeBack();
 
   useEffect(() => setMoreOpen(false), [location.key]);
@@ -131,6 +131,7 @@ export default function App() {
           <Route path="/plan" element={<PlanPage aiEnabled={auth.ai_enabled} />} />
           <Route path="/zakupy" element={<ShoppingPage haEnabled={auth.ha_enabled} owner={auth.is_owner} />} />
           <Route path="/ustawienia" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
+          <Route path="/ustawienia/:group" element={<SettingsPage onLogout={refreshAuth} auth={auth} />} />
           <Route path="/pomoc" element={<HelpPage />} />
           <Route path="/sekcje" element={<SectionsReviewPage />} />
         </Routes>

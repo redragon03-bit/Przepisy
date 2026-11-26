@@ -523,7 +523,7 @@ test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", asyn
   await expect(page.locator(".checklist .tag-promo")).toHaveCount(1);
   await expect(page.locator(".checklist li", { hasText: "schabu" }).locator(".tag-promo")).toHaveText("🏷️ Biedronka 14,99 zł/kg");
 
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/zakupy");
   const toggle = page.getByRole("switch", { name: "Pokazuj ceny z promocji przy składnikach" });
   await expect(toggle).toBeChecked();
   await toggle.click();
@@ -563,11 +563,14 @@ test("zakupy: promocje z każdego sklepu, bez sklepów odznaczonych w Promocjach
 test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia tylko swoje", async ({ page }) => {
   await login(page);
   await page.goto("/ustawienia");
+  await page.getByRole("link", { name: /^Konto i domownicy/ }).click();
   await page.getByPlaceholder("Nazwa nowego konta, np. imię").fill("Naszman");
   await page.getByPlaceholder("Hasło (min. 4 znaki)").fill("brat123");
   await page.getByRole("button", { name: "Dodaj konto" }).click();
   await expect(page.locator(".account-list")).toContainText("Naszman");
   await page.screenshot({ path: "test-results/konta-wlasciciel.png" });
+  // Wylogowanie jest na głównym ekranie Ustawień
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
   await page.getByRole("button", { name: /^Wyloguj/ }).click();
 
   await page.getByPlaceholder("Nazwa konta").fill("Naszman");
@@ -583,15 +586,60 @@ test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia ty
   await expect(page.getByRole("button", { name: "Usuń" })).toHaveCount(0);
 
   await page.goto("/ustawienia");
+  await expect(page.getByRole("link", { name: /^Twoje konto/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Kopia zapasowa/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Porządki/ })).toHaveCount(0);
+  // Podstrony właściciela wracają na listę
+  await page.goto("/ustawienia/kopia");
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  await page.getByRole("link", { name: /^Twoje konto/ }).click();
   await expect(page.getByRole("heading", { name: "Twoje konto" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Kopia zapasowa" })).toHaveCount(0);
+  await expect(page.getByPlaceholder("Obecne hasło")).toBeVisible();
   await page.screenshot({ path: "test-results/konta-domownik.png" });
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
   await page.getByRole("button", { name: /^Wyloguj/ }).click();
+});
+
+test("ustawienia: krótka lista grup, wejście do podstrony i powrót", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Ustawienia" }).click();
+  await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
+  // Na głównym ekranie tylko lista grup ze stanem - bez suwaków i przycisków sekcji
+  const rows = page.locator(".settings-row");
+  await expect(rows).toHaveText([/Konto i domownicy/, /Wygląd.*Motyw: Klasyczny/, /Zakupy i promocje.*Ceny z gazetek: wł\./, /Kopia zapasowa/, /Porządki/, /Informacje/]);
+  await expect(page.getByRole("button", { name: "Przywróć 100%" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Wyloguj/ })).toBeVisible();
+  for (const row of await rows.all()) {
+    const box = (await row.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  }
+
+  await page.getByRole("link", { name: /^Wygląd/ }).click();
+  await expect(page).toHaveURL(/\/ustawienia\/wyglad$/);
+  await expect(page.getByRole("heading", { name: "Wygląd", level: 1 })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Motyw" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Wyloguj/ })).toHaveCount(0);
+  // Zakładka "Więcej" dalej podświetlona na podstronie
+  await expect(page.locator(".tabbar button.active")).toHaveText(/Więcej/);
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
+
+  // Kopia zapasowa jako osobna podstrona; otwarta z linku wraca na listę Ustawień
+  await page.goto("/ustawienia/kopia");
+  await expect(page.getByRole("heading", { name: "Kopia zapasowa", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Pobierz kopię" })).toBeVisible();
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  // Nieznana grupa - lista Ustawień
+  await page.goto("/ustawienia/cos-innego");
+  await expect(page).toHaveURL(/\/ustawienia$/);
 });
 
 test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async ({ page }) => {
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const smaller = page.getByRole("button", { name: "Tytuły: mniejsze" });
   await smaller.click();
   await smaller.click();
@@ -617,7 +665,7 @@ test("pola do pisania mają co najmniej 16 px także przy mniejszym tekście (iP
   await login(page);
   // Przybliżanie po stuknięciu w pole blokuje też maximum-scale=1
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /maximum-scale=1/);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const smaller = page.getByRole("button", { name: "Tekst: mniejsze" });
   for (let i = 0; i < 4; i++) await smaller.click();
   await expect(page.getByLabel("Tekst: wielkość")).toHaveText("80%");
@@ -625,20 +673,20 @@ test("pola do pisania mają co najmniej 16 px także przy mniejszym tekście (iP
     page.evaluate(() =>
       Math.min(...[...document.querySelectorAll("input, textarea, select")].map((e) => parseFloat(getComputedStyle(e).fontSize))),
     );
-  for (const path of ["/ustawienia", "/", "/dodaj", "/zakupy"]) {
+  for (const path of ["/ustawienia/konto", "/", "/dodaj", "/zakupy"]) {
     await page.goto(path);
     await page.locator("input, textarea, select").first().waitFor({ state: "attached" });
     expect(await smallestField(), path).toBeGreaterThanOrEqual(16);
   }
   // Zwykły tekst dalej się zmniejsza
   expect(await page.locator("body").evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeLessThan(16);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   await page.getByRole("button", { name: "Przywróć 100%" }).click();
 });
 
 test("wygląd: podgląd przepisu, stuknięty element zmienia się od razu", async ({ page }) => {
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const preview = page.getByLabel("Podgląd wyglądu");
   await preview.scrollIntoViewIfNeeded();
   const title = preview.getByRole("heading", { name: "Placki ziemniaczane" });
@@ -902,7 +950,7 @@ test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, kt�
   await addRecipe("Ciasto z rabarbarem", ["rabarbary"], ["Piecz."]);
   await addRecipe("Konfitura z rabarbaru", ["rabarbaru"], ["Smaż."]);
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/porzadki");
   await page.getByRole("button", { name: "🧹 Znajdź podwójne składniki" }).click();
   const card = page.locator(".duplicate-card", { hasText: "rabarbar" });
   await expect(card.locator(".chip")).toHaveCount(3);
@@ -1055,7 +1103,7 @@ test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość c
   // Czat ma własną grupę w Ustawieniach → Wygląd
   const bubble = page.locator(".bubble.assistant").first();
   expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const smaller = page.getByRole("button", { name: "Czat: mniejsze" });
   await smaller.click();
   await smaller.click();
@@ -1067,13 +1115,13 @@ test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość c
   expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("14.4px");
   await page.screenshot({ path: "test-results/czat-po.png" });
   await page.getByRole("button", { name: "Nowa rozmowa" }).click();
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   await page.getByRole("button", { name: "Przywróć 100%" }).click();
 });
 
 test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym otwarciu", async ({ page }) => {
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const before = await bg();
   await page.getByRole("radio", { name: /Leśne zioła/ }).click();
@@ -1087,7 +1135,7 @@ test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym ot
   await expect(page.locator("html")).toHaveAttribute("data-theme", "las");
   await expect.poll(bg).toBe("rgb(17, 24, 19)");
   // Efekty: "Na bogato" pokazuje drobinki na każdym ekranie, "Bez" je chowa
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   await page.getByRole("button", { name: "Na bogato" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-fx", "bold");
   await expect(page.locator(".ambient")).toBeVisible();

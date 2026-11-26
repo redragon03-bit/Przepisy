@@ -70,7 +70,6 @@ export default function AppearanceSection() {
 
   return (
     <section className="box">
-      <h2>Wygląd</h2>
       <ThemePicker />
       <h3 className="appearance-sub">Wielkość</h3>
       <p className="muted small">Wielkość każdej grupy osobno, co {SCALE_STEP}%. Podgląd zmienia się od razu, ustawienia dotyczą tego telefonu.</p>

@@ -2458,6 +2458,67 @@ body:has(.fab) .back-to-top {
   outline-offset: 2px;
 }
 
+/* Ustawienia: lista grup jak w iPhonie - karta (.box) z wierszami, ikona, nazwa, stan i strzałka */
+.box.settings-list {
+  list-style: none;
+  padding: 0 0 0 12px;
+  overflow: hidden;
+}
+
+.settings-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: calc(var(--hit) + 8px);
+  padding: 8px 12px 8px 0;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-row:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.settings-row .grow {
+  min-width: 0;
+}
+
+/* Stan pod nazwą w jednej linii - dłuższy ucina się wielokropkiem */
+.settings-row .block {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 18px;
+}
+
+.settings-row::after {
+  content: "›";
+  flex: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.settings-subpage .settings-note {
+  margin: 8px 4px;
+}
+
 /* Ustawienia → Konta */
 .account-list {
   list-style: none;
