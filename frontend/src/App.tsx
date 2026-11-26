@@ -81,21 +81,20 @@ export default function App() {
     api.authStatus().then((status) => {
       setAuth(status);
       saveAuth(status);
+      // Przepisy z planu na tydzień trafiają do pamięci telefonu - do gotowania bez internetu.
+      // Dopiero po zalogowaniu (wcześniej serwer odpowiadał 401).
+      if (status.authenticated) prefetchPlanned().catch(() => {});
     });
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth((a) => (a ? { ...a, authenticated: false } : a)));
     // Bez internetu (np. w sklepie) otwieramy aplikację z ostatnio zapamiętanym stanem -
     // lista zakupów działa wtedy z pamięci telefonu
-    refreshAuth().then(
-      // Przepisy z planu na tydzień trafiają do pamięci telefonu - do gotowania bez internetu
-      () => prefetchPlanned().catch(() => {}),
-      () => {
-        const saved = savedAuth();
-        if (saved) setAuth((current) => current ?? saved);
-        setOffline(true);
-      },
-    );
+    refreshAuth().catch(() => {
+      const saved = savedAuth();
+      if (saved) setAuth((current) => current ?? saved);
+      setOffline(true);
+    });
   }, []);
 
   if (!auth)

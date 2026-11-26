@@ -1,6 +1,7 @@
 """Pobieranie stron i obrazków z internetu."""
 
 import ipaddress
+import logging
 import socket
 
 import httpx
@@ -15,6 +16,8 @@ HEADERS = {
 }
 MAX_PAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
+
+log = logging.getLogger(__name__)
 
 
 class FetchError(Exception):
@@ -43,7 +46,9 @@ def _get(url: str, max_bytes: int) -> httpx.Response:
                           event_hooks={"request": [_only_internet]}) as client:
             response = client.get(url)
     except httpx.HTTPError as exc:
-        raise FetchError(f"Nie udało się połączyć ze stroną ({exc.__class__.__name__})") from exc
+        # Nazwa wyjątku (np. ProxyError) nic nie mówi użytkownikowi - szczegóły tylko do logu
+        log.warning("Pobieranie %s nie powiodło się: %s: %s", url, exc.__class__.__name__, exc)
+        raise FetchError("Strona nie odpowiada – spróbuj później.") from exc
     if response.status_code >= 400:
         raise FetchError(
             f"Strona odpowiedziała błędem {response.status_code}. "

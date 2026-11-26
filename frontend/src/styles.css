@@ -216,10 +216,11 @@ input[type="date"] {
   min-height: 44px;
 }
 
+/* Podpowiedź w polu wyraźnie bledsza od wpisanego tekstu - nie wygląda jak wartość */
 input::placeholder,
 textarea::placeholder {
   color: var(--muted);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 /* Aktywne pole: pomarańczowa ramka, od razu widać, gdzie się pisze */
@@ -1101,6 +1102,58 @@ span.drag-handle:not(.step-number) {
 
 .bubble .card-body .muted {
   font-size: calc(12px * var(--s-chat));
+}
+
+/* Formularz przepisu: podpowiedź w jednym zdaniu, reszta po stuknięciu w "?" */
+.form-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.form-hint summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.form-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-hint summary::after {
+  content: "?";
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.form-hint[open] summary::after {
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.form-hint p {
+  margin: 6px 0 0;
+}
+
+/* "Przywrócono szkic · Wyczyść" nad formularzem przepisu */
+.draft-note {
+  margin: 0 0 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.draft-note .link {
+  min-height: 40px;
+  font-weight: 600;
 }
 
 .new-recipe summary {
@@ -3433,9 +3486,16 @@ body:has(.fab) .back-to-top {
   );
 }
 
-/* Wyłączony przycisk z gradientem (np. Importuj przy pustym polu) - nadal wyraźny */
-:root:not([data-fx="off"]) .primary:disabled {
-  opacity: 0.8;
+/* Wyłączony przycisk główny (np. Importuj przy pustym polu): szary, bez gradientu i poświaty -
+   od razu widać, że nieaktywny, w każdym motywie i przy każdym poziomie efektów
+   (button. - reguła gradientu wyżej ma przez :is(.stepper button.active) wyższą wagę) */
+.primary:disabled,
+:root:not([data-fx="off"]) button.primary:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 1;
 }
 
 /* Poświata wybranego chipa mieści się w pasku kategorii (wcześniej ucinało ją góra i dół paska) */
