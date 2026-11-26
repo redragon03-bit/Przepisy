@@ -134,10 +134,41 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
 
   await page.getByText("mleko").click();
   await expect(page.getByRole("heading", { name: "Kupione" })).toBeVisible();
-  await page.getByRole("button", { name: "Wyczyść listę" }).click();
+  // Komunikat na dole nad paskiem zakładek - nie zasłania nagłówka strony
+  const toast = (await page.getByRole("status").boundingBox())!;
+  const tabbar = (await page.locator(".tabbar").boundingBox())!;
+  const header = (await page.getByRole("heading", { name: "Zakupy" }).boundingBox())!;
+  expect(toast.y + toast.height).toBeLessThanOrEqual(tabbar.y);
+  expect(toast.y).toBeGreaterThan(header.y + header.height);
+  await page.screenshot({ path: "test-results/zakupy-toast.png" });
+  // Jedna widoczna akcja przy kupionych; „Wyczyść listę” schowane pod „⋯”
+  await expect(page.getByRole("button", { name: "Wyczyść listę" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Usuń kupione" }).click();
+  await expect(page.getByRole("heading", { name: "Kupione" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cofnij" }).click();
+  await expect(page.getByRole("heading", { name: "Kupione" })).toBeVisible();
+  await page.getByRole("button", { name: "Opcje listy" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Wyczyść listę" }).click();
   await expect(page.getByText("Lista jest pusta")).toBeVisible();
   await page.getByRole("button", { name: "Cofnij" }).click();
   await expect(page.getByText("2 pomidory")).toBeVisible();
+});
+
+test("lista zakupów: podpowiedź o gestach tylko do pierwszego użycia gestu", async ({ page }) => {
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  await server.post("/api/shopping", { data: { text: "chleb" } });
+  await login(page);
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  const hint = page.getByText("przesuń w lewo, aby usunąć");
+  await expect(hint).toBeVisible();
+  // Przytrzymanie wiersza (zmiana tekstu) = gest znany, podpowiedź znika na stałe
+  const row = page.locator(".swipe-row", { hasText: "chleb" });
+  const box = (await row.boundingBox())!;
+  await touchHold(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.getByRole("dialog", { name: "Zmień pozycję" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("chleb")).toBeVisible();
+  await expect(hint).toHaveCount(0);
 });
 
 test("lista zakupów: podobna pozycja nie dubluje się, a dwie podobne można połączyć", async ({ page }) => {
@@ -352,9 +383,9 @@ test("otwarty wcześniej przepis działa bez internetu", async ({ page, context 
 test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
   await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
   const recipe = await addRecipe("Gulasz na plan", ["500 g wołowiny"], ["Duś 90 min."]);
-  const monday = new Date();
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const day = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  // Dziś - minione dni tygodnia są zwinięte
+  const now = new Date();
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   await server.post("/api/plan", { data: { day, recipe_id: recipe.id } });
   await login(page);
   await page.getByRole("button", { name: "Więcej" }).click();
@@ -366,6 +397,66 @@ test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
   await expect(page.getByText(/Dodano do listy zakupów/)).toBeVisible();
   const items = (await (await server.get("/api/shopping")).json()) as { text: string }[];
   expect(items.map((i) => i.text)).toContain("1000 g wołowiny");
+});
+
+test("rząd kategorii zanika po prawej, gdy jest więcej do przewinięcia", async ({ page }) => {
+  const names = ["Zupa", "Obiad", "Śniadanie", "Kolacja", "Desery", "Przekąski", "Ciasta", "Sałatki"];
+  await page.route("**/api/categories", (route) => route.fulfill({ json: names.map((name) => ({ name, recipe_count: 1 })) }));
+  await login(page);
+  const bar = page.locator(".category-bar");
+  await expect(bar).toHaveClass(/more-right/);
+  await expect(bar).toHaveCSS("mask-image", /linear-gradient/);
+  await page.screenshot({ path: "test-results/kategorie-zanikanie.png" });
+  // Na końcu rzędu nic już nie ma - bez zanikania
+  await bar.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+  await expect(bar).not.toHaveClass(/more-right/);
+});
+
+test("plan: tydzień od dziś, minione dni zwinięte, przepis dodaje się z panelu", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  // Przy otwartym panelu „Więcej” wyróżniona jest tylko ta zakładka
+  await expect(page.locator(".tabbar .active")).toHaveCount(1);
+  await expect(page.locator(".tabbar .active")).toHaveText(/Więcej/);
+  await page.getByRole("link", { name: "Plan" }).click();
+  await expect(page.locator(".tabbar .active")).toHaveText(/Więcej/);
+  const weekday = (new Date().getDay() + 6) % 7; // 0 = poniedziałek
+  // Pierwsza karta to dziś; minione dni w jednym wierszu
+  await expect(page.locator(".plan-day")).toHaveCount(7 - weekday);
+  await expect(page.locator(".plan-day").first()).toHaveClass(/today/);
+  if (weekday > 0) {
+    const past = page.getByRole("button", { name: `Wcześniej w tym tygodniu (${weekday})` });
+    await past.click();
+    await expect(page.locator(".plan-day")).toHaveCount(7);
+    await past.click();
+    await expect(page.locator(".plan-day")).toHaveCount(7 - weekday);
+  }
+  // Bez „+ Dodaj” w każdej karcie
+  await expect(page.getByRole("button", { name: "+ Dodaj" })).toHaveCount(0);
+
+  // Ostatni dzień tygodnia (karta przy dole): panel z wyszukiwarką, wyniki nad paskiem zakładek
+  const last = page.locator(".plan-day").last();
+  await last.locator("h2").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByPlaceholder("Szukaj przepisu…")).toBeFocused();
+  await dialog.getByPlaceholder("Szukaj przepisu…").fill("naleśn");
+  const result = dialog.getByRole("button", { name: "Naleśniki" });
+  await expect(result).toBeVisible();
+  const tabbar = (await page.locator(".tabbar").boundingBox())!;
+  const box = (await result.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(tabbar.y);
+  await page.screenshot({ path: "test-results/plan-panel.png" });
+  await result.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(last).toContainText("Naleśniki");
+
+  // „+” w karcie też otwiera panel; usuwanie pozycji działa jak wcześniej
+  await last.getByRole("button", { name: /^Dodaj przepis/ }).click();
+  await expect(page.getByRole("dialog").getByPlaceholder("Szukaj przepisu…")).toBeVisible();
+  await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await last.getByRole("button", { name: "Usuń z planu" }).click();
+  await expect(last).not.toContainText("Naleśniki");
 });
 
 test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", async ({ page }) => {

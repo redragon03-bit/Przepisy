@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, ShoppingItem } from "../api";
 import PantryView from "../components/PantryView";
 import RenameSheet from "../components/RenameSheet";
+import Sheet, { SheetTile } from "../components/Sheet";
 import SwipeRow from "../components/SwipeRow";
 import { useHiddenPromoStores, usePromoBadges } from "../lib/promoBadges";
 import { useRemembered } from "../lib/remember";
@@ -32,6 +33,10 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
   const [busy, setBusy] = useState(false);
   // Pozycja, której tekst zmieniamy (przytrzymanie wiersza)
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
+  // Panel "⋯" z rzadką akcją "Wyczyść listę"
+  const [menu, setMenu] = useState(false);
+  // Gest (przytrzymanie, przesunięcie) użyty choć raz - podpowiedź już niepotrzebna
+  const [gesturesKnown, setGesturesKnown] = useRemembered<boolean>("shopping-gestures-known", false);
   const { toast, undoable, run } = useToast();
   const [showPromos] = usePromoBadges();
   // Tylko sklepy zaznaczone w Promocjach
@@ -219,8 +224,14 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
       className={item.checked ? "done" : ""}
       checked={item.checked}
       onClick={() => check(item)}
-      onLongPress={() => setEditing(item)}
-      onDelete={() => removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }])}
+      onLongPress={() => {
+        setGesturesKnown(true);
+        setEditing(item);
+      }}
+      onDelete={() => {
+        setGesturesKnown(true);
+        removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }]);
+      }}
     >
       <span className="check" aria-hidden="true" />
       <span className="grow">
@@ -248,6 +259,11 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
         {haEnabled && notInHa && !offline && (
           <button type="button" className="button small" disabled={busy} onClick={sendToHa}>
             Wyślij do HA
+          </button>
+        )}
+        {items.length > 0 && (
+          <button type="button" className="link more-button" onClick={() => setMenu(true)} aria-label="Opcje listy">
+            ⋯
           </button>
         )}
       </header>
@@ -294,22 +310,31 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
           ))}
           {done.length > 0 && (
             <>
-              <h2 className="aisle">Kupione - już w domu</h2>
+              <div className="aisle-row">
+                <h2 className="aisle">Kupione - już w domu</h2>
+                <button type="button" className="link small" onClick={() => removeLater("Usunięto kupione z listy (zostają w „W domu”)", done, [{ op: "clear", onlyChecked: true }])}>
+                  Usuń kupione
+                </button>
+              </div>
               <ul className="checklist shopping">{done.map(row)}</ul>
             </>
           )}
-          <p className="muted small center">Przytrzymaj pozycję, żeby ją zmienić. Przesuń w lewo, żeby usunąć.</p>
-          <div className="actions">
-            {done.length > 0 && (
-              <button type="button" onClick={() => removeLater("Usunięto kupione z listy (zostają w „W domu”)", done, [{ op: "clear", onlyChecked: true }])}>
-                Usuń kupione
-              </button>
-            )}
-            <button type="button" className="danger" onClick={() => removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }])}>
-              Wyczyść listę
-            </button>
-          </div>
+          {/* Podpowiedź o gestach tylko przy krótkiej liście, póki ktoś nie użyje gestu */}
+          {!gesturesKnown && items.length <= 5 && <p className="muted small center gesture-hint">Przytrzymaj, aby zmienić; przesuń w lewo, aby usunąć.</p>}
         </>
+      )}
+      {menu && (
+        <Sheet onClose={() => setMenu(false)}>
+          <SheetTile
+            icon="🗑️"
+            label="Wyczyść listę"
+            danger
+            onClick={() => {
+              setMenu(false);
+              removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }]);
+            }}
+          />
+        </Sheet>
       )}
       {editing && (
         <RenameSheet

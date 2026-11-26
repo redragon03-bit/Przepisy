@@ -36,7 +36,7 @@ const TABS = [
 // Rzadziej używane strony chowamy pod zakładką "Więcej", żeby pasek był czytelny.
 const MORE = [
   { to: "/co-ugotowac", icon: "🥕", label: "Co ugotuję?" },
-  { to: "/plan", icon: "📅", label: "Plan" },
+  { to: "/plan", icon: "🗓️", label: "Plan" },
   { to: "/promocje", icon: "🏷️", label: "Promocje" },
   { to: "/ustawienia", icon: "⚙️", label: "Ustawienia" },
   { to: "/pomoc", icon: "💡", label: "Jak używać" },
@@ -145,7 +145,14 @@ export default function App() {
       )}
       <nav className="tabbar">
         {TABS.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} end={tab.to === "/"} onClick={(e) => onTabClick(e, tab.to)}>
+          // Przy otwartym panelu "Więcej" wyróżniona jest tylko ta zakładka
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.to === "/"}
+            className={({ isActive }) => (isActive && !moreOpen ? "active" : "")}
+            onClick={(e) => onTabClick(e, tab.to)}
+          >
             <span>{tab.icon}</span>
             {tab.label}
           </NavLink>

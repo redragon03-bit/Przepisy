@@ -441,6 +441,12 @@ button.small,
   -webkit-overflow-scrolling: touch;
 }
 
+/* Więcej chipów po prawej: rząd łagodnie zanika zamiast urywać się na krawędzi */
+.category-bar.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+
 .category-bar .chip {
   flex: none;
   white-space: nowrap;
@@ -932,11 +938,14 @@ span.drag-handle:not(.step-number) {
 }
 
 
+/* Komunikat na dole, nad paskiem zakładek - nie zasłania nagłówka strony */
 .toast {
+  --toast-lift: 0px;
   position: fixed;
   left: 50%;
-  top: calc(var(--safe-top) + 12px);
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 12px + var(--toast-lift));
   transform: translateX(-50%);
+  box-shadow: var(--shadow-2);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -975,6 +984,42 @@ span.drag-handle:not(.step-number) {
 
 .plan-entry {
   padding: 6px 0;
+}
+
+/* Mały „+” w karcie dnia - otwiera panel z wyszukiwarką przepisów */
+.plan-day .plan-add {
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.plan-day.past {
+  opacity: 0.75;
+}
+
+/* Minione dni tygodnia zwinięte w jeden wiersz */
+.plan-past {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--muted);
+  text-align: left;
+}
+
+/* Pole szukania zostaje u góry panelu, gdy lista przepisów się przewija */
+.plan-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 0;
+  background: var(--bg);
 }
 
 .shopping .icon,
@@ -1272,6 +1317,38 @@ body:has(.chat-input) .back-to-top {
   font-size: 28px;
 }
 
+/* Komunikat nad polem czatu, minutnikami, przyciskiem "Gotuj" i paskiem sekcji */
+body:has(.chat-input) .toast,
+body:has(.fab) .toast,
+body:has(.review-actions) .toast {
+  --toast-lift: 72px;
+}
+
+body:has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1));
+}
+
+body:has(.timer + .timer) .toast {
+  --timer-count: 2;
+}
+
+body:has(.timer + .timer + .timer) .toast {
+  --timer-count: 3;
+}
+
+body:has(.chat-input):has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1) + 72px);
+}
+
+/* Tryb gotowania zakrywa pasek zakładek: komunikat nad przyciskami kroków */
+body:has(.cooking) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+body:has(.cooking):has(.timers) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px + 68px * var(--timer-count, 1));
+}
+
 /* "Cofnij" w komunikacie po usunięciu */
 .toast-undo {
   flex: none;
@@ -1372,6 +1449,24 @@ h2.aisle {
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+
+/* Nagłówek działu z małą akcją po prawej ("Usuń kupione") */
+.aisle-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.aisle-row .link {
+  min-height: 0;
+  font-size: calc(14px * var(--s-small));
+  padding: 12px 0 0.25rem 12px;
+}
+
+.gesture-hint {
+  padding: 16px;
 }
 
 .swipe-row {
@@ -3137,7 +3232,7 @@ body:has(.fab) .back-to-top {
 }
 
 :root[data-theme="las"] .ambient i {
-  top: -16px;
+  top: 0;
   bottom: auto;
   width: calc(12px * var(--s));
   height: calc(7px * var(--s));
