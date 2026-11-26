@@ -185,15 +185,15 @@ test("edycja: Anuluj bez zmian nie pyta, wklejenie kilku linijek dodaje składni
   const { id } = await addRecipe("Placki", ["1 jajko"], ["Smaż."]);
   await login(page);
   await page.goto(`/przepis/${id}/edytuj`);
-  const first = page.getByPlaceholder("200 g mąki pszennej").first();
+  const first = page.getByPlaceholder("np. 200 g mąki").first();
   await first.focus();
   await page.evaluate(() => {
     const data = new DataTransfer();
     data.setData("text", "2 jajka\n- 200 g mąki\n• 300 ml mleka");
     document.activeElement!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
-  await expect(page.getByPlaceholder("200 g mąki pszennej")).toHaveCount(3);
-  await expect(page.getByPlaceholder("200 g mąki pszennej").nth(2)).toHaveValue("300 ml mleka");
+  await expect(page.getByPlaceholder("np. 200 g mąki")).toHaveCount(3);
+  await expect(page.getByPlaceholder("np. 200 g mąki").nth(2)).toHaveValue("300 ml mleka");
 
   // Są zmiany - Anuluj pyta; odmowa zostawia formularz
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -854,7 +854,7 @@ test("sekcje: kroki i składniki w sekcjach, przeciąganie kroku palcem", async 
   // Sekcja w składnikach
   await page.locator(".add-buttons").first().getByRole("button", { name: "+ Sekcja" }).click();
   await page.getByLabel("Nazwa sekcji").first().fill("Kapusta");
-  await page.getByPlaceholder("200 g mąki pszennej").last().fill("1 cebula");
+  await page.getByPlaceholder("np. 200 g mąki").last().fill("1 cebula");
   await page.screenshot({ path: "test-results/sekcje-edycja.png", fullPage: true });
 
   await page.getByRole("button", { name: "Zapisz" }).click();
@@ -1240,4 +1240,101 @@ test("pasek szukania: przezroczysty pod nagłówkiem, pełniejsze tło dopiero p
   await expect(search).toHaveClass(/stuck/);
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(search).not.toHaveClass(/stuck/);
+});
+
+test("nowy przepis i edycja: szkic wraca po zmianie zakładki, znika po zapisaniu", async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    return dialog.dismiss();
+  });
+  await login(page);
+  await page.locator(".tabbar").getByRole("link", { name: "Dodaj" }).click();
+  await page.getByRole("link", { name: /Ręcznie/ }).click();
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Pierogi ruskie");
+  await page.getByPlaceholder("np. 200 g mąki").first().fill("500 g mąki");
+
+  // Podpowiedzi: jedno zdanie, reszta pod „?”
+  const hint = page.locator("details.form-hint").first();
+  await expect(hint.locator("p")).toBeHidden();
+  await hint.locator("summary").click();
+  await expect(hint.locator("p")).toBeVisible();
+
+  // Inna zakładka i powrót - wpisane dane są na miejscu
+  await page.locator(".tabbar").getByRole("link", { name: "Przepisy" }).click();
+  await expect(page.getByRole("heading", { name: "Przepisy" })).toBeVisible();
+  await page.locator(".tabbar").getByRole("link", { name: "Dodaj" }).click();
+  await page.getByRole("link", { name: /Ręcznie/ }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Pierogi ruskie");
+  await expect(page.getByPlaceholder("np. 200 g mąki").first()).toHaveValue("500 g mąki");
+  await expect(page.getByText("Przywrócono szkic")).toBeVisible();
+  await page.screenshot({ path: "test-results/szkic.png" });
+
+  // „Wyczyść” zaczyna od nowa
+  await page.getByRole("button", { name: "Wyczyść" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("");
+  await expect(page.getByText("Przywrócono szkic")).toHaveCount(0);
+
+  // Po zapisaniu szkic znika
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Pierogi ruskie");
+  await page.getByRole("button", { name: "Zapisz" }).click();
+  await expect(page.getByRole("heading", { name: "Pierogi ruskie" })).toBeVisible();
+  await page.goto("/nowy");
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("");
+  await expect(page.getByText("Przywrócono szkic")).toHaveCount(0);
+
+  // Edycja: osobny szkic dla każdego przepisu
+  const { id } = await addRecipe("Kopytka", ["1 kg ziemniaków"], ["Ugotuj."]);
+  await page.goto(`/przepis/${id}/edytuj`);
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Kopytka z masłem");
+  await page.locator(".tabbar").getByRole("link", { name: "Zakupy" }).click();
+  await page.goto(`/przepis/${id}/edytuj`);
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Kopytka z masłem");
+  await page.getByRole("button", { name: "Wyczyść" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Kopytka");
+  // Bez okien z pytaniami
+  expect(dialogs).toEqual([]);
+});
+
+test("dodaj: zrozumiały błąd importu, wyłączony „Importuj” wyraźnie nieaktywny", async ({ page }) => {
+  await login(page);
+  await page.goto("/dodaj");
+  const importButton = page.getByRole("button", { name: "Importuj" });
+  await expect(importButton).toBeDisabled();
+  // Wyłączony: szary, bez gradientu - nie wygląda jak aktywny (we wszystkich efektach)
+  const look = (el: HTMLElement) => {
+    const s = getComputedStyle(el);
+    return { image: s.backgroundImage, background: s.backgroundColor, color: s.color };
+  };
+  const off = await importButton.evaluate(look);
+  expect(off.image).toBe("none");
+  for (const fx of ["off", "bold"]) {
+    await page.evaluate((v) => document.documentElement.setAttribute("data-fx", v), fx);
+    expect((await importButton.evaluate(look)).image).toBe("none");
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute("data-fx"));
+  await page.getByPlaceholder("https://… albo tekst przepisu").fill("https://nie-ma-takiej-strony.invalid/przepis");
+  await expect(importButton).toBeEnabled();
+  expect(await importButton.evaluate(look)).not.toEqual(off);
+
+  // Błąd połączenia po ludzku, bez nazwy wyjątku (np. „ProxyError”)
+  await importButton.click();
+  const job = page.locator(".jobs li", { hasText: "nie-ma-takiej-strony.invalid" });
+  await expect(job.locator(".error")).toHaveText("Strona nie odpowiada – spróbuj później.", { timeout: 25_000 });
+  await page.screenshot({ path: "test-results/dodaj-blad.png" });
+});
+
+test("przed zalogowaniem aplikacja nie pyta o plan (bez 401)", async ({ page }) => {
+  const planRequests: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/plan")) planRequests.push(r.url());
+  });
+  await page.goto("/");
+  await expect(page.getByPlaceholder("Hasło")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(planRequests).toEqual([]);
+  await page.getByPlaceholder("Hasło").fill("test");
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  // Po zalogowaniu przepisy z planu trafiają do pamięci telefonu
+  await expect.poll(() => planRequests.length).toBeGreaterThan(0);
 });
