@@ -1,5 +1,12 @@
 # Zmiany
 
+## 0.27.2
+
+- iPhone (aplikacja z ekranu głównego): koniec z czarnym paskiem pod godziną i baterią - tło motywu
+  i efekty sięgają do samej góry ekranu, jak w Safari. Tytuł zaczyna się tuż pod godziną, przewijana
+  treść chowa się pod lekką zasłoną w kolorze tła. Żeby zadziałało, trzeba raz usunąć ikonę
+  z ekranu głównego i dodać ją ponownie (iOS czyta to ustawienie tylko przy dodawaniu ikony).
+
 ## 0.27.1
 
 - Ikona „Dodaj” na dolnym pasku to teraz plus w kolorze tekstu - dobrze widoczny też po ciemku.
