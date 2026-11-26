@@ -839,6 +839,17 @@ span.drag-handle:not(.step-number) {
   white-space: nowrap;
 }
 
+/* Pod gotowym importem: "usuń z listy" i "usuń przepis" */
+.job-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.job-actions .danger-link {
+  color: var(--danger);
+}
+
 .jobs .small-button {
   margin-top: 6px;
   padding: 6px 14px;
