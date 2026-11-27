@@ -1332,21 +1332,58 @@ body:has(.chat-input) .back-to-top {
   background: var(--bg);
 }
 
-/* Przełącznik widoku listy przepisów (lista / kafelki) obok kostki */
-.view-link {
-  font-size: 22px;
+/* Nagłówek Przepisów: „Widok” (rysunek obecnego układu) i „Losuj” - ikona z podpisem,
+   bo same ▣ i 🎲 nic nie mówiły */
+.topbar > .head-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(15px * var(--s-small));
+  font-weight: 500;
   line-height: 1;
-  min-width: 36px;
-  color: var(--muted);
-  text-decoration: none;
+  white-space: nowrap;
 }
 
-.random-link {
-  font-size: 24px;
-  text-decoration: none;
-  /* Emoji na iPhonie ma wysoką linię - bez tego kostka podnosiła nagłówek Przepisów
-     i lista zaczynała się niżej niż treść na innych ekranach */
+.head-chip .view-icon {
+  color: var(--accent);
+  flex: none;
+}
+
+/* Emoji na iPhonie ma wysoką linię - bez tego kostka podnosiła nagłówek Przepisów */
+.head-chip-emoji {
+  font-size: 17px;
   line-height: 1;
+}
+
+/* Panel „Jak pokazać przepisy?”: 2 × 2, rysunek układu, nazwa i ile kafelków w rzędzie */
+.sheet.sheet-views {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.sheet-tile.view-tile {
+  gap: 4px;
+  padding: 14px 8px 12px;
+}
+
+.view-tile .view-icon {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.view-tile.active .view-icon {
+  color: var(--accent);
+}
+
+.view-tile small {
+  color: var(--muted);
+  font-size: calc(12px * var(--s-small));
+  font-weight: 400;
 }
 
 .topbar + .segmented {

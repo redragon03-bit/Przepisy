@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
-import Sheet, { SheetTile } from "../components/Sheet";
+import ViewIcon from "../components/ViewIcon";
+import Sheet from "../components/Sheet";
 import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
@@ -104,6 +105,7 @@ function markMoreRight(bar: HTMLElement | null) {
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
   const [view, setView] = useRecipeView();
+  const current = RECIPE_VIEWS.find((v) => v.id === view) ?? RECIPE_VIEWS[2];
   const [viewSheet, setViewSheet] = useState(false);
   const [q, setQ] = useState(saved.q);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -241,30 +243,37 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         <h1>Przepisy</h1>
         <button
           type="button"
-          className="link view-link"
+          className="head-chip"
           onClick={() => setViewSheet(true)}
-          aria-label="Widok listy przepisów"
+          aria-label={`Widok przepisów: ${current.label}`}
         >
-          {RECIPE_VIEWS.find((v) => v.id === view)?.icon}
+          <ViewIcon view={view} />
+          Widok
         </button>
         {shown && shown.length > 1 && (
-          <button type="button" className="link random-link" onClick={randomRecipe} aria-label="Losuj przepis">
-            🎲
+          <button type="button" className="head-chip" onClick={randomRecipe} aria-label="Losuj przepis">
+            <span className="head-chip-emoji" aria-hidden="true">🎲</span>
+            Losuj
           </button>
         )}
       </header>
       {viewSheet && (
-        <Sheet title="Widok przepisów" onClose={() => setViewSheet(false)}>
+        <Sheet title="Jak pokazać przepisy?" className="sheet-views" onClose={() => setViewSheet(false)}>
           {RECIPE_VIEWS.map((v) => (
-            <SheetTile
+            <button
               key={v.id}
-              icon={v.icon}
-              label={v.id === view ? `${v.label} ✓` : v.label}
+              type="button"
+              className={`sheet-tile view-tile ${v.id === view ? "active" : ""}`}
+              aria-pressed={v.id === view}
               onClick={() => {
                 setView(v.id);
                 setViewSheet(false);
               }}
-            />
+            >
+              <ViewIcon view={v.id} size={32} />
+              <b>{v.label}</b>
+              <small>{v.hint}</small>
+            </button>
           ))}
         </Sheet>
       )}
