@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.28.4
+
+- Jak używać: tematy w jednej zwartej karcie (niższe wiersze, mniejsza czcionka) - wszystkie mieszczą się na jednym ekranie iPhone'a.
+
 ## 0.28.3
 
 - Czat: przy otwartej klawiaturze mniejszy odstęp między polem a systemowym paskiem iPhone'a (˄˅✓).

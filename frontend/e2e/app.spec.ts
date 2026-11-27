@@ -69,6 +69,10 @@ test("przewodnik „Jak używać” pod „Więcej”", async ({ page }) => {
   const cooking = page.locator("details.help-section", { hasText: "Tryb gotowania" });
   await expect(cooking.locator("summary")).toBeVisible();
   await expect(cooking.locator(".help-list")).toBeHidden();
+  // Wszystkie tematy mieszczą się na jednym ekranie iPhone'a, nad dolnym paskiem
+  const lastBottom = await page.locator("details.help-section").last().evaluate((el) => el.getBoundingClientRect().bottom);
+  const tabBarTop = await page.getByRole("button", { name: "Więcej" }).evaluate((el) => el.closest("nav")!.getBoundingClientRect().top);
+  expect(lastBottom).toBeLessThanOrEqual(tabBarTop);
   await cooking.locator("summary").click();
   await expect(cooking.locator(".help-list")).toBeVisible();
 });
