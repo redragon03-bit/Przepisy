@@ -632,13 +632,18 @@ test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje te
 test("lista przepisów: wybór widoku (lista, kafelki) zostaje zapamiętany", async ({ page }) => {
   await login(page);
   await expect(page.locator(".grid.view-medium")).toBeVisible();
-  await page.getByRole("button", { name: "Widok listy przepisów" }).click();
-  await page.getByRole("button", { name: "Lista" }).click();
+  // Przyciski w nagłówku mają podpisy, nie same ikony
+  await expect(page.locator(".topbar .head-chip").filter({ hasText: "Widok" })).toBeVisible();
+  await expect(page.locator(".topbar .head-chip").filter({ hasText: "Losuj" })).toBeVisible();
+  await page.getByRole("button", { name: "Widok przepisów: Średnie kafelki" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: /^Średnie kafelki/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("3 w rzędzie")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: /^Lista/ }).click();
   await expect(page.locator(".grid.view-list")).toBeVisible();
   await page.reload();
   await expect(page.locator(".grid.view-list")).toBeVisible();
-  await page.getByRole("button", { name: "Widok listy przepisów" }).click();
-  await page.getByRole("button", { name: "Średnie kafelki" }).click();
+  await page.getByRole("button", { name: "Widok przepisów: Lista" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /^Średnie kafelki/ }).click();
   await expect(page.locator(".grid.view-medium")).toBeVisible();
 });
 
@@ -1214,7 +1219,7 @@ test("ten sam odstęp pod nagłówkiem na każdym ekranie (aplikacja z ekranu g�
     expect(Math.round(gap), path).toBe(8);
     expect((await page.locator(".page .topbar").boundingBox())!.height, path).toBeLessThanOrEqual(36);
   }
-  expect(await page.goto("/").then(() => page.locator(".random-link").evaluate((el) => getComputedStyle(el).lineHeight))).toBe("24px");
+  expect(await page.goto("/").then(() => page.locator(".head-chip-emoji").evaluate((el) => getComputedStyle(el).lineHeight))).toBe("17px");
 });
 
 test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {

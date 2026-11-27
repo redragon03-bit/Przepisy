@@ -1,5 +1,10 @@
 # Zmiany
 
+## 0.28.5
+
+- Przepisy: przyciski w nagłówku mają podpisy - „Widok” (z rysunkiem obecnego układu) i „🎲 Losuj”.
+- Panel widoku „Jak pokazać przepisy?”: 2 × 2, przy każdym układzie rysunek i opis (np. „3 w rzędzie”), wybrany podświetlony.
+
 ## 0.28.3
 
 - Czat: przy otwartej klawiaturze mniejszy odstęp między polem a systemowym paskiem iPhone'a (˄˅✓).

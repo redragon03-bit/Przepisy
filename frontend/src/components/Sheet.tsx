@@ -7,7 +7,7 @@ const CLOSE_AT = 80;
 // Panel wysuwany od dołu ekranu (jak "Więcej" na pasku zakładek). Stuknięcie obok albo
 // przeciągnięcie panelu w dół zamyka. Zamiast wielu przycisków na ekranie rzadziej
 // używane akcje chowamy w takim panelu.
-export default function Sheet({ title, onClose, children, list }: { title?: string; onClose: () => void; children: ReactNode; list?: boolean }) {
+export default function Sheet({ title, onClose, children, list, className }: { title?: string; onClose: () => void; children: ReactNode; list?: boolean; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -71,7 +71,7 @@ export default function Sheet({ title, onClose, children, list }: { title?: stri
   // Do <body>, żeby panel nie dziedziczył powiększenia treści przepisu (usePinchZoom) ani przesunięć rodzica
   return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
-      <div ref={ref} className={`sheet ${list ? "sheet-list" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+      <div ref={ref} className={`sheet ${list ? "sheet-list" : ""} ${className ?? ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         {title && <p className="sheet-title">{title}</p>}
         {children}
       </div>
