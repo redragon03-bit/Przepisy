@@ -134,19 +134,22 @@ export default function HelpPage() {
         <h1>Jak używać</h1>
       </header>
       <p className="muted small">Stuknij temat, żeby go rozwinąć.</p>
-      {/* Same tytuły na start - od razu widać wszystkie tematy, a treść rozwija się po stuknięciu */}
-      {SECTIONS.map((section) => (
-        <details key={section.title} className="box help-section">
-          <summary>
-            {section.icon} {section.title}
-          </summary>
-          <ul className="help-list">
-            {section.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </details>
-      ))}
+      {/* Same tytuły na start w jednej zwartej karcie (jak lista w Ustawieniach) -
+          wszystkie tematy mieszczą się na jednym ekranie, treść rozwija się po stuknięciu */}
+      <div className="box help-group">
+        {SECTIONS.map((section) => (
+          <details key={section.title} className="help-section">
+            <summary>
+              <span className="help-icon">{section.icon}</span> {section.title}
+            </summary>
+            <ul className="help-list">
+              {section.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
     </>
   );
 }
