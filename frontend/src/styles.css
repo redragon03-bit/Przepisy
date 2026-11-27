@@ -1761,16 +1761,37 @@ a.chip {
 }
 
 /* Jak używać */
-/* "Jak używać": tematy rozwijane po stuknięciu */
+/* "Jak używać": tematy w jednej karcie, wiersze rozdzielone linią - wszystkie na jednym ekranie */
+.box.help-group {
+  padding: 0 0 0 12px;
+  overflow: hidden;
+}
+
+.help-section + .help-section {
+  border-top: 1px solid var(--border);
+}
+
 .help-section summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: var(--hit);
+  gap: 10px;
+  min-height: max(36px, calc(40px * var(--s-space)));
+  padding: 2px 12px 2px 0;
   font-weight: 600;
-  font-size: calc(1.1rem * var(--s-title));
+  font-size: calc(1rem * var(--s-title));
   list-style: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.help-section summary:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.help-icon {
+  flex: none;
+  width: 22px;
+  text-align: center;
 }
 
 .help-section summary::-webkit-details-marker {
@@ -1791,7 +1812,7 @@ a.chip {
 
 .help-list {
   margin: 0;
-  padding-left: 18px;
+  padding: 0 12px 8px 18px;
 }
 
 .help-list li {
@@ -1906,7 +1927,7 @@ a.chip {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: calc(40px * var(--s-space));
+  min-height: max(36px, calc(40px * var(--s-space)));
   padding: calc(5px * var(--s-space)) 4px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-items);
@@ -2315,7 +2336,7 @@ body:has(.cooking-timers) .cooking-body {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: calc(40px * var(--s-space));
+  min-height: max(36px, calc(40px * var(--s-space)));
   padding: calc(5px * var(--s-space)) 12px;
   transition: transform 0.2s var(--ease);
   /* Przytrzymanie zmienia tekst pozycji - bez systemowego zaznaczania tekstu iPhone'a */
