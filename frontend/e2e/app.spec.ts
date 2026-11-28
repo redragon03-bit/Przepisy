@@ -416,6 +416,18 @@ test("rząd kategorii zanika po prawej, gdy jest więcej do przewinięcia", asyn
 });
 
 test("plan: tydzień od dziś, minione dni zwinięte, przepis dodaje się z panelu", async ({ page }) => {
+  // Czysty plan na ten tydzień: wcześniejsze testy planują na „Jutro”, a w sobotę to ostatnia
+  // karta tygodnia, której ten test używa
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const monday = new Date();
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const planned = await server.get("/api/plan", { params: { start: iso(monday), end: iso(sunday) } });
+  expect(planned.ok()).toBeTruthy();
+  for (const entry of (await planned.json()) as { id: number }[]) {
+    expect((await server.delete(`/api/plan/${entry.id}`)).ok()).toBeTruthy();
+  }
   await login(page);
   await page.getByRole("button", { name: "Więcej" }).click();
   // Przy otwartym panelu „Więcej” wyróżniona jest tylko ta zakładka
