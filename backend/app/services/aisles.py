@@ -77,7 +77,15 @@ AISLES: list[tuple[str, list[str]]] = [
                       "gabk", "ręcznik", "recznik", "serwetk", "pieluch", "pieluszk", "chusteczk", "mydł",
                       "mydl", "szampon", "pasta do zęb", "pasta do zeb", "proszek do prani", "kapsułk", "kapsulk",
                       "tabletki do zmyw", "żel pod prysznic", "zel pod prysznic", "dezodorant", "baterie", "bateri",
-                      "żarów", "zarow", "worki na śmieci", "odplamiacz", "domestos", "ludwik", "zmywak"]),
+                      "żarów", "zarow", "worki na śmieci", "odplamiacz", "domestos", "ludwik", "zmywak",
+                      # ogród: "Miedzian chemia do drzewek owocowych" to nie owoce
+                      "chemi", "nawóz", "nawoz", "oprysk", "środek ochrony", "srodek ochrony",
+                      "środki ochrony", "srodki ochrony", "ochrony roślin", "ochrony roslin", "miedzian",
+                      "do drzew", "do roślin", "do roslin", "do ogrod", "na mszyc", "na chwast", "na szkodnik",
+                      "na ślimak", "na slimak", "na mrówk", "na mrowk", "na komar", "na kleszcz",
+                      "grzybobój", "grzybobo", "owadobój", "owadobo", "chwastobój", "chwastobo",
+                      "fungicyd", "herbicyd", "insektycyd", "ziemia do", "ziemi do", "podłoże", "podloz",
+                      "trawnik", "roundup", "topsin", "substral", "florovit", "biohumus", "kora sosnow"]),
 ]
 
 # Najpierw działy z nazwami, które zaczynają się jak produkty z innych działów
