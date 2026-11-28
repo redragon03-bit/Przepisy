@@ -22,6 +22,13 @@ manual: `hc --skill`). Raporty trafiają do `C:/Users/dariu/AppData/Local/Temp/p
    podsumowaniu, że Copilot był niedostępny. Jeśli `first_message.sent` jest false, najpierw
    przeczytaj ekran (np. okno zaufania folderu) i dopiero wtedy wyślij zadanie, nie wysyłaj go
    w ciemno drugi raz.
+   **Okno zaufania folderu** (pokazują je i `agy`, i `copilot` przy pierwszym starcie w repo):
+   po zatwierdzeniu (`hc keys <nazwa> enter`) zawsze zrób `hc read <nazwa>` i sprawdź, czy
+   treść zadania widać na ekranie i czy agent nad nim pracuje (status `working`). Sam status
+   `idle` po oknie zaufania znaczy zwykle, że zadanie nie dotarło. Wtedy wyślij je przez
+   `hc send <nazwa> "..."`. Sprawdź też na ekranie, czy narzędzia recenzenta nie są blokowane
+   (np. „Denied by preToolUse hook”). Wtedy raport jest pusty, a recenzję trzeba uznać za
+   niewykonaną i napisać to Darkowi.
 3. **Czekaj i oceniaj krytycznie.** Czekaj przez `hc wait --children all` (timeout to tylko
    przypomnienie, czekaj dalej). Nie używaj `sleep`. Gdy terminal ma status `blocked`,
    przeczytaj jego ekran i zapytaj Darka, nie omijaj tego przez `--force`. Przeczytaj oba
