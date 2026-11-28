@@ -423,8 +423,11 @@ test("plan: tydzień od dziś, minione dni zwinięte, przepis dodaje się z pane
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  const week = (await (await server.get("/api/plan", { params: { start: iso(monday), end: iso(sunday) } })).json()) as { id: number }[];
-  for (const entry of week) await server.delete(`/api/plan/${entry.id}`);
+  const planned = await server.get("/api/plan", { params: { start: iso(monday), end: iso(sunday) } });
+  expect(planned.ok()).toBeTruthy();
+  for (const entry of (await planned.json()) as { id: number }[]) {
+    expect((await server.delete(`/api/plan/${entry.id}`)).ok()).toBeTruthy();
+  }
   await login(page);
   await page.getByRole("button", { name: "Więcej" }).click();
   // Przy otwartym panelu „Więcej” wyróżniona jest tylko ta zakładka
