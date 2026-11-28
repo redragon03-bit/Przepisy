@@ -162,6 +162,27 @@ def test_copilot_mcp_nazwy(tmp_path, monkeypatch):
     assert narzedzie("github-mcp-server-get_pull_request", {}) is None
 
 
+def test_uwagi_z_recenzji():
+    # argumenty jako tekst JSON, tool_input: null obok toolArgs
+    assert narzedzie("view", '{"path": "x/.env"}') == "deny"
+    assert narzedzie("powershell", '{"command": "git reset --hard"}') == "deny"
+    assert straz.sprawdz({"tool_name": "view", "tool_input": None, "toolArgs": {"path": ".env"}})[0] == "deny"
+    # spacja albo nowa linia przed aliasem
+    for cmd in [" type .env -Raw", "cd backend\ngc .env -Raw"]:
+        assert narzedzie("powershell", {"command": cmd}) == "deny", cmd
+    # aliasy i skrócone flagi PowerShell
+    for cmd in ["ri -Recurse frontend\\dist", "rd -r frontend\\dist", "Remove-Item -Rec dist",
+                "Get-ChildItem -Path env:", "gi env:*"]:
+        assert narzedzie("powershell", {"command": cmd}) == "deny", cmd
+    # maski wyszukiwania
+    assert narzedzie("rg", {"pattern": "KEY", "glob": "**/.env*"}) == "deny"
+    assert narzedzie("glob", {"pattern": "*.env"}) == "deny"
+    assert narzedzie("glob", {"pattern": "**/.env.example"}) is None
+    assert narzedzie("glob", {"pattern": "**/*.py"}) is None
+    # wielkość liter w nazwach MCP
+    assert narzedzie("Home_Assistant_Ivellios-HA_RESTART", {}) == "ask"
+
+
 def test_format_copilot_camelcase():
     dane = {"toolName": "view", "toolArgs": {"path": "x/.env"}}
     assert straz.sprawdz(dane)[0] == "deny"

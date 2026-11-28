@@ -51,9 +51,12 @@ ZAKAZANE_BASH = [
     ),
     (r"--no-verify\b", "pomijanie kontroli gita"),
     # Te same zakazy w składni PowerShell (powłoka Copilota na Windows)
-    (r"\bRemove-Item\b.*\s-(Recurse|r)\b", "rm -r usuwa całe katalogi bez kosza"),
     (
-        r"\b(Get-ChildItem|gci|dir|ls)\s+env:",
+        r"\b(Remove-Item|ri|rd|rmdir|del|erase)\b.*\s-r(e(c(u(r(s(e)?)?)?)?)?)?\b",
+        "rm -r usuwa całe katalogi bez kosza",
+    ),
+    (
+        r"\b(Get-ChildItem|gci|dir|ls|Get-Item|gi|Get-Content|gc)\b[^|;&]*\benv:",
         "wypisywanie zmiennych środowiska (sekrety)",
     ),
     (
@@ -61,9 +64,9 @@ ZAKAZANE_BASH = [
         "czytanie pliku .env (sekrety)",
     ),
     # Krótkie aliasy (gc, type, more, sls) to też zwykłe słowa - liczą się tylko jako
-    # polecenie: na początku albo po ; & | (
+    # polecenie: na początku linii albo po ; & | (
     (
-        r"(^|[;&|(]\s*)(gc|type|more|sls)\s[^|;&]*\.env\b(?!\.example)",
+        r"(?m)(^\s*|[;&|(]\s*)(gc|type|more|sls)\s[^|;&\n]*\.env\b(?!\.example)",
         "czytanie pliku .env (sekrety)",
     ),
 ]
@@ -74,17 +77,20 @@ POWLOKI = {"Bash", "powershell", "bash", "write_powershell", "write_bash"}
 # Narzędzia plikowe: Claude Code (Read/Edit/Write) i Copilot (view/edit/create,
 # apply_patch, wyszukiwanie rg/grep/glob)
 PLIKOWE = {"Read", "Edit", "Write", "view", "edit", "create", "apply_patch", "rg", "grep", "glob"}
-PLIK_ENV = re.compile(r"(^|/)\.env$")
+# .env, także jako maska wyszukiwania (.env*, *.env), ale nie .env.example
+PLIK_ENV = re.compile(r"(^|/)[*?]*\.env[*?]*$")
 LATKA_PLIK = re.compile(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): *(.+?)\s*$", re.M)
 
 # Narzędzia Home Assistant, które zawsze wymagają zgody Dariusza
 # (Claude Code: mcp__serwer__narzedzie, Copilot: serwer-narzedzie)
 HA_ZAKAZANE = re.compile(
-    r"(__|-)ha_(restart|reload_core|remove_\w+|config_remove_\w+|config_delete_\w+|manage_backup)$"
+    r"(__|-)ha_(restart|reload_core|remove_\w+|config_remove_\w+|config_delete_\w+|manage_backup)$",
+    re.IGNORECASE,
 )
 # Narzędzia, które wolno użyć samodzielnie tylko przy zielonej bramce
 WYMAGA_BRAMY = re.compile(
-    r"(mcp__github__merge_pull_request|github[\w-]*-merge_pull_request|(__|-)ha_manage_app|(__|-)ha_manage_updates)$"
+    r"(mcp__github__merge_pull_request|[\w-]*-merge_pull_request|(__|-)ha_manage_app|(__|-)ha_manage_updates)$",
+    re.IGNORECASE,
 )
 
 
@@ -160,12 +166,17 @@ def sciezki(narzedzie, wejscie):
 def sprawdz(dane):
     """Zwraca (decyzja, powód) albo None, gdy przepuszczamy."""
     narzedzie = dane.get("tool_name") or dane.get("toolName") or ""
-    wejscie = dane.get("tool_input", dane.get("toolArgs")) or {}
+    wejscie = dane.get("tool_input") or dane.get("toolArgs") or {}
+    if isinstance(wejscie, str) and wejscie.lstrip().startswith("{"):
+        try:  # argumenty jako tekst JSON zamiast obiektu
+            wejscie = json.loads(wejscie)
+        except ValueError:
+            pass
 
     if narzedzie in POWLOKI:
         polecenie = ""
         if isinstance(wejscie, dict):
-            polecenie = wejscie.get("command") or wejscie.get("input") or ""
+            polecenie = str(wejscie.get("command") or wejscie.get("input") or "")
         for wzor, powod in ZAKAZANE_BASH:
             if re.search(wzor, polecenie, re.IGNORECASE):
                 return (
