@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Strażnik zespołu agentów (hook PreToolUse Claude Code).
+"""Strażnik zespołu agentów (hook PreToolUse Claude Code i GitHub Copilot CLI).
+
+Copilot czyta ten sam hook z .claude/settings.json, ale jego narzędzia mają inne nazwy
+i pola (powershell/command, view/path, apply_patch z tekstem łatki). Te same reguły
+stosujemy do obu: polecenia powłoki i ścieżki plików są wyciągane z obu formatów.
 
 Dostaje na stdin JSON z nazwą narzędzia i jego argumentami. Odpowiada:
 - deny  - polecenie niszczące albo wyciek sekretów; agent musi zapytać Dariusza,
@@ -46,15 +50,47 @@ ZAKAZANE_BASH = [
         "czytanie pliku .env (sekrety)",
     ),
     (r"--no-verify\b", "pomijanie kontroli gita"),
+    # Te same zakazy w składni PowerShell (powłoka Copilota na Windows)
+    (
+        r"\b(Remove-Item|ri|rd|rmdir|del|erase)\b.*\s-r(e(c(u(r(s(e)?)?)?)?)?)?\b",
+        "rm -r usuwa całe katalogi bez kosza",
+    ),
+    (
+        r"\b(Get-ChildItem|gci|dir|ls|Get-Item|gi|Get-Content|gc)\b[^|;&]*\benv:",
+        "wypisywanie zmiennych środowiska (sekrety)",
+    ),
+    (
+        r"\b(Get-Content|Select-String)\b[^|;&]*\.env\b(?!\.example)",
+        "czytanie pliku .env (sekrety)",
+    ),
+    # Krótkie aliasy (gc, type, more, sls) to też zwykłe słowa - liczą się tylko jako
+    # polecenie: na początku linii albo po ; & | (
+    (
+        r"(?m)(^\s*|[;&|(]\s*)(gc|type|more|sls)\s[^|;&\n]*\.env\b(?!\.example)",
+        "czytanie pliku .env (sekrety)",
+    ),
 ]
 
+# Narzędzia powłoki: Claude Code (Bash) i Copilot (powershell/bash; write_* wpisuje
+# tekst do już otwartej powłoki, więc to też polecenie)
+POWLOKI = {"Bash", "powershell", "bash", "write_powershell", "write_bash"}
+# Narzędzia plikowe: Claude Code (Read/Edit/Write) i Copilot (view/edit/create,
+# apply_patch, wyszukiwanie rg/grep/glob)
+PLIKOWE = {"Read", "Edit", "Write", "view", "edit", "create", "apply_patch", "rg", "grep", "glob"}
+# .env, także jako maska wyszukiwania (.env*, *.env), ale nie .env.example
+PLIK_ENV = re.compile(r"(^|/)[*?]*\.env[*?]*$")
+LATKA_PLIK = re.compile(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): *(.+?)\s*$", re.M)
+
 # Narzędzia Home Assistant, które zawsze wymagają zgody Dariusza
+# (Claude Code: mcp__serwer__narzedzie, Copilot: serwer-narzedzie)
 HA_ZAKAZANE = re.compile(
-    r"__ha_(restart|reload_core|remove_\w+|config_remove_\w+|config_delete_\w+|manage_backup)$"
+    r"(__|-)ha_(restart|reload_core|remove_\w+|config_remove_\w+|config_delete_\w+|manage_backup)$",
+    re.IGNORECASE,
 )
 # Narzędzia, które wolno użyć samodzielnie tylko przy zielonej bramce
 WYMAGA_BRAMY = re.compile(
-    r"(mcp__github__merge_pull_request|__ha_manage_app|__ha_manage_updates)$"
+    r"(mcp__github__merge_pull_request|[\w-]*-merge_pull_request|(__|-)ha_manage_app|(__|-)ha_manage_updates)$",
+    re.IGNORECASE,
 )
 
 
@@ -108,13 +144,39 @@ def odpowiedz(decyzja, powod):
     )
 
 
+def sciezki(narzedzie, wejscie):
+    """Wszystkie ścieżki plików z argumentów narzędzia (Claude Code i Copilot)."""
+    if isinstance(wejscie, str):  # apply_patch Copilota dostaje sam tekst łatki
+        return LATKA_PLIK.findall(wejscie)
+    wynik = []
+    # W rg/grep `pattern` to szukany tekst, nie ścieżka - liczy się tylko w glob
+    klucze = ("file_path", "path", "glob") + (("pattern",) if narzedzie == "glob" else ())
+    for klucz in klucze:
+        if isinstance(wejscie.get(klucz), str):
+            wynik.append(wejscie[klucz])
+    for klucz in ("paths", "file_paths"):
+        if isinstance(wejscie.get(klucz), list):
+            wynik += [s for s in wejscie[klucz] if isinstance(s, str)]
+    for klucz in ("input", "patch"):
+        if isinstance(wejscie.get(klucz), str):
+            wynik += LATKA_PLIK.findall(wejscie[klucz])
+    return wynik
+
+
 def sprawdz(dane):
     """Zwraca (decyzja, powód) albo None, gdy przepuszczamy."""
-    narzedzie = dane.get("tool_name", "")
-    wejscie = dane.get("tool_input", {}) or {}
+    narzedzie = dane.get("tool_name") or dane.get("toolName") or ""
+    wejscie = dane.get("tool_input") or dane.get("toolArgs") or {}
+    if isinstance(wejscie, str) and wejscie.lstrip().startswith("{"):
+        try:  # argumenty jako tekst JSON zamiast obiektu
+            wejscie = json.loads(wejscie)
+        except ValueError:
+            pass
 
-    if narzedzie == "Bash":
-        polecenie = wejscie.get("command", "")
+    if narzedzie in POWLOKI:
+        polecenie = ""
+        if isinstance(wejscie, dict):
+            polecenie = str(wejscie.get("command") or wejscie.get("input") or "")
         for wzor, powod in ZAKAZANE_BASH:
             if re.search(wzor, polecenie, re.IGNORECASE):
                 return (
@@ -123,10 +185,10 @@ def sprawdz(dane):
                 )
         return None
 
-    if narzedzie in ("Read", "Edit", "Write"):
-        sciezka = wejscie.get("file_path", "")
-        if re.search(r"(^|/)\.env$", sciezka):
-            return "deny", "Plik .env zawiera sekrety - nie czytamy go i nie zmieniamy."
+    if narzedzie in PLIKOWE:
+        for sciezka in sciezki(narzedzie, wejscie):
+            if PLIK_ENV.search(sciezka.replace("\\", "/").strip()):
+                return "deny", "Plik .env zawiera sekrety - nie czytamy go i nie zmieniamy."
         return None
 
     if HA_ZAKAZANE.search(narzedzie):
