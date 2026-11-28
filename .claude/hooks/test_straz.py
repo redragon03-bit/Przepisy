@@ -91,3 +91,69 @@ def test_merge_wymaga_bramy(tmp_path, monkeypatch):
     plik.write_text(json.dumps(dane))
     assert straz.sprawdz(merge)[0] == "ask"
     os.remove(plik)
+
+
+def narzedzie(nazwa, wejscie):
+    wynik = straz.sprawdz({"tool_name": nazwa, "tool_input": wejscie})
+    return wynik[0] if wynik else None
+
+
+def test_plik_env_sciezka_windows():
+    assert narzedzie("Read", {"file_path": r"C:\projekty\Przepisy\.env"}) == "deny"
+    assert narzedzie("Read", {"file_path": r"C:\projekty\Przepisy\.env.example"}) is None
+
+
+def test_copilot_powloka_te_same_zakazy():
+    for nazwa in ("powershell", "bash"):
+        assert narzedzie(nazwa, {"command": "git push --force origin x"}) == "deny"
+        assert narzedzie(nazwa, {"command": "cat backend/.env"}) == "deny"
+        assert narzedzie(nazwa, {"command": "git diff main...HEAD"}) is None
+    # Tekst wpisany do otwartej powłoki to też polecenie
+    assert narzedzie("write_powershell", {"shellId": "1", "input": "git reset --hard"}) == "deny"
+
+
+def test_powershell_odpowiedniki():
+    for cmd in [
+        "Get-Content .env",
+        "gc backend\\.env",
+        "type .env",
+        "Select-String KEY .env",
+        "Get-ChildItem env:",
+        "dir env:",
+        "Remove-Item -Recurse -Force frontend\\dist",
+    ]:
+        assert narzedzie("powershell", {"command": cmd}) == "deny", cmd
+    for cmd in ["Get-Content .env.example", "Get-ChildItem frontend", "Remove-Item x.png"]:
+        assert narzedzie("powershell", {"command": cmd}) is None, cmd
+
+
+def test_copilot_pliki_env():
+    assert narzedzie("view", {"path": r"C:\projekty\Przepisy\nie-ma-takiego\.env"}) == "deny"
+    assert narzedzie("view", {"path": r"C:\projekty\Przepisy\.env.example"}) is None
+    assert narzedzie("edit", {"path": "backend/.env", "old_str": "a", "new_str": "b"}) == "deny"
+    assert narzedzie("create", {"path": ".env", "file_text": "X=1"}) == "deny"
+    assert narzedzie("rg", {"pattern": "KEY", "paths": ["backend/.env"]}) == "deny"
+    assert narzedzie("rg", {"pattern": ".env", "paths": ["backend/app"]}) is None
+    assert narzedzie("glob", {"pattern": "**/.env"}) == "deny"
+
+
+def test_copilot_apply_patch():
+    latka = "*** Begin Patch\n*** Update File: backend/.env\n@@\n-A=1\n+A=2\n*** End Patch\n"
+    assert narzedzie("apply_patch", latka) == "deny"
+    assert narzedzie("apply_patch", {"input": latka}) == "deny"
+    zwykla = latka.replace("backend/.env", "backend/app/main.py")
+    assert narzedzie("apply_patch", zwykla) is None
+
+
+def test_copilot_mcp_nazwy(tmp_path, monkeypatch):
+    assert narzedzie("Home_Assistant_Ivellios-ha_restart", {}) == "ask"
+    assert narzedzie("Home_Assistant_Ivellios-ha_get_logs", {}) is None
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert narzedzie("github-mcp-server-merge_pull_request", {}) == "ask"
+    assert narzedzie("github-mcp-server-get_pull_request", {}) is None
+
+
+def test_format_copilot_camelcase():
+    dane = {"toolName": "view", "toolArgs": {"path": "x/.env"}}
+    assert straz.sprawdz(dane)[0] == "deny"
