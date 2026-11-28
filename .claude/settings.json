@@ -12,7 +12,7 @@
       {
         "matcher": "Bash|Read|Edit|Write|mcp__github__merge_pull_request|mcp__Home_Assistant.*",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/straz.py\"", "timeout": 10 }
+          { "type": "command", "command": "python3 -I -c \"import os,sys,subprocess,runpy;sys.excepthook=lambda t,v,b:(print('straz: nie da sie uruchomic straznika, blokuje:',repr(v),file=sys.stderr,flush=True),os._exit(2));d=os.environ.get('CLAUDE_PROJECT_DIR') or subprocess.run(['git','rev-parse','--show-toplevel'],capture_output=True,text=True,encoding='utf-8',check=True).stdout.strip();p=os.path.join(d,'.claude','hooks','straz.py');sys.argv=[p];runpy.run_path(p,run_name='__main__')\"", "timeout": 10 }
         ]
       }
     ],
