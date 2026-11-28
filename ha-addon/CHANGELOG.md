@@ -1,5 +1,9 @@
 # Zmiany
 
+## 0.28.6
+
+- Zakupy: chemia ogrodowa (Miedzian, nawozy, opryski, środki ochrony roślin, ziemia do kwiatów) trafia do działu „Chemia i dom”, a nie do „Warzywa i owoce” przez słowa typu „do drzewek owocowych”.
+
 ## 0.28.5
 
 - Przepisy: przyciski w nagłówku mają podpisy - „Widok” (z rysunkiem obecnego układu) i „🎲 Losuj”.

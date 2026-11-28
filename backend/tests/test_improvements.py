@@ -155,6 +155,10 @@ def test_nutrition_has_time_limit(client, monkeypatch):
     ("200 g mąki pszennej", "Sypkie i makarony"), ("400 g pomidorów z puszki", "Puszki i słoiki"),
     ("2 pomidory", "Warzywa i owoce"), ("serwetki", "Chemia i dom"), ("ser żółty", "Nabiał i jajka"),
     ("kawałek kurczaka", "Mięso i ryby"), ("szczypta soli", "Przyprawy i sosy"), ("coś dziwnego", "Inne"),
+    ("Miedzian chemia do drzewek owocowych", "Chemia i dom"), ("Miedzian 50 WP", "Chemia i dom"),
+    ("nawóz do borówek", "Chemia i dom"), ("oprysk na mszyce", "Chemia i dom"),
+    ("środek ochrony roślin", "Chemia i dom"), ("sok owocowy", "Napoje"), ("jabłka", "Warzywa i owoce"),
+    ("grzyby leśne", "Warzywa i owoce"), ("nasiona chia", "Słodycze i bakalie"),
 ])
 def test_aisles(text, expected):
     assert aisle(text) == expected
