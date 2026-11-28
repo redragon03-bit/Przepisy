@@ -14,8 +14,15 @@ manual: `hc --skill`). Raporty trafiają do `C:/Users/dariu/AppData/Local/Temp/p
 2. **Testy i przypadki brzegowe w Copilot (`copilot`), równolegle z punktem 1**, jeśli Copilot
    ma dostępne modele:
    ```sh
-   hc run --bg --name review-copilot --cwd C:/projekty/Przepisy copilot -i "Sprawdź zmiany z 'git diff main...HEAD' i 'git diff': czy testy (pytest, testy frontendu, e2e w frontend/e2e/app.spec.ts) pokrywają zmianę i jakich przypadków brzegowych brakuje (puste dane, brak sieci, długie teksty, polskie znaki, strefy czasowe, podwójne kliknięcie). Tylko odczyt: nie zmieniaj plików i nie uruchamiaj innych agentów. Raport zapisz do C:/Users/dariu/AppData/Local/Temp/przepisy-review/copilot.md."
+   hc run --bg --name review-copilot --cwd C:/projekty/Przepisy copilot "--allow-tool=shell(git diff)" "--allow-tool=shell(git log)" "--allow-tool=read" "--deny-tool=write" -i "Sprawdź zmiany z 'git diff main...HEAD': czy testy (pytest, testy frontendu, e2e w frontend/e2e/app.spec.ts) pokrywają zmianę i jakich przypadków brzegowych brakuje (puste dane, brak sieci, długie teksty, polskie znaki, strefy czasowe, podwójne kliknięcie). Tylko odczyt: używaj wyłącznie git diff, git log i czytania plików. Nie zmieniaj ani nie twórz plików, nie uruchamiaj innych poleceń ani agentów. Raport podaj tu w odpowiedzi: każda uwaga z plikiem:linią, wagą (błąd/ryzyko/drobiazg) i uzasadnieniem."
    ```
+   **Uprawnienia Copilota:** zawsze zwykły tryb (ręczne zatwierdzanie), nigdy `--allow-all`,
+   `--yolo`, `--allow-all-tools` ani autopilot. Dozwolone bez pytania są tylko `git diff`,
+   `git log` i odczyt plików, a zapis jest zabroniony (`--deny-tool=write`). Raport Copilot
+   podaje na ekranie, odczytaj go przez `hc read review-copilot`. Gdy Copilot poprosi o
+   cokolwiek więcej (inne polecenie, zapis, URL, MCP; status `blocked`), nie zatwierdzaj tego
+   sam, tylko zapytaj Darka. Nie obchodź blokad hooka strażnika (`.claude/hooks/straz.py`):
+   ani skryptami ustawiającymi zmienne, ani `-ExecutionPolicy Bypass`.
    W treści zadania nie używaj backticków: wewnątrz cudzysłowów bash wykona je jako polecenie.
    Po starcie zrób `hc read review-copilot`. Jeśli widać brak modeli, brak limitu albo brak
    logowania, zamknij go (`hc kill review-copilot; hc rm review-copilot`) i zapisz w
