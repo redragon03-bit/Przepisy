@@ -19,9 +19,13 @@ manual: `hc --skill`). Raporty trafiają do `C:/Users/dariu/AppData/Local/Temp/p
    **Uprawnienia Copilota:** zawsze zwykły tryb (ręczne zatwierdzanie), nigdy `--allow-all`,
    `--yolo`, `--allow-all-tools` ani autopilot. Dozwolone bez pytania są tylko `git diff`,
    `git log` i odczyt plików, a zapis jest zabroniony (`--deny-tool=write`). Raport Copilot
-   podaje na ekranie, odczytaj go przez `hc read review-copilot`. Gdy Copilot poprosi o
-   cokolwiek więcej (inne polecenie, zapis, URL, MCP; status `blocked`), nie zatwierdzaj tego
-   sam, tylko zapytaj Darka. Nie obchodź blokad hooka strażnika (`.claude/hooks/straz.py`):
+   podaje na ekranie, odczytaj go przez `hc read review-copilot`. Gdy Copilot poprosi o zgodę
+   (status `blocked`), przeczytaj całe polecenie na ekranie. Odczytowe warianty gita
+   (`git diff`, `git log`, `git show`, z dowolnymi przełącznikami) zatwierdzasz sam,
+   jednorazowo (opcja „Yes”, bez zapamiętywania). Wyjątki, o które pytasz Darka, bo nie są
+   tylko odczytem: `--output` (zapisuje plik), `--ext-diff` (uruchamia zewnętrzny program),
+   polecenia połączone z innymi (`;`, `&&`, `|`, przekierowanie `>`). Każdą inną prośbę
+   (inne polecenie, zapis, URL, MCP) przekaż Darkowi i nie zatwierdzaj jej sam. Nie obchodź blokad hooka strażnika (`.claude/hooks/straz.py`):
    ani skryptami ustawiającymi zmienne, ani `-ExecutionPolicy Bypass`.
    W treści zadania nie używaj backticków: wewnątrz cudzysłowów bash wykona je jako polecenie.
    Po starcie zrób `hc read review-copilot`. Jeśli widać brak modeli, brak limitu albo brak
