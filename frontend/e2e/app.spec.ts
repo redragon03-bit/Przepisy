@@ -1593,3 +1593,23 @@ test("czat: stuknięcie w pole chowa pasek zakładek, pole siedzi na dole (klawi
   await expect(html).not.toHaveClass(/kb-open/);
   await expect(page.locator(".tabbar")).toBeVisible();
 });
+
+test("porządki: długie napisy w przyciskach zawijają się, nie wyjeżdżają poza ramkę", async ({ page }) => {
+  await page.route("**/api/auth/status", async (route) => {
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
+  });
+  await page.route("**/api/recipes/image-search", (route) =>
+    route.fulfill({ json: { running: false, done: 0, found: 0, total: 0, missing: 12 } }),
+  );
+  await login(page);
+  await page.goto("/ustawienia/porzadki");
+  const buttons = page.locator("section.box .wide");
+  await expect(page.getByRole("link", { name: /Podziel przepisy na sekcje/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Znajdź zdjęcia w internecie \(12 bez zdjęcia\)/ })).toBeVisible();
+  const overflowing = await buttons.evaluateAll((els) =>
+    els.filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.textContent),
+  );
+  expect(overflowing).toEqual([]);
+  await page.screenshot({ path: "test-results/porzadki-przyciski.png" });
+});
