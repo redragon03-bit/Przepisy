@@ -307,6 +307,10 @@ button.small,
   display: block;
   width: 100%;
   margin-top: 10px;
+  /* Długi napis w przycisku na całą szerokość zawija się zamiast wyjeżdżać poza ramkę */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .link {
