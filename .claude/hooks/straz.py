@@ -57,7 +57,13 @@ ZAKAZANE_BASH = [
         "wypisywanie zmiennych środowiska (sekrety)",
     ),
     (
-        r"\b(Get-Content|gc|type|more|Select-String|sls)\b[^|;&]*\.env\b(?!\.example)",
+        r"\b(Get-Content|Select-String)\b[^|;&]*\.env\b(?!\.example)",
+        "czytanie pliku .env (sekrety)",
+    ),
+    # Krótkie aliasy (gc, type, more, sls) to też zwykłe słowa - liczą się tylko jako
+    # polecenie: na początku albo po ; & | (
+    (
+        r"(^|[;&|(]\s*)(gc|type|more|sls)\s[^|;&]*\.env\b(?!\.example)",
         "czytanie pliku .env (sekrety)",
     ),
 ]

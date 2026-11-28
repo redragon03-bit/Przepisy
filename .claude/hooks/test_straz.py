@@ -123,7 +123,15 @@ def test_powershell_odpowiedniki():
         "Remove-Item -Recurse -Force frontend\\dist",
     ]:
         assert narzedzie("powershell", {"command": cmd}) == "deny", cmd
-    for cmd in ["Get-Content .env.example", "Get-ChildItem frontend", "Remove-Item x.png"]:
+    assert narzedzie("powershell", {"command": "git status; type .env"}) == "deny"
+    for cmd in [
+        "Get-Content .env.example",
+        "Get-ChildItem frontend",
+        "Remove-Item x.png",
+        # zwykłe słowa w opisach commitów i PR to nie polecenia
+        'git commit -m "add more checks for .env files"',
+        'gh pr create --body "type of .env rule"',
+    ]:
         assert narzedzie("powershell", {"command": cmd}) is None, cmd
 
 
