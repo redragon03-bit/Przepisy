@@ -458,8 +458,11 @@ test("plan: tydzień od dziś, minione dni zwinięte, przepis dodaje się z pane
   await expect(page.getByRole("dialog").getByPlaceholder("Szukaj przepisu…")).toBeVisible();
   await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await last.getByRole("button", { name: "Usuń z planu" }).click();
-  await expect(last).not.toContainText("Naleśniki");
+  // Inne testy mogą dodać przepisy na ten sam dzień (np. w sobotę „jutro” to niedziela), więc usuwamy właśnie naleśniki
+  const pancakes = last.locator(".plan-entry", { hasText: "Naleśniki" });
+  const count = await pancakes.count();
+  await pancakes.first().getByRole("button", { name: "Usuń z planu" }).click();
+  await expect(pancakes).toHaveCount(count - 1);
 });
 
 test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", async ({ page }) => {
