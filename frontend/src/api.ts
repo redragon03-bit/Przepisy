@@ -17,6 +17,7 @@ export type AuthStatus = Api.AuthStatus;
 export type Appearance = Api.AppearanceOut;
 export type Account = Api.AccountOut;
 export type ImageSearchProgress = Api.ImageSearchProgress;
+export type ImageUpgradeProgress = Api.ImageUpgradeProgress;
 export type ShoppingItem = Api.ShoppingItemOut;
 export type PlanEntry = Api.MealPlanOut;
 export type AiRecipe = Api.AiRecipe;
@@ -70,7 +71,7 @@ export function savedAuth(): AuthStatus | null {
 
 // Lista zakupów i przepisy zapamiętane offline należą do zalogowanej osoby -
 // po wylogowaniu je usuwamy, żeby kolejna osoba na tym telefonie nie zobaczyła cudzych
-const PERSONAL_KEYS = ["shopping-items", "shopping-queue", "offline-recipes", "offline-recipe-list", "recent-recipes", AUTH_KEY];
+const PERSONAL_KEYS = ["shopping-items", "shopping-queue", "offline-recipes", "offline-recipe-list", "recent-recipes", "chat-messages", AUTH_KEY];
 
 function forgetPersonalData() {
   try {
@@ -177,6 +178,9 @@ export const api = {
   setImageFromUrl: (id: number, url: string) => request<Recipe>("POST", `/api/recipes/${id}/image-from-url`, { url }),
   imageSearchStatus: () => request<ImageSearchProgress>("GET", "/api/recipes/image-search"),
   startImageSearch: () => request<ImageSearchProgress>("POST", "/api/recipes/image-search"),
+  // Rozmazane zdjęcia: większa wersja tego samego zdjęcia ze strony źródłowej
+  imageUpgradeStatus: () => request<ImageUpgradeProgress>("GET", "/api/recipes/image-upgrade"),
+  startImageUpgrade: () => request<ImageUpgradeProgress>("POST", "/api/recipes/image-upgrade"),
   calculateNutrition: (id: number) => request<Recipe>("POST", `/api/recipes/${id}/nutrition`),
   // Wpis w dzienniku gotowania; ocena, notatka i zdjęcie są opcjonalne
   markCooked: (id: number, entry: { rating?: number | null; note?: string; photo?: File | null } = {}) => {

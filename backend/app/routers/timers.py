@@ -20,6 +20,11 @@ def start_timer(data: TimerIn, user: CurrentUser = Depends(current_user)):
 
 
 @router.delete("/{timer_id}", status_code=204)
-def cancel_timer(timer_id: int):
-    """Minutnik usunięty przed czasem - bez powiadomienia."""
-    timer_notify.cancel(timer_id)
+def cancel_timer(timer_id: int, user: CurrentUser = Depends(current_user)):
+    """Minutnik usunięty przed czasem - bez powiadomienia.
+
+    Powiadomienia mają tylko minutniki właściciela, więc domownik nie ma czego anulować
+    (i nie skasuje przypadkiem minutnika właściciela).
+    """
+    if user.is_owner:
+        timer_notify.cancel(timer_id)

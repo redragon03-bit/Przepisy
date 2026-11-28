@@ -1,104 +1,110 @@
-import { useEffect, useRef, useState } from "react";
-import { api, AuthStatus, BackupFile, DuplicateGroup, ImageSearchProgress, ReceiptSettings } from "../api";
-import { Link } from "react-router-dom";
+import { ReactNode, useEffect, useState } from "react";
+import { Link, Navigate, useParams } from "react-router-dom";
+import { api, AuthStatus, BackupFile, ReceiptSettings } from "../api";
 import AccountsSection from "../components/AccountsSection";
 import AppearanceSection from "../components/AppearanceSection";
+import BackupSection from "../components/BackupSection";
+import CleanupSection from "../components/CleanupSection";
+import InfoSection, { aiProviders } from "../components/InfoSection";
+import ShoppingSettings from "../components/ShoppingSettings";
+import { useGoBack } from "../lib/navigation";
 import { usePromoBadges } from "../lib/promoBadges";
-import { useToast } from "../lib/toast";
+import { loadTheme, themeById } from "../lib/theme";
+import { DEFAULT_SCALES, loadScales, scalesSummary } from "../lib/uiScale";
 
-const AI_NAMES: Record<string, string> = { anthropic: "Claude", gemini: "Gemini", xai: "Grok", groq: "Groq", mistral: "Mistral" };
+type Props = { auth: AuthStatus; onLogout: () => void };
 
-export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onLogout: () => void }) {
-  const [backups, setBackups] = useState<BackupFile[]>([]);
-  const [uncategorized, setUncategorized] = useState(0);
-  const [images, setImages] = useState<ImageSearchProgress | null>(null);
-  const [working, setWorking] = useState("");
-  const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
-  const restoreInput = useRef<HTMLInputElement>(null);
-  const { toast, run } = useToast();
-  const [showPromos, setShowPromos] = usePromoBadges();
-  const [receipts, setReceipts] = useState<ReceiptSettings | null>(null);
+// Ustawienia jak w iPhonie: krótka lista grup, każda grupa to osobna podstrona /ustawienia/<slug>.
+type Group = { slug: string; icon: string; title: string; ownerOnly?: boolean; page: (auth: AuthStatus) => ReactNode };
 
+const GROUPS: Group[] = [
+  { slug: "konto", icon: "👤", title: "Konto i domownicy", page: (auth) => <AccountsSection auth={auth} /> },
+  { slug: "wyglad", icon: "🎨", title: "Wygląd", page: () => <AppearanceSection /> },
+  { slug: "zakupy", icon: "🛒", title: "Zakupy i promocje", page: () => <ShoppingSettings /> },
+  { slug: "kopia", icon: "💾", title: "Kopia zapasowa", ownerOnly: true, page: () => <BackupSection /> },
+  { slug: "porzadki", icon: "🧹", title: "Porządki", ownerOnly: true, page: (auth) => <CleanupSection auth={auth} /> },
+  { slug: "informacje", icon: "ℹ️", title: "Informacje", page: (auth) => <InfoSection auth={auth} /> },
+];
+
+// Karty na głównym ekranie: grupy podobnych spraw razem, jak w Ustawieniach iPhone'a
+const CARDS = [["konto"], ["wyglad", "zakupy"], ["kopia", "porzadki"], ["informacje"]];
+
+export default function SettingsPage({ auth, onLogout }: Props) {
+  const { group } = useParams();
+  if (!group) return <SettingsHome auth={auth} onLogout={onLogout} />;
+  const found = GROUPS.find((g) => g.slug === group);
+  if (!found || (found.ownerOnly && !auth.is_owner)) return <Navigate to="/ustawienia" replace />;
+  return <SettingsSubpage title={groupTitle(found, auth)}>{found.page(auth)}</SettingsSubpage>;
+}
+
+function groupTitle(group: Group, auth: AuthStatus) {
+  return group.slug === "konto" && !auth.is_owner ? "Twoje konto" : group.title;
+}
+
+function SettingsSubpage({ title, children }: { title: string; children: ReactNode }) {
+  const goBack = useGoBack("/ustawienia");
+  return (
+    <div className="settings-subpage">
+      <header className="topbar">
+        <button type="button" className="link" onClick={goBack}>
+          ‹ Wróć
+        </button>
+        <h1>{title}</h1>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+function SettingsHome({ auth, onLogout }: Props) {
   const owner = auth.is_owner;
+  const [showPromos] = usePromoBadges();
+  const [receipts, setReceipts] = useState<ReceiptSettings | null>(null);
+  const [backups, setBackups] = useState<BackupFile[] | null>(null);
+
   useEffect(() => {
     api.receiptSettings().then(setReceipts, () => undefined);
-    // Kopie i porządki w bazie to sprawy właściciela - domownik ich nie widzi
-    if (!owner) return;
-    api.listBackups().then(setBackups);
-    if (auth.ai_enabled) {
-      api.recipeStats().then((s) => setUncategorized(s.uncategorized));
-      api.imageSearchStatus().then(setImages);
-    }
-  }, [auth.ai_enabled, owner]);
+    // Kopie to sprawa właściciela - domownik ich nie widzi
+    if (owner) api.listBackups().then(setBackups, () => undefined);
+  }, [owner]);
 
-  const autoCategorize = async () => {
-    setWorking("categories");
-    const result = await run(() => api.autoCategorize());
-    setWorking("");
-    if (result) {
-      setUncategorized(result.remaining);
-      toast(result.remaining ? `Przypisano ${result.updated}, zostało ${result.remaining} - stuknij jeszcze raz.` : "Gotowe!");
+  // Krótki opis bieżącego stanu pod nazwą grupy
+  const subtitle = (slug: string): string => {
+    switch (slug) {
+      case "konto":
+        if (!owner) return `${auth.user_name} · zmiana hasła`;
+        return auth.auth_required ? `${auth.user_name} · konta domowników` : "Konta działają, gdy jest hasło";
+      case "wyglad": {
+        const sizes = scalesSummary(loadScales()) === scalesSummary(DEFAULT_SCALES) ? "wielkość 100%" : "wielkość zmieniona";
+        return `Motyw: ${themeById(loadTheme().theme).label} · ${sizes}`;
+      }
+      case "zakupy": {
+        const promos = `Ceny z gazetek: ${showPromos ? "wł." : "wył."}`;
+        return receipts ? `${promos} · paragon: ${receipts.enabled && receipts.ai_enabled ? "wł." : "wył."}` : promos;
+      }
+      case "kopia": {
+        if (!backups) return "Pobierz albo przywróć";
+        const newest = Math.max(...backups.map((b) => new Date(b.created_at).getTime()));
+        return backups.length ? `Ostatnia: ${new Date(newest).toLocaleDateString("pl-PL", { dateStyle: "medium" })}` : "Jeszcze bez kopii automatycznej";
+      }
+      case "porzadki":
+        return auth.ai_enabled ? "Kategorie, zdjęcia, podwójne składniki" : "Zdjęcia, podwójne składniki";
+      case "informacje": {
+        const ai = aiProviders(auth);
+        return ai ? `AI: ${ai}` : "AI wyłączone";
+      }
     }
-  };
-
-  // Adres z tokenem - kalendarz pobiera go sam, bez logowania. `app` = adres do linków w wydarzeniach.
-  const copyCalendar = async () => {
-    const link = await run(() => api.calendarLink());
-    if (!link) return;
-    const url = `${location.origin}${link.path}&app=${encodeURIComponent(location.origin)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("Skopiowano adres kalendarza.");
-    } catch {
-      window.prompt("Adres kalendarza:", url);
-    }
-  };
-
-  const findDuplicates = async () => {
-    setWorking("duplicates");
-    const found = await run(() => api.findDuplicateIngredients());
-    setWorking("");
-    if (found) {
-      setDuplicates(found);
-      if (!found.length) toast("Nie znalazłem podwójnych składników.");
-    }
-  };
-
-  const merge = async (group: DuplicateGroup, keep: string, others: string[]) => {
-    // run() zwraca undefined także po błędzie, więc odpowiedź bez treści zamieniamy na true
-    if (await run(() => api.mergeIngredients(keep, others).then(() => true))) {
-      setDuplicates((list) => list && list.filter((g) => g !== group));
-      toast(`Połączono w „${keep}”.`);
-    }
-  };
-
-  const skip = (group: DuplicateGroup) => setDuplicates((list) => list && list.filter((g) => g !== group));
-
-  const findImages = async () => {
-    const status = await run(() => api.startImageSearch());
-    if (status) {
-      setImages(status);
-      toast("Szukam zdjęć w tle - postęp widać na liście przepisów.");
-    }
-  };
-
-  // Przywrócenie kopii to duża zmiana, więc tu (wyjątkowo) pytamy. Obecne dane i tak
-  // trafiają najpierw do kopii automatycznych - można do nich wrócić.
-  const restore = async (file: File | undefined) => {
-    if (restoreInput.current) restoreInput.current.value = "";
-    if (!file || !window.confirm(`Zastąpić wszystkie przepisy zawartością pliku „${file.name}”? Obecne dane zostaną zapisane jako kopia automatyczna.`)) return;
-    setWorking("restore");
-    const result = await run(() => api.restoreBackup(file));
-    setWorking("");
-    if (result) {
-      toast(`Przywrócono kopię: ${result.recipes} przepisów.`);
-      api.listBackups().then(setBackups);
-    }
+    return "";
   };
 
   const logout = async () => {
     await api.logout();
     onLogout();
+  };
+
+  const visible = (slug: string) => {
+    const g = GROUPS.find((x) => x.slug === slug);
+    return g && (!g.ownerOnly || owner) ? g : null;
   };
 
   return (
@@ -113,164 +119,27 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         </p>
       )}
 
-      <section className="box">
-        <h2>Promocje</h2>
-        <label className="toggle switch-row">
-          <span className="grow">
-            Ceny z gazetek przy składnikach
-            <span className="muted small block">Plakietki „🏷️ Biedronka 5,99 zł” w przepisach i na liście zakupów.</span>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            className="switch"
-            checked={showPromos}
-            onChange={(e) => setShowPromos(e.target.checked)}
-            aria-label="Pokazuj ceny z promocji przy składnikach"
-          />
-        </label>
-      </section>
-
-      {receipts && (
-        <section className="box">
-          <h2>W domu</h2>
-          <label className="toggle switch-row">
-            <span className="grow">
-              Dodawanie z paragonu
-              <span className="muted small block">
-                {receipts.ai_enabled
-                  ? `Zakupy → W domu → „📷 Dodaj z paragonu”: AI odczytuje zdjęcie paragonu, a Ty sprawdzasz listę. Do ${receipts.daily_limit} paragonów dziennie (dziś: ${receipts.used_today}). Tylko na tym koncie.`
-                  : "Paragon odczytuje AI - najpierw ustaw klucz API do AI w opcjach dodatku."}
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              className="switch"
-              checked={receipts.enabled}
-              disabled={!receipts.ai_enabled}
-              onChange={async (e) => {
-                const next = await run(() => api.setReceiptsEnabled(e.target.checked));
-                if (next) {
-                  setReceipts(next);
-                  // Zakupy czytają to ustawienie z pamięci telefonu, zanim zapytają serwer
-                  try {
-                    localStorage.setItem("receipts-enabled", JSON.stringify(next.enabled && next.ai_enabled));
-                  } catch {
-                    // prywatne okno - Zakupy i tak zapytają serwer
-                  }
-                }
-              }}
-              aria-label="Dodawanie produktów do „W domu” z paragonu"
-            />
-          </label>
-          <p className="muted small">
-            „Zawsze w domu” (sól, olej…) jest teraz na dole <Link to="/zakupy?widok=dom">Zakupy → W domu</Link>.
-          </p>
-        </section>
-      )}
-
-      <AppearanceSection />
-
-      <AccountsSection auth={auth} />
-
-      {owner && (
-        <section className="box">
-          <h2>Kopia zapasowa</h2>
-          <p className="muted small">Plik ZIP z bazą przepisów i wszystkimi zdjęciami.</p>
-          <a className="button wide" href="/api/backup" download>
-            Pobierz kopię
-          </a>
-          <p className="muted small">
-            Przeprowadzka do innej aplikacji (Mealie, Tandoor, Paprika):{" "}
-            <a href="/api/backup/schema-org" download>
-              przepisy w formacie schema.org
-            </a>
-          </p>
-          <p className="muted small">Aplikacja sama robi kopię raz w tygodniu i trzyma 3 ostatnie (w folderze danych aplikacji).</p>
-          <button type="button" className="wide" disabled={working === "restore"} onClick={() => restoreInput.current?.click()}>
-            {working === "restore" ? "Przywracam…" : "Przywróć z pliku…"}
-          </button>
-          <input ref={restoreInput} type="file" accept=".zip,application/zip" hidden onChange={(e) => restore(e.target.files?.[0])} />
-          {backups.length === 0 ? (
-            <p className="muted small">Pierwsza automatyczna kopia powstanie kilka minut po uruchomieniu.</p>
-          ) : (
-            <ul className="small">
-              {backups.map((b) => (
-                <li key={b.name}>
-                  <a href={`/api/backups/${b.name}`} download>
-                    {new Date(b.created_at).toLocaleString("pl-PL", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </a>{" "}
-                  <span className="muted">({(b.size / 1024 / 1024).toFixed(1)} MB)</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      {owner && (
-        <section className="box">
-          <h2>Porządki</h2>
-          {auth.ai_enabled && (
-            <>
-              <button type="button" className="wide" disabled={working === "categories" || !uncategorized} onClick={autoCategorize}>
-                {working === "categories" ? "AI przypisuje kategorie…" : `✨ Przypisz kategorie (${uncategorized} bez kategorii)`}
-              </button>
-              <Link className="button wide" to="/sekcje">
-                🧩 Podziel przepisy na sekcje (przegląd z AI)
-              </Link>
-              <button type="button" className="wide" disabled={!images || images.running || !images.missing} onClick={findImages}>
-                {images?.running
-                  ? `🔍 Szukam zdjęć… ${images.done}/${images.total}`
-                  : `🔍 Znajdź zdjęcia w internecie (${images?.missing ?? 0} bez zdjęcia)`}
-              </button>
-            </>
-          )}
-          <button type="button" className="wide" disabled={working === "duplicates"} onClick={findDuplicates}>
-            {working === "duplicates" ? "Szukam…" : "🧹 Znajdź podwójne składniki"}
-          </button>
-          {duplicates && duplicates.length > 0 && (
-            <>
-              <p className="muted small">
-                Ten sam produkt zapisany inaczej psuje wyszukiwanie i „Co ugotuję?”. Odznacz nazwy, które są innym produktem,
-                wybierz nazwę, która zostanie, i stuknij „Połącz”.
-              </p>
-              {duplicates.map((g) => (
-                <DuplicateCard key={g.keep} group={g} onMerge={(keep, others) => merge(g, keep, others)} onSkip={() => skip(g)} />
-              ))}
-            </>
-          )}
-        </section>
-      )}
-
-      <section className="box small">
-        <h2>Informacje</h2>
-        <p>
-          AI (pytane po kolei):{" "}
-          {auth.ai_providers.length ? auth.ai_providers.map((p) => (p === "gemini" && auth.gemini_keys > 1 ? `Gemini (${auth.gemini_keys} klucze)` : AI_NAMES[p] ?? p)).join(" → ") + " ✅" : "wyłączone (brak klucza API)"}
-        </p>
-        {owner && <p>Home Assistant: {auth.ha_enabled ? "wysyłanie listy zakupów działa ✅" : "nie skonfigurowane"}</p>}
-        {owner && (
-          <p>Powiadomienia z minutników: {auth.notify_enabled ? "przez Home Assistant ✅" : "wyłączone (opcja ha_notify dodatku)"}</p>
-        )}
-        <p>
-          Połączenie:{" "}
-          {window.isSecureContext ? "https ✅" : "http – bez pracy offline i bez utrzymywania włączonego ekranu (patrz README, HTTPS)"}
-        </p>
-        {owner && (
-          <p>
-            Plan posiłków jako kalendarz (HA, Google, iPhone):{" "}
-            <button type="button" className="link" onClick={copyCalendar}>
-              kopiuj adres
-            </button>
-          </p>
-        )}
-        <p className="muted">Na iPhonie: w Safari stuknij „Udostępnij” → „Do ekranu początkowego”, żeby mieć aplikację jako ikonę.</p>
-      </section>
+      {CARDS.map((slugs) => {
+        const groups = slugs.map(visible).filter((g): g is Group => !!g);
+        if (!groups.length) return null;
+        return (
+          <ul key={slugs[0]} className="box settings-list">
+            {groups.map((g) => (
+              <li key={g.slug}>
+                <Link to={`/ustawienia/${g.slug}`} className="settings-row">
+                  <span className="settings-icon" aria-hidden="true">
+                    {g.icon}
+                  </span>
+                  <span className="grow">
+                    {groupTitle(g, auth)}
+                    <span className="muted small block">{subtitle(g.slug)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        );
+      })}
 
       {auth.auth_required && (
         <button type="button" className="danger wide" onClick={logout}>
@@ -278,63 +147,5 @@ export default function SettingsPage({ auth, onLogout }: { auth: AuthStatus; onL
         </button>
       )}
     </>
-  );
-}
-
-/** Jedna grupa podobnych nazw: które połączyć i która nazwa zostaje. */
-function DuplicateCard({
-  group,
-  onMerge,
-  onSkip,
-}: {
-  group: DuplicateGroup;
-  onMerge: (keep: string, others: string[]) => void;
-  onSkip: () => void;
-}) {
-  const names = [group.keep, ...group.others];
-  const [picked, setPicked] = useState(() => new Set(names));
-  const [keep, setKeep] = useState(group.keep);
-  const chosen = names.filter((n) => picked.has(n));
-  const target = picked.has(keep) ? keep : chosen[0];
-  const toggle = (name: string) =>
-    setPicked((old) => {
-      const next = new Set(old);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  return (
-    <div className="duplicate-card">
-      <div className="chips">
-        {names.map((n) => (
-          <button key={n} type="button" className={`chip ${picked.has(n) ? "selected" : ""}`} aria-pressed={picked.has(n)} onClick={() => toggle(n)}>
-            {picked.has(n) ? "✓ " : ""}
-            {n} <span className="muted small">({group.counts[n] ?? 0})</span>
-          </button>
-        ))}
-      </div>
-      {chosen.length >= 2 ? (
-        <label className="small">
-          Zostaje nazwa
-          <select value={target} onChange={(e) => setKeep(e.target.value)}>
-            {chosen.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <p className="muted small">Zaznacz co najmniej dwie nazwy tego samego produktu.</p>
-      )}
-      <div className="duplicate-actions">
-        <button type="button" disabled={chosen.length < 2} onClick={() => onMerge(target, chosen.filter((n) => n !== target))}>
-          Połącz {chosen.length >= 2 ? `(${chosen.length})` : ""}
-        </button>
-        <button type="button" onClick={onSkip}>
-          To różne produkty
-        </button>
-      </div>
-    </div>
   );
 }

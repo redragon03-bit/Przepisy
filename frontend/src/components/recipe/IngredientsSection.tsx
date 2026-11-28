@@ -5,7 +5,7 @@ import { promoLabel } from "../../lib/promo";
 import { usePantry } from "../../lib/usePantry";
 import { useHiddenPromoStores, usePromoBadges } from "../../lib/promoBadges";
 import { usePromotions } from "../../lib/usePromotions";
-import { formatAmount, scaleText } from "../../lib/scale";
+import { formatAmount, scaleText, servingsWord } from "../../lib/scale";
 import { groupBySection } from "../../lib/sections";
 import { useLongPress } from "../../lib/useLongPress";
 import SubstituteSheet from "./SubstituteSheet";
@@ -53,7 +53,7 @@ export default function IngredientsSection({
             <button type="button" onClick={() => setServings(Math.max(1, servings - 1))} aria-label="Mniej porcji">
               −
             </button>
-            {servings} {servings === 1 ? "porcja" : servings < 5 ? "porcje" : "porcji"}
+            {servings} {servingsWord(servings)}
             <button type="button" onClick={() => setServings(servings + 1)} aria-label="Więcej porcji">
               +
             </button>

@@ -46,6 +46,7 @@
   --s-small: 1;
   --s-kitchen: 1;
   --s-timer: 1;
+  --s-chat: 1;
   --s-check: 1;
   --s-space: 1;
   --fs-small: calc(clamp(13px, 3.4vw, 14px) * var(--s-small));
@@ -74,41 +75,41 @@
   color-scheme: light dark;
 }
 
-/* Ciemny motyw: ciepłe, "kawowe" szarości zamiast czerni; jaśniejszy pomarańcz z ciemnym tekstem na nim */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1714;
-    --surface: #26201c;
-    --surface-2: #2f2722;
-    --text: #f3ebe4;
-    --muted: #b8a99c;
-    --accent: #ff8a4c;
-    --accent-strong: #ff8a4c;
-    --on-accent: #1b1714;
-    --accent-soft: #4a2c1c;
-    --on-accent-soft: #ffc9a8;
-    --border: #3a312b;
-    --field: #342b25;
-    --field-border: #6b5a4d;
-    --danger: #ff8a7a;
-    --ok: #6fd39b;
-    --missing: #ffb4a8;
-    --missing-soft: #3a1e1a;
-    --promo-bg: #ffd84d;
-    --promo-text: #2b2118;
-    --deal-bg: #ff6b5b;
-    --deal-text: #1b1714;
-    --timer-bg: #f3ebe4;
-    --timer-text: #1b1714;
-    --timer-progress: #e8692c;
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
-    --shadow-2: 0 8px 28px rgb(0 0 0 / 55%);
-  }
+/* Ciemny motyw: ciepłe, "kawowe" szarości zamiast czerni; jaśniejszy pomarańcz z ciemnym tekstem na nim.
+   data-scheme ustawia lib/theme.ts (tryb z Ustawień → Wygląd albo z telefonu); kolory palety
+   (tło, akcent, ramki) nadpisuje wybrany motyw, tu zostają kolory semantyczne. */
+:root[data-scheme="dark"] {
+  --bg: #1b1714;
+  --surface: #26201c;
+  --surface-2: #2f2722;
+  --text: #f3ebe4;
+  --muted: #b8a99c;
+  --accent: #ff8a4c;
+  --accent-strong: #ff8a4c;
+  --on-accent: #1b1714;
+  --accent-soft: #4a2c1c;
+  --on-accent-soft: #ffc9a8;
+  --border: #3a312b;
+  --field: #342b25;
+  --field-border: #6b5a4d;
+  --danger: #ff8a7a;
+  --ok: #6fd39b;
+  --missing: #ffb4a8;
+  --missing-soft: #3a1e1a;
+  --promo-bg: #ffd84d;
+  --promo-text: #2b2118;
+  --deal-bg: #ff6b5b;
+  --deal-text: #1b1714;
+  --timer-bg: #f3ebe4;
+  --timer-text: #1b1714;
+  --timer-progress: #e8692c;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-2: 0 8px 28px rgb(0 0 0 / 55%);
+}
 
-  /* Zdjęcia potraw nie świecą w oczy po ciemku */
-  img {
-    filter: brightness(0.92);
-  }
+/* Zdjęcia potraw nie świecą w oczy po ciemku */
+:root[data-scheme="dark"] img {
+  filter: brightness(0.92);
 }
 
 /* Ktoś wyłączył animacje w iOS (Dostępność → Ruch) - nie ruszamy niczego */
@@ -160,7 +161,7 @@ p {
 .page {
   max-width: 720px;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
+  padding: var(--page-top) 16px calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
 }
 
 .topbar {
@@ -215,10 +216,11 @@ input[type="date"] {
   min-height: 44px;
 }
 
+/* Podpowiedź w polu wyraźnie bledsza od wpisanego tekstu - nie wygląda jak wartość */
 input::placeholder,
 textarea::placeholder {
   color: var(--muted);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 /* Aktywne pole: pomarańczowa ramka, od razu widać, gdzie się pisze */
@@ -440,6 +442,12 @@ button.small,
   -webkit-overflow-scrolling: touch;
 }
 
+/* Więcej chipów po prawej: rząd łagodnie zanika zamiast urywać się na krawędzi */
+.category-bar.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+
 .category-bar .chip {
   flex: none;
   white-space: nowrap;
@@ -504,7 +512,132 @@ button.small,
   padding: 8px 10px 10px;
 }
 
+/* Widoki listy przepisów (lib/recipeView.ts). Średnie kafelki = domyślna siatka powyżej. */
+.grid.view-small {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.grid.view-small .card-body {
+  padding: 6px 8px 8px;
+  font-size: var(--fs-small);
+}
+
+.grid.view-small .card-placeholder {
+  font-size: 28px;
+}
+
+.grid.view-large {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+.grid.view-large .card img,
+.grid.view-large .card-placeholder {
+  aspect-ratio: 16 / 9;
+}
+
+.grid.view-large .card-body {
+  padding: 10px 14px 12px;
+}
+
+.grid.view-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.grid.view-list .card {
+  flex-direction: row;
+  align-items: center;
+}
+
+.grid.view-list .card img,
+.grid.view-list .card-placeholder {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 1;
+  font-size: 28px;
+}
+
+.grid.view-list .card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+/* Pasek pod paskiem stanu iPhone'a (element w index.html). iOS 26 nie rozmywa wtedy
+   górnej części ekranu: musi być fixed, na całą szerokość, z jednolitym tłem i łapać
+   dotknięcia (bez pointer-events: none). */
+/* Górny margines bezpieczny. W aplikacji z ekranu głównego iOS 26 podaje tu 0 (strona zaczyna
+   się pod paskiem stanu), a pasek .top-edge musi mieć co najmniej ~10 px, żeby Safari go uznał -
+   stąd minimum 12 px tylko w trybie aplikacji. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --page-top: calc(var(--safe-top) + 8px);
+}
+
+/* W aplikacji z ekranu głównego strona i tak zaczyna się pod paskiem stanu, więc nagłówek
+   bez dodatkowego odstępu: zaraz pod paskiem 12 px i bez marginesów tytułu (mniej pustego miejsca). */
+@media (display-mode: standalone) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 12px);
+    /* Treść może wejść pod pasek .top-edge, bo pasek jest niewidoczny (niżej) */
+    --page-top: calc(var(--safe-top) - 8px);
+  }
+
+  /* Pasek ma jednolity kolor tła (tego szuka Safari), ale nie jest rysowany:
+     background-clip: text bez tekstu = nic nie widać, treść pod nim zostaje widoczna. */
+  .top-edge {
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .topbar {
+    min-height: 36px;
+  }
+
+  .topbar h1 {
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  /* Przyciski w nagłówku niższe (36 px), żeby nagłówek nie odpychał treści */
+  .topbar > button,
+  .topbar > .button,
+  .topbar > a {
+    min-height: 36px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  /* Pod nagłówkiem wszędzie ten sam odstęp 8 px: wyszukiwarka, przełącznik w Zakupach i karty */
+  .search.sticky {
+    padding-top: 8px;
+  }
+}
+
+.top-edge {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: var(--safe-top);
+  background-color: var(--bg);
+}
+
 /* Szczegóły przepisu */
+/* Górny pasek przepisu zostaje na górze z pełnym tłem. Bez tego Safari na iPhonie
+   (iOS 26) rozmywa pas pod paskiem stanu, który zachodził na Wróć, Inny i serce -
+   przyciski wyglądały na wyblakłe już na samej górze strony. */
+.recipe > .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: calc(-1 * var(--page-top)) -16px 0;
+  padding: var(--page-top) 16px 4px;
+  background: var(--bg);
+}
+
 .hero {
   width: calc(100% + 32px);
   margin: 0 -16px;
@@ -703,7 +836,7 @@ span.drag-handle:not(.step-number) {
 }
 
 .jobs li {
-  padding: 10px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -711,6 +844,54 @@ span.drag-handle:not(.step-number) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Gotowy import: jeden zwarty wiersz z miniaturą i nazwą przepisu, usuwanie pod ⋯ */
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-recipe {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.job-recipe img,
+.job-thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--accent-soft);
+}
+
+.job-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.job-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-more {
+  flex: none;
+  min-width: var(--hit);
+  min-height: var(--hit);
+  font-size: 22px;
+  color: var(--muted);
+  text-decoration: none;
 }
 
 .jobs .small-button {
@@ -795,11 +976,14 @@ span.drag-handle:not(.step-number) {
 }
 
 
+/* Komunikat na dole, nad paskiem zakładek - nie zasłania nagłówka strony */
 .toast {
+  --toast-lift: 0px;
   position: fixed;
   left: 50%;
-  top: calc(env(safe-area-inset-top) + 12px);
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 12px + var(--toast-lift));
   transform: translateX(-50%);
+  box-shadow: var(--shadow-2);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -840,6 +1024,42 @@ span.drag-handle:not(.step-number) {
   padding: 6px 0;
 }
 
+/* Mały „+” w karcie dnia - otwiera panel z wyszukiwarką przepisów */
+.plan-day .plan-add {
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.plan-day.past {
+  opacity: 0.75;
+}
+
+/* Minione dni tygodnia zwinięte w jeden wiersz */
+.plan-past {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--muted);
+  text-align: left;
+}
+
+/* Pole szukania zostaje u góry panelu, gdy lista przepisów się przewija */
+.plan-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 0;
+  background: var(--bg);
+}
+
 .shopping .icon,
 .plan-entry .icon {
   border: none;
@@ -848,15 +1068,13 @@ span.drag-handle:not(.step-number) {
   color: var(--muted, #8a7a6c);
 }
 
-/* Szukanie zdjęć */
+/* Szukanie zdjęć: przepis bez zdjęcia - jedna linia tekstu zamiast dużej ramki */
 .hero-placeholder {
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  margin-bottom: 12px;
-  border: 2px dashed var(--border);
-  border-radius: 14px;
-  background: var(--accent-soft);
-  font-size: calc(16px * var(--s-body));
+  margin: 0 0 4px;
+  text-align: left;
+  font-weight: 600;
 }
 
 .candidates {
@@ -908,7 +1126,71 @@ span.drag-handle:not(.step-number) {
 /* Polecane przepisy w dymku - po dwa w rzędzie, żeby nie zajmowały całego ekranu */
 .bubble .grid {
   grid-template-columns: 1fr 1fr;
+  gap: 8px;
   margin-top: 10px;
+}
+
+/* Karty w dymku mniejsze niż na liście przepisów: tytuł i czas skalują się z czatem */
+.bubble .card-body {
+  padding: 6px 8px 8px;
+  font-size: calc(14px * var(--s-chat));
+  line-height: 1.3;
+}
+
+.bubble .card-body .muted {
+  font-size: calc(12px * var(--s-chat));
+}
+
+/* Formularz przepisu: podpowiedź w jednym zdaniu, reszta po stuknięciu w "?" */
+.form-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.form-hint summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.form-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-hint summary::after {
+  content: "?";
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.form-hint[open] summary::after {
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.form-hint p {
+  margin: 6px 0 0;
+}
+
+/* "Przywrócono szkic · Wyczyść" nad formularzem przepisu */
+.draft-note {
+  margin: 0 0 8px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+}
+
+.draft-note .link {
+  min-height: 40px;
+  font-weight: 600;
 }
 
 .new-recipe summary {
@@ -928,7 +1210,7 @@ span.drag-handle:not(.step-number) {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 12px);
+  padding: calc(var(--safe-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 12px);
   background: var(--bg);
 }
 
@@ -1046,13 +1328,66 @@ body:has(.chat-input) .back-to-top {
   top: 0;
   z-index: 5;
   margin: 0 -16px;
-  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  padding: calc(var(--safe-top) + 8px) 16px 8px;
   background: var(--bg);
 }
 
-.random-link {
-  font-size: 24px;
-  text-decoration: none;
+/* Nagłówek Przepisów: „Widok” (rysunek obecnego układu) i „Losuj” - ikona z podpisem,
+   bo same ▣ i 🎲 nic nie mówiły */
+.topbar > .head-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(15px * var(--s-small));
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.head-chip .view-icon {
+  color: var(--accent);
+  flex: none;
+}
+
+/* Emoji na iPhonie ma wysoką linię - bez tego kostka podnosiła nagłówek Przepisów */
+.head-chip-emoji {
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* Panel „Jak pokazać przepisy?”: 2 × 2, rysunek układu, nazwa i ile kafelków w rzędzie */
+.sheet.sheet-views {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.sheet-tile.view-tile {
+  gap: 4px;
+  padding: 14px 8px 12px;
+}
+
+.view-tile .view-icon {
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.view-tile.active .view-icon {
+  color: var(--accent);
+}
+
+.view-tile small {
+  color: var(--muted);
+  font-size: calc(12px * var(--s-small));
+  font-weight: 400;
+}
+
+.topbar + .segmented {
+  margin-top: 8px;
 }
 
 /* Przeciągnij w dół, żeby odświeżyć */
@@ -1107,6 +1442,38 @@ body:has(.chat-input) .back-to-top {
   font-size: 28px;
 }
 
+/* Komunikat nad polem czatu, minutnikami, przyciskiem "Gotuj" i paskiem sekcji */
+body:has(.chat-input) .toast,
+body:has(.fab) .toast,
+body:has(.review-actions) .toast {
+  --toast-lift: 72px;
+}
+
+body:has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1));
+}
+
+body:has(.timer + .timer) .toast {
+  --timer-count: 2;
+}
+
+body:has(.timer + .timer + .timer) .toast {
+  --timer-count: 3;
+}
+
+body:has(.chat-input):has(.timers) .toast {
+  --toast-lift: calc(68px * var(--timer-count, 1) + 72px);
+}
+
+/* Tryb gotowania zakrywa pasek zakładek: komunikat nad przyciskami kroków */
+body:has(.cooking) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px);
+}
+
+body:has(.cooking):has(.timers) .toast {
+  bottom: calc(env(safe-area-inset-bottom) + 96px + 68px * var(--timer-count, 1));
+}
+
 /* "Cofnij" w komunikacie po usunięciu */
 .toast-undo {
   flex: none;
@@ -1118,6 +1485,15 @@ body:has(.chat-input) .back-to-top {
 }
 
 /* Panel od dołu: tytuł, wiersze do wyboru (np. dni planu) i kafelek "Usuń" */
+.job-source {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .sheet-title {
   grid-column: 1 / -1;
   margin: 0 0 4px;
@@ -1209,6 +1585,24 @@ h2.aisle {
   text-transform: uppercase;
 }
 
+/* Nagłówek działu z małą akcją po prawej ("Usuń kupione") */
+.aisle-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.aisle-row .link {
+  min-height: 0;
+  font-size: calc(14px * var(--s-small));
+  padding: 12px 0 0.25rem 12px;
+}
+
+.gesture-hint {
+  padding: 16px;
+}
+
 .swipe-row {
   position: relative;
   overflow: hidden;
@@ -1231,9 +1625,10 @@ h2.aisle {
   background: var(--danger);
 }
 
-/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem */
+/* Gdy działa minutnik, koniec strony nie chowa się pod jego paskiem
+   (--timers-h = wysokość paska, ustawia TimersBar) */
 body:has(.timers) .page {
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 96px);
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 24px);
 }
 
 /* Długie panele (dziennik, plan od AI) przewijają się w środku */
@@ -1315,6 +1710,33 @@ a.chip {
   border-bottom: 1px solid var(--border);
 }
 
+/* Pozycja propozycji: miniaturka + dzień i nazwa, całość otwiera przepis */
+.plan-proposal-recipe {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.plan-proposal-recipe img,
+.plan-proposal-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--accent-soft);
+}
+
+.plan-proposal-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
 .use-first {
   color: var(--accent-strong);
 }
@@ -1339,9 +1761,58 @@ a.chip {
 }
 
 /* Jak używać */
+/* "Jak używać": tematy w jednej karcie, wiersze rozdzielone linią - wszystkie na jednym ekranie */
+.box.help-group {
+  padding: 0 0 0 12px;
+  overflow: hidden;
+}
+
+.help-section + .help-section {
+  border-top: 1px solid var(--border);
+}
+
+.help-section summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: max(36px, calc(40px * var(--s-space)));
+  padding: 2px 12px 2px 0;
+  font-weight: 600;
+  font-size: calc(1rem * var(--s-title));
+  list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.help-section summary:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.help-icon {
+  flex: none;
+  width: 22px;
+  text-align: center;
+}
+
+.help-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.help-section summary::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 22px;
+  transition: transform 0.2s var(--ease);
+}
+
+.help-section[open] summary::after {
+  transform: rotate(90deg);
+}
+
 .help-list {
   margin: 0;
-  padding-left: 18px;
+  padding: 0 12px 8px 18px;
 }
 
 .help-list li {
@@ -1456,7 +1927,7 @@ a.chip {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: calc(40px * var(--s-space));
+  min-height: max(36px, calc(40px * var(--s-space)));
   padding: calc(5px * var(--s-space)) 4px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-items);
@@ -1551,10 +2022,21 @@ a.chip {
   box-shadow: inset 0 0 0 1.5px currentcolor;
 }
 
-/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu */
+/* Wiersz składnika, którego nie ma w spiżarni: kreska z lewej, widoczna przy przewijaniu.
+   Kreska stoi w marginesie strony, więc kółko i tekst zostają w jednej linii z innymi wierszami. */
 .checklist li.missing {
-  box-shadow: inset 3px 0 0 var(--missing);
-  padding-left: 12px;
+  position: relative;
+}
+
+.checklist li.missing::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--missing);
 }
 
 .promo-price {
@@ -1762,8 +2244,10 @@ body:has(.timers) .chat {
   padding-bottom: 140px;
 }
 
-body:has(.timers) .cooking-body {
-  padding-bottom: 80px;
+/* Tryb gotowania: treść kończy się nad paskiem minutnika, więc nic pod nim nie znika
+   (przycisk minutnika kroku zostaje widoczny) */
+body:has(.cooking-timers) .cooking-body {
+  margin-bottom: calc(var(--timers-h, 72px) + 8px);
 }
 
 /* --- Pasek zakładek: "pigułka" pod aktywną ikoną (Material 3) --- */
@@ -1852,14 +2336,31 @@ body:has(.timers) .cooking-body {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: calc(40px * var(--s-space));
-  padding: calc(5px * var(--s-space)) 4px;
-  background: var(--bg);
+  min-height: max(36px, calc(40px * var(--s-space)));
+  padding: calc(5px * var(--s-space)) 12px;
   transition: transform 0.2s var(--ease);
   /* Przytrzymanie zmienia tekst pozycji - bez systemowego zaznaczania tekstu iPhone'a */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Przesuwany wiersz zasłania czerwoną warstwę "usuń" pod spodem */
+.swipe-content.swiping {
+  background: var(--surface);
+}
+
+/* Lista zakupów i "W domu": każdy dział to zaokrąglona, lekko przezroczysta karta (jak .box),
+   zamiast pełnych ciemnych pasów zasłaniających tło motywu */
+.checklist.shopping {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.checklist.shopping li:last-child {
+  border-bottom: none;
 }
 
 /* --- Pływający przycisk akcji (FAB) "Gotuj" na przepisie --- */
@@ -1888,18 +2389,30 @@ body:has(.timers) .cooking-body {
   font-size: 24px;
 }
 
-/* Gdy chodzi minutnik: FAB robi się okrągły, a minutniki zajmują resztę szerokości */
+/* Po przewinięciu i gdy chodzi minutnik: sama ikona, mniej zasłania */
+.fab.compact,
 body:has(.timers) .fab {
   padding: 0;
   justify-content: center;
 }
 
+.fab.compact .fab-label,
 body:has(.timers) .fab .fab-label {
   display: none;
 }
 
-body:has(.fab) .timers {
-  right: 88px;
+/* Minutnik ma całą szerokość ekranu, a "Gotuj" stoi nad nim */
+body:has(.timers) .fab {
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 8px + var(--timers-h, 72px) + 8px);
+}
+
+/* Koniec przepisu (np. "Ugotowane") da się przewinąć ponad "Gotuj" */
+body:has(.fab) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 88px);
+}
+
+body:has(.fab):has(.timers) .page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--timers-h, 72px) + 96px);
 }
 
 body:has(.fab) .back-to-top {
@@ -1985,11 +2498,12 @@ body:has(.fab) .back-to-top {
 }
 
 /* --- Czat --- */
+/* Czat ma własną wielkość w Ustawieniach → Wygląd (--s-chat), niezależną od "Tekst" */
 .bubble {
   max-width: 88%;
-  padding: 12px 16px;
+  padding: calc(10px * var(--s-chat)) calc(14px * var(--s-chat));
   border-radius: 20px;
-  font-size: var(--fs-body);
+  font-size: calc(16px * var(--s-chat));
   animation: bubble-in 260ms var(--ease-spring);
   transform-origin: bottom left;
 }
@@ -2073,6 +2587,35 @@ body:has(.fab) .back-to-top {
   border-top: 1px solid var(--border);
 }
 
+/* Otwarta klawiatura w czacie (lib/useChatKeyboard.ts): strona przypięta do widocznej części
+   ekranu i przewijana w środku, pole wpisywania nad klawiaturą, bez paska zakładek */
+:root.kb-open body:has(.chat-input) .page {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-h, 100dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 76px;
+}
+
+:root.kb-open body:has(.chat-input) .tabbar {
+  display: none;
+}
+
+:root.kb-open .chat-input {
+  /* Nad klawiaturą iOS stawia swój pasek ˄˅✓ - odstęp do niego tak mały jak między paskiem a klawiaturą */
+  padding-bottom: 3px;
+  top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
+  bottom: auto;
+  transform: translateY(-100%);
+}
+
+:root.kb-open .chat {
+  padding-bottom: 0;
+}
+
 .chat-input textarea {
   flex: 1;
   min-width: 0;
@@ -2092,17 +2635,20 @@ body:has(.fab) .back-to-top {
   line-height: 1;
 }
 
+/* Podpowiedzi czatu zawijają się w kilka rzędów wewnątrz karty - wszystkie widać od razu,
+   bez przewijania w bok (wcześniej wystawały za ramkę i nie było wiadomo, że jest ich więcej) */
 .chat-suggestions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 4px 16px 8px;
-  scrollbar-width: none;
+  margin-top: 12px;
 }
 
 .chat-suggestions .chip {
   flex: none;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 
 /* Na kartach "Co ugotuję?": żółta cenówka i czerwony brak, ten sam język co na liście składników */
@@ -2112,6 +2658,15 @@ body:has(.fab) .back-to-top {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-weight: 600;
+}
+
+/* "Z promocji" w Co ugotuję?: najwyżej dwie linijki zamiast całej listy cen */
+.promo-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .missing-line {
@@ -2179,6 +2734,67 @@ body:has(.fab) .back-to-top {
 .toggle input.switch:focus-visible {
   outline: 2px solid var(--accent-strong, var(--accent));
   outline-offset: 2px;
+}
+
+/* Ustawienia: lista grup jak w iPhonie - karta (.box) z wierszami, ikona, nazwa, stan i strzałka */
+.box.settings-list {
+  list-style: none;
+  padding: 0 0 0 12px;
+  overflow: hidden;
+}
+
+.settings-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: calc(var(--hit) + 8px);
+  padding: 8px 12px 8px 0;
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-row:active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.settings-row .grow {
+  min-width: 0;
+}
+
+/* Stan pod nazwą w jednej linii - dłuższy ucina się wielokropkiem */
+.settings-row .block {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 18px;
+}
+
+.settings-row::after {
+  content: "›";
+  flex: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.settings-subpage .settings-note {
+  margin: 8px 4px;
 }
 
 /* Ustawienia → Konta */
@@ -2266,6 +2882,15 @@ body:has(.fab) .back-to-top {
   animation: none;
 }
 
+.scale-preview .chat {
+  gap: 6px;
+  padding-bottom: 0;
+}
+
+.scale-preview .bubble {
+  animation: none;
+}
+
 .scale-preview-label {
   margin-bottom: 0;
 }
@@ -2312,7 +2937,7 @@ body:has(.fab) .back-to-top {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  padding: calc(24px + var(--safe-top)) 24px calc(24px + env(safe-area-inset-bottom));
   background: var(--bg);
   color: var(--text);
   text-align: center;
@@ -2331,14 +2956,130 @@ body:has(.fab) .back-to-top {
   min-width: 220px;
 }
 
-.server-down-spinner {
-  font-size: 48px;
-  animation: server-down-spin 2s linear infinite;
+.server-down-lead {
+  font-size: 17px;
 }
 
-@keyframes server-down-spin {
-  to {
-    transform: rotate(360deg);
+.server-down-stir {
+  min-height: 2.8em; /* dopisek bywa na dwie linie - przyciski nie skaczą co 5 s */
+  font-style: italic;
+  color: var(--accent-strong);
+}
+
+/* --- Smok gotuje (components/DragonCooking.tsx, kopia w index.html) --- */
+.dragon-cook {
+  position: relative;
+  flex: none;
+  margin: 56px 0 8px; /* miejsce na parę nad obrazkiem */
+}
+
+.dragon-cook img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 22%;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.dc-fire {
+  position: absolute;
+  left: 44%;
+  top: 70%;
+  width: 26%;
+  height: 20%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 200, 80, 0.9), rgba(255, 120, 30, 0.45) 55%, transparent);
+  mix-blend-mode: screen;
+  animation: dc-flicker 0.9s ease-in-out infinite alternate;
+}
+
+.dc-bubble {
+  position: absolute;
+  top: 60%;
+  width: 4.5%;
+  height: 4.5%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff4dc, #ffb566 60%, #e8692c);
+  opacity: 0;
+  animation: dc-bubble 1.8s ease-out infinite;
+}
+
+.dc-bubble.b1 { left: 49%; }
+.dc-bubble.b2 { left: 57%; animation-delay: 0.6s; }
+.dc-bubble.b3 { left: 63%; animation-delay: 1.2s; }
+
+.dc-steam {
+  position: absolute;
+  top: 46%;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+  filter: blur(2px);
+  opacity: 0;
+  animation: dc-steam 3s ease-out infinite;
+}
+
+.dc-steam.s1 { left: 40%; }
+.dc-steam.s2 { left: 52%; animation-delay: 1s; }
+.dc-steam.s3 { left: 46%; animation-delay: 2s; }
+
+@keyframes dc-flicker {
+  from { opacity: 0.55; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes dc-bubble {
+  0% { opacity: 0; transform: translateY(6px) scale(0.4); }
+  30% { opacity: 1; }
+  80% { opacity: 1; transform: translateY(-4px) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-6px) scale(1.6); }
+}
+
+@keyframes dc-steam {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  25% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(12%, -230%) scale(2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragon-cook span { animation: none; opacity: 0; }
+}
+
+/* --- Ładowanie strony: logo smoka zamiast gołego napisu (components/Loading.tsx) --- */
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 72px 16px;
+  color: var(--muted);
+  /* krótkie ładowanie (dane z pamięci) nie mignie logo - pokazuje się dopiero po chwili */
+  animation: page-loading-in 0.2s ease-out 0.25s both;
+}
+
+.page-loading-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  animation: boot-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes page-loading-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes boot-breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-logo {
+    animation: none;
   }
 }
 
@@ -2486,4 +3227,456 @@ body:has(.fab) .back-to-top {
 
 .staples .chips {
   margin-top: 8px;
+}
+
+/* --- Ustawienia → Wygląd → Motyw: kafelki w kolorach motywu --- */
+.box h3.appearance-sub {
+  margin: 4px 0 8px;
+  font-size: var(--fs-body);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.theme-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: var(--hit);
+  padding: 10px;
+  border: 2px solid;
+  border-radius: var(--radius);
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-small);
+}
+
+.theme-tile[aria-checked="true"] {
+  box-shadow: var(--shadow-1);
+}
+
+.theme-tile small {
+  line-height: 1.25;
+}
+
+.theme-swatches {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.theme-swatches i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+.theme-tile[aria-checked="true"] b::after {
+  content: " ✓";
+}
+
+.theme-mode {
+  margin-bottom: 14px;
+}
+
+/* ===== Efekty motywu (Ustawienia → Wygląd → Efekty), data-fx na <html> =====
+   subtle: gradienty na przyciskach, połysk na "Gotuj", drobinki nad listą przepisów;
+   bold: do tego żywe tło z fakturą motywu, poświata, przezroczyste karty, mieniące się tytuły,
+   drobinki na całym ekranie (poza trybem gotowania). Ograniczony ruch w iOS wyłącza animacje. */
+:root {
+  --grad: linear-gradient(135deg, var(--accent-strong), var(--accent-2, var(--accent-strong)));
+  --glow: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+:root:not([data-fx="off"]) :is(.primary, .fab, .chip.selected, .step-number, .bubble.user, .stepper button.active) {
+  background: var(--grad);
+  border-color: transparent;
+}
+
+:root:not([data-fx="off"]) .toggle input.switch:checked {
+  background: var(--grad);
+}
+
+:root:not([data-fx="off"]) .card-placeholder {
+  background: linear-gradient(150deg, var(--accent-soft), var(--surface-2) 70%);
+}
+
+:root:not([data-fx="off"]) :is(.tabbar a.active span, .tabbar button.active span) {
+  background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent-2, var(--accent)) 22%, var(--accent-soft)));
+  animation: fx-pop 360ms var(--ease-spring);
+}
+
+@keyframes fx-pop {
+  from { transform: scale(0.7); }
+}
+
+/* Połysk przesuwający się po "Gotuj" co kilka sekund */
+:root:not([data-fx="off"]) .fab {
+  overflow: hidden;
+}
+
+:root:not([data-fx="off"]) .fab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 45%) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: fx-shine 5s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes fx-shine {
+  0%, 70% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* --- Drobinki --- */
+.ambient {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 230px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1; /* pod treścią, nad tłem */
+  container-type: size;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+:root[data-fx="subtle"] .ambient.ambient-list,
+:root[data-fx="bold"] .ambient {
+  display: block;
+}
+
+:root[data-fx="bold"] .ambient {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.ambient i {
+  position: absolute;
+  left: var(--x);
+  bottom: -12px;
+  width: calc(7px * var(--s));
+  height: calc(7px * var(--s));
+  border-radius: 50%;
+  opacity: 0;
+  animation: fx-rise var(--t) linear var(--d) infinite;
+}
+
+/* Iskry z paleniska (klasyczny: para znad garnka) - w górę */
+@keyframes fx-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  15% { opacity: var(--o, 0.8); }
+  100% { opacity: 0; transform: translate(calc(var(--w) * 14px), -105cqh) scale(1.1); }
+}
+
+/* Liście i śnieg - w dół */
+@keyframes fx-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  12% { opacity: var(--o, 0.8); }
+  100% { opacity: 0; transform: translate(calc(var(--w) * 22px), 105cqh) rotate(calc(var(--w) * 160deg)); }
+}
+
+/* Iskierki z księgi - migoczą w miejscu i powoli dryfują */
+@keyframes fx-twinkle {
+  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.3) rotate(0deg); }
+  50% { opacity: var(--o, 0.9); transform: translate(calc(var(--w) * 6px), -18px) scale(1) rotate(45deg); }
+}
+
+:root[data-theme="klasyczny"] .ambient i {
+  width: calc(26px * var(--s));
+  height: calc(26px * var(--s));
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  filter: blur(3px);
+  --o: 0.7;
+}
+
+:root[data-theme="smok"] .ambient i {
+  width: calc(5px * var(--s));
+  height: calc(5px * var(--s));
+  background: #ffd27a;
+  box-shadow: 0 0 6px 2px #ff8a2a, 0 0 14px 4px rgb(255 90 30 / 45%);
+  --o: 0.95;
+}
+
+:root[data-theme="las"] .ambient i {
+  top: 0;
+  bottom: auto;
+  width: calc(12px * var(--s));
+  height: calc(7px * var(--s));
+  border-radius: 0 100% 0 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  animation-name: fx-fall;
+  --o: 0.75;
+}
+
+:root[data-theme="ksiega"] .ambient i {
+  top: calc(var(--x) * 0.9 + 8%);
+  bottom: auto;
+  width: calc(12px * var(--s));
+  height: calc(12px * var(--s));
+  border-radius: 0;
+  background: #f2c94c;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  filter: drop-shadow(0 0 4px #f2c94c);
+  animation-name: fx-twinkle;
+  animation-timing-function: ease-in-out;
+}
+
+:root[data-theme="eliksir"] .ambient i {
+  width: calc(12px * var(--s));
+  height: calc(12px * var(--s));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 70%), transparent 40%), color-mix(in srgb, var(--accent-2) 18%, transparent);
+  --o: 0.85;
+}
+
+:root[data-theme="lod"] .ambient i {
+  top: -12px;
+  bottom: auto;
+  width: calc(6px * var(--s));
+  height: calc(6px * var(--s));
+  background: #fff;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 80%, #fff);
+  animation-name: fx-fall;
+  --o: 0.9;
+}
+
+:root[data-theme="lod"][data-scheme="light"] .ambient i {
+  background: color-mix(in srgb, var(--accent) 45%, #fff);
+}
+
+/* --- Na bogato: żywe tło z fakturą motywu --- */
+:root[data-fx="bold"] body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 15% 10%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 90% 30%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 40% 95%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    var(--bg);
+  animation: fx-drift 24s ease-in-out infinite alternate;
+}
+
+@keyframes fx-drift {
+  to { transform: translate(6%, 4%) rotate(6deg) scale(1.08); }
+}
+
+:root[data-fx="bold"] body {
+  background: var(--bg);
+}
+
+/* Faktura nad poświatą: łuski smoka, włókna pergaminu, kropki światła w lesie… */
+:root[data-fx="bold"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+:root[data-fx="bold"][data-theme="smok"] body::after {
+  background: radial-gradient(circle at 50% 0, transparent 58%, color-mix(in srgb, var(--accent) 22%, transparent) 60%, transparent 68%) 0 0 / 26px 16px,
+    radial-gradient(circle at 50% 0, transparent 58%, color-mix(in srgb, var(--accent) 22%, transparent) 60%, transparent 68%) 13px 8px / 26px 16px;
+  -webkit-mask-image: linear-gradient(transparent, #000 40%, transparent);
+  mask-image: linear-gradient(transparent, #000 40%, transparent);
+}
+
+:root[data-fx="bold"][data-theme="ksiega"] body::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.8;
+}
+
+:root[data-fx="bold"][data-theme="las"] body::after {
+  background:
+    radial-gradient(12% 8% at 20% 30%, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent),
+    radial-gradient(10% 7% at 75% 55%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent),
+    radial-gradient(14% 9% at 40% 80%, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent);
+  animation: fx-dapple 9s ease-in-out infinite alternate;
+}
+
+@keyframes fx-dapple {
+  to { transform: translate(-4%, 3%); opacity: 0.25; }
+}
+
+:root[data-fx="bold"][data-theme="lod"] body::after {
+  top: -10%;
+  bottom: auto;
+  height: 45%;
+  background: linear-gradient(100deg, transparent 10%, color-mix(in srgb, var(--accent) 45%, transparent) 30%, color-mix(in srgb, var(--accent-2) 45%, transparent) 55%, transparent 80%);
+  filter: blur(30px);
+  animation: fx-aurora 12s ease-in-out infinite alternate;
+}
+
+@keyframes fx-aurora {
+  from { transform: translateX(-15%) skewY(-6deg); }
+  to { transform: translateX(15%) skewY(5deg); }
+}
+
+:root[data-fx="bold"][data-theme="eliksir"] body::after {
+  inset: -50%;
+  background: conic-gradient(from 0deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent 30%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 70%);
+  animation: fx-swirl 40s linear infinite;
+}
+
+@keyframes fx-swirl {
+  to { transform: rotate(360deg); }
+}
+
+:root[data-fx="bold"][data-theme="klasyczny"] body::after {
+  background: linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--accent) 18%, transparent));
+}
+
+/* Karty jak z przydymionego szkła, z poświatą w kolorze motywu */
+:root[data-fx="bold"] :is(.card, .box) {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 16%, transparent), var(--shadow-1);
+}
+
+:root[data-fx="bold"] .grid .card {
+  animation: fx-card-in 520ms var(--ease) both;
+}
+
+:root[data-fx="bold"] .grid .card:nth-child(2) { animation-delay: 60ms; }
+:root[data-fx="bold"] .grid .card:nth-child(3) { animation-delay: 120ms; }
+:root[data-fx="bold"] .grid .card:nth-child(4) { animation-delay: 180ms; }
+:root[data-fx="bold"] .grid .card:nth-child(n + 5) { animation-delay: 240ms; }
+
+@keyframes fx-card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+
+:root[data-fx="bold"] .card:active {
+  transform: scale(0.97) rotate(-0.6deg);
+}
+
+/* Przyklejone paski (szukanie, góra przepisu) przepuszczają tło i miękko przechodzą w treść -
+   bez rozmycia, które dawało ostre krawędzie pasa na górze i na dole */
+:root:not([data-fx="off"]) .search.sticky,
+:root[data-fx="bold"] .recipe > .topbar {
+  background: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--bg) 70%, transparent) 30%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 70%,
+    transparent
+  );
+}
+
+/* Gdy pasek szukania jest przyklejony u góry, lista przewija się pod nim: u góry prawie pełne
+   tło, żeby chipy i zdjęcia nie prześwitywały nad polem szukania */
+:root:not([data-fx="off"]) .search.sticky.stuck {
+  background: linear-gradient(
+    color-mix(in srgb, var(--bg) 96%, transparent),
+    color-mix(in srgb, var(--bg) 88%, transparent) 70%,
+    transparent
+  );
+}
+
+/* Wyłączony przycisk główny (np. Importuj przy pustym polu): szary, bez gradientu i poświaty -
+   od razu widać, że nieaktywny, w każdym motywie i przy każdym poziomie efektów
+   (button. - reguła gradientu wyżej ma przez :is(.stepper button.active) wyższą wagę) */
+.primary:disabled,
+:root:not([data-fx="off"]) button.primary:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* Poświata wybranego chipa mieści się w pasku kategorii (wcześniej ucinało ją góra i dół paska) */
+:root[data-fx="bold"] .category-bar {
+  margin: -8px -16px -2px;
+  padding: 8px 16px 12px;
+}
+
+:root[data-fx="bold"] .chip.selected {
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+:root[data-fx="bold"]:is([data-theme="lod"], [data-theme="las"], [data-theme="eliksir"]) .ambient i {
+  --o: 0.55;
+}
+
+/* Tytuły mienią się kolorami motywu */
+:root[data-fx="bold"] h1 {
+  background: linear-gradient(90deg, var(--text), var(--accent-strong), var(--accent-2), var(--text)) 0 0 / 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fx-shift 8s ease-in-out infinite alternate;
+}
+
+@keyframes fx-shift {
+  to { background-position: 100% 0; }
+}
+
+:root[data-fx="bold"] :is(.primary, .fab) {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+:root[data-fx="bold"] .fab {
+  animation: timer-in 320ms var(--ease-spring), fx-glow 2.6s ease-in-out 400ms infinite;
+}
+
+@keyframes fx-glow {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent), 0 6px 26px color-mix(in srgb, var(--accent) 55%, transparent); }
+}
+
+:root[data-fx="bold"] .tabbar {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+:root[data-fx="bold"] :is(.tabbar a.active span, .tabbar button.active span) {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Zmiana motywu: nowe kolory rozlewają się kołem od stukniętego kafelka */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient {
+    display: none !important;
+  }
+
+  :root[data-fx] body::before,
+  :root[data-fx] body::after,
+  :root[data-fx] h1 {
+    animation: none !important;
+  }
+}
+
+.theme-fx-label {
+  margin: 0 0 6px;
+}
+
+/* Ikona „Dodaj”: zwykły plus w kolorze tekstu (szare emoji ➕ ginęło na ciemnym pasku), jak „⋯” przy Więcej */
+.tabbar a[href="/dodaj"] span {
+  font-size: 30px;
+  font-weight: 500;
 }

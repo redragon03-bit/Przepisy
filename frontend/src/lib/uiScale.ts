@@ -2,7 +2,7 @@
 // Zapisana w telefonie (localStorage) i ustawiana jako zmienne CSS --s-<grupa> (1 = 100%).
 // Bez importów z aplikacji - testy (npm test) uruchamiają ten plik bezpośrednio w Node.
 
-export type ScaleKey = "title" | "body" | "list" | "small" | "kitchen" | "timer" | "check" | "space";
+export type ScaleKey = "title" | "body" | "list" | "small" | "kitchen" | "timer" | "chat" | "check" | "space";
 export type Scales = Record<ScaleKey, number>;
 
 export const SCALE_GROUPS: { key: ScaleKey; label: string; hint: string }[] = [
@@ -12,6 +12,7 @@ export const SCALE_GROUPS: { key: ScaleKey; label: string; hint: string }[] = [
   { key: "small", label: "Małe napisy", hint: "kcal, czasy, podpowiedzi" },
   { key: "kitchen", label: "Tryb gotowania", hint: "duży tekst kroku" },
   { key: "timer", label: "Minutnik", hint: "pastylka z czasem" },
+  { key: "chat", label: "Czat", hint: "dymki rozmowy i karty przepisów w czacie" },
   { key: "check", label: "Kółka do odhaczania", hint: "składniki i zakupy" },
   { key: "space", label: "Odstępy", hint: "między akapitami, wierszami i ramkami" },
 ];

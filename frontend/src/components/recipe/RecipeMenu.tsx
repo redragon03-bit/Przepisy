@@ -15,12 +15,15 @@ import VariantSheet from "./VariantSheet";
 type Panel = "menu" | "plan" | "photo" | "share" | "variant" | null;
 
 // Menu "⋯" na ekranie przepisu: rzadziej używane akcje w jednym panelu zamiast rzędu przycisków.
-export default function RecipeMenu({ recipe, scale, servings, onChange, onSearchImages, aiEnabled }: {
+export default function RecipeMenu({ recipe, scale, servings, keepAwake, onKeepAwake, onChange, onSearchImages, aiEnabled }: {
   recipe: Recipe;
   aiEnabled: boolean;
   scale: number;
   // Porcje po przeliczeniu, np. "6 porcji" (do udostępniania)
   servings: string;
+  // "Nie wygaszaj ekranu" - telefon leży w kuchni
+  keepAwake: boolean;
+  onKeepAwake: (on: boolean) => void;
   onChange: (r: Recipe) => void;
   onSearchImages: () => void;
 }) {
@@ -99,10 +102,22 @@ export default function RecipeMenu({ recipe, scale, servings, onChange, onSearch
       {panel === "menu" && (
         <Sheet onClose={close}>
           {recipe.can_edit && <SheetTile icon="✏️" label="Edytuj" onClick={() => navigate(`/przepis/${recipe.id}/edytuj`)} />}
-          <SheetTile icon="📅" label="Zaplanuj" onClick={() => setPanel("plan")} />
+          <SheetTile icon="🗓️" label="Zaplanuj" onClick={() => setPanel("plan")} />
           <SheetTile icon="🛒" label="Do zakupów" onClick={toShopping} />
           <SheetTile icon="📤" label="Udostępnij" onClick={() => setPanel("share")} />
           {aiEnabled && <SheetTile icon="🔀" label="Wariant" onClick={() => setPanel("variant")} />}
+          {"wakeLock" in navigator && (
+            <SheetTile
+              icon="💡"
+              label={keepAwake ? "Nie wygaszaj: wł." : "Nie wygaszaj: wył."}
+              active={keepAwake}
+              onClick={() => {
+                close();
+                onKeepAwake(!keepAwake);
+                toast(keepAwake ? "Ekran może gasnąć." : "Ekran nie zgaśnie.");
+              }}
+            />
+          )}
           {/* Domownik zmienia tylko przepisy, które sam dodał */}
           {recipe.can_edit && (
             <>

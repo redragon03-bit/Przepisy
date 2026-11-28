@@ -16,7 +16,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     title: "Promocje",
     items: [
       "Więcej → Promocje: jedzenie, pieluchy i środki czystości w promocji z gazetek Lidla, Biedronki i Kauflandu, pogrupowane na sklepy. Przyciski sklepów i grup (🍎 / 👶 / 🧽) chowają je na liście. Produkty są w działach jak w sklepie, największe rabaty na górze; zdjęcie to wycinek z gazetki (gdy AI przeczytało stronę), inaczej ikonka działu. Wybrane sklepy i dział aplikacja pamięta. Stuknij produkt → „⭐ Ulubione”, a takie rzeczy (każdej marki) będą na górze listy. Stuknij produkt, żeby dodać go do listy zakupów.",
-      "Aplikacja sama sprawdza nowe gazetki co 12 godzin, a AI czyta tylko te, których jeszcze nie było. Nocą (1:00–6:00) czyta też obrazki stron głównych gazetek, do 50 stron na noc, żeby uzupełnić ceny. Sklepy zmienisz w opcjach dodatku (promo_stores).",
+      "Aplikacja sama sprawdza nowe gazetki co 12 godzin, a AI czyta tylko te, których jeszcze nie było. Nocą (1:00–6:00) czyta też obrazki stron głównych gazetek, do 150 stron na noc, żeby uzupełnić ceny i zdjęcia produktów. Sklepy zmienisz w opcjach dodatku (promo_stores).",
       "W „Co ugotuję?” sekcja „Z promocji” pokazuje Twoje przepisy ze składnikami w promocji, a „✨ Nowe pomysły z promocji” prosi AI o 3 nowe obiady.",
       "Przy składnikach przepisu i na liście zakupów plakietka 🏷️ pokazuje, gdzie produkt jest teraz taniej.",
     ],
@@ -25,6 +25,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     icon: "📖",
     title: "Przepisy",
     items: [
+      "W przepisie rozsuń lub zsuń dwa palce, żeby powiększyć albo pomniejszyć treść - aplikacja zapamięta tę wielkość.",
       "Szukaj po nazwie, składniku, opisie, krokach albo notatkach – „zurawina” znajdzie też „żurawinę”.",
       "„Filtry” obok wyszukiwania: kategorie, ❤️ ulubione, sortowanie i przepisy z wybranymi składnikami.",
       "W przepisie: +/− zmienia liczbę porcji, stuknięcie w składnik go odhacza, a przytrzymanie podpowiada zamiennik.",
@@ -62,6 +63,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
       "Stuknięcie odhacza pozycję: kupione jedzenie od razu trafia do „W domu” (chemia i rzeczy dla domu – nie). „Cofnij” albo ponowne stuknięcie je stamtąd zabiera.",
       "Dopisanie czegoś do listy (ręcznie, z promocji albo w Home Assistant) znaczy, że tego nie masz – produkt znika z „W domu”. Z przepisu do listy trafia tylko to, czego nie masz, a „Zawsze w domu” (sól, olej…) jest pomijane.",
       "Ten sam produkt pod inną nazwą („Kurczak piersi” i „Pierś z kurczaka”, „pomidory” i „2 kg pomidorów”) się nie dubluje: przy wpisywaniu zobaczysz „Już jest na liście”, a „Dodaj” nic nie doda (kupione wcześniej wróci na listę). Gdy chcesz mieć obie pozycje – „Dodaj osobno”. Dwie podobne pozycje, które już są na liście, łączy „Połącz”.",
+      "„Usuń kupione” (przy kupionych) czyści odhaczone, a „⋯” → „Wyczyść listę” usuwa wszystko – oba można cofnąć.",
       "Listę można wysłać do Home Assistant; odhaczone tam też trafia do „W domu”.",
     ],
   },
@@ -79,10 +81,11 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     ],
   },
   {
-    icon: "📅",
+    icon: "🗓️",
     title: "Plan (pod „Więcej”)",
     items: [
-      "Przepisy na każdy dzień tygodnia; „N por.” ustawia, na ile osób gotujesz.",
+      "Przepisy na każdy dzień tygodnia: stuknij dzień (albo „+”), żeby dodać przepis; „N por.” ustawia, na ile osób gotujesz.",
+      "Tydzień zaczyna się od dziś – minione dni są zwinięte w „Wcześniej w tym tygodniu”.",
       "„✨ Zaplanuj z AI” układa tydzień z Twoich przepisów, a „🛒 Składniki z tygodnia” robi z niego listę zakupów.",
       "Przepisy z planu na 7 dni telefon trzyma w pamięci – otworzysz je bez internetu.",
     ],
@@ -119,7 +122,7 @@ const SECTIONS: { icon: string; title: string; items: string[] }[] = [
     items: [
       "Ikona z ekranu początkowego otwiera się także bez sieci – z przepisami, które ostatnio oglądałeś, i z planem na tydzień.",
       "Żeby dodawać i zapisywać zmiany, potrzebny jest internet i włączony Tailscale.",
-      "Podczas aktualizacji dodatku albo restartu Home Assistanta zobaczysz ekran „Trwa aktualizacja” – aplikacja sama się odświeży, gdy serwer wróci. „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.",
+      "Podczas aktualizacji dodatku albo restartu Home Assistanta zobaczysz smoka mieszającego w kotle („Smok warzy nową miksturę”) – aplikacja sama się odświeży, gdy serwer wróci. „Pracuj bez połączenia” pozwala w tym czasie korzystać z listy zakupów i zapisanych przepisów.",
     ],
   },
 ];
@@ -130,18 +133,23 @@ export default function HelpPage() {
       <header className="topbar">
         <h1>Jak używać</h1>
       </header>
-      {SECTIONS.map((section) => (
-        <section key={section.title} className="box">
-          <h2>
-            {section.icon} {section.title}
-          </h2>
-          <ul className="help-list">
-            {section.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <p className="muted small">Stuknij temat, żeby go rozwinąć.</p>
+      {/* Same tytuły na start w jednej zwartej karcie (jak lista w Ustawieniach) -
+          wszystkie tematy mieszczą się na jednym ekranie, treść rozwija się po stuknięciu */}
+      <div className="box help-group">
+        {SECTIONS.map((section) => (
+          <details key={section.title} className="help-section">
+            <summary>
+              <span className="help-icon">{section.icon}</span> {section.title}
+            </summary>
+            <ul className="help-list">
+              {section.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
     </>
   );
 }

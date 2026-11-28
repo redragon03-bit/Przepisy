@@ -6,9 +6,10 @@ Dokumentacja API:      http://localhost:8000/docs
 
 import logging
 import re
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from .auth import require_auth
@@ -32,7 +33,7 @@ from .routers import (
     timers,
 )
 from .services import backup as backup_service
-from .services import images, plan_sensor, ytdlp_update
+from .services import images, plan_sensor, timer_notify, ytdlp_update
 from .services import promotions as promotions_service
 from .services.importer import remove_stale_uploads
 
@@ -43,6 +44,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_app: FastAPI):
     init_db()
     remove_stale_uploads()
+    timer_notify.restore()
     backup_service.start_scheduler()
     plan_sensor.start_scheduler()
     ytdlp_update.start_scheduler()
@@ -51,6 +53,24 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Smocza strawa", lifespan=lifespan)
+# Zapytania wolniejsze niż to trafiają do logu dodatku - żeby przy „aplikacja wolno się
+# wczytuje” było widać, czy czeka serwer, czy sieć (Tailscale / telefon)
+SLOW_REQUEST_SECONDS = 1.0
+log = logging.getLogger("przepisy.http")
+
+
+@app.middleware("http")
+async def log_slow_requests(request: Request, call_next):
+    started = time.perf_counter()
+    response = await call_next(request)
+    elapsed = time.perf_counter() - started
+    if elapsed >= SLOW_REQUEST_SECONDS and request.url.path.startswith("/api/"):
+        log.warning(
+            "Wolne zapytanie: %s %s - %.1f s (%d)", request.method, request.url.path, elapsed, response.status_code
+        )
+    return response
+
+
 app.include_router(auth.router)
 app.include_router(recipes.router)
 app.include_router(ingredients.router)

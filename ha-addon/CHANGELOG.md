@@ -1,5 +1,168 @@
 # Zmiany
 
+## 0.28.5
+
+- Przepisy: przyciski w nagłówku mają podpisy - „Widok” (z rysunkiem obecnego układu) i „🎲 Losuj”.
+- Panel widoku „Jak pokazać przepisy?”: 2 × 2, przy każdym układzie rysunek i opis (np. „3 w rzędzie”), wybrany podświetlony.
+
+## 0.28.4
+
+- Jak używać: tematy w jednej zwartej karcie (niższe wiersze, mniejsza czcionka) - wszystkie mieszczą się na jednym ekranie iPhone'a.
+
+## 0.28.3
+
+- Czat: przy otwartej klawiaturze mniejszy odstęp między polem a systemowym paskiem iPhone'a (˄˅✓).
+
+## 0.28.2
+
+- Dodaj → Ostatnie importy: w panelu pod „⋯” widać wprowadzony adres, z „Kopiuj adres” i „Otwórz link”.
+- Czat: po stuknięciu w pole widać ostatnią wiadomość, a nie początek rozmowy.
+
+## 0.28.1
+
+- Czat na iPhonie: stuknięcie w pole od razu chowa pasek zakładek, a pole siedzi tuż nad klawiaturą
+  (także w aplikacji z ekranu głównego, gdzie wcześniej nie wykrywało klawiatury i widok uciekał w górę).
+- Dodaj → Ostatnie importy: zwarty wiersz z miniaturą i nazwą przepisu zamiast linku,
+  „Usuń z listy” i „Usuń przepis” pod „⋯”.
+- Zakupy: bez menu „⋯” - „Wyczyść listę” widać od razu na dole listy (z Cofnij).
+
+## 0.28.0
+
+Zbiorcze poprawki wyglądu i wygody (lista Dariusza + audyt UX).
+
+- Przepisy: przycisk obok kostki zmienia widok listy (lista, małe, średnie, duże kafelki), wybór zostaje.
+  Rząd kategorii zanika na krawędzi, gdy jest więcej do przewinięcia.
+- Przepis: powiększanie treści dwoma palcami (zapamiętane). Porcje słownie („4 porcje”), „Nie wygaszaj ekranu”
+  w menu ⋯, niski pasek „Znajdź zdjęcie”, równa kolumna składników z „brak”, „Gotuj” zwija się do ikony
+  po przewinięciu i nie zasłania treści ani minutnika.
+- Tryb gotowania: pod krokiem tylko składniki z jego sekcji, lepsze dopasowanie odmian (cukier/cukru);
+  pasek minutnika nie zasłania kroku i ma krótszy opis.
+- Czat: podpowiedzi zawijają się w kilka rzędów; przy klawiaturze rozmowa zostaje widoczna nad polem.
+- Dodaj: przy gotowym imporcie „usuń z listy” i „usuń przepis” (z Cofnij); zrozumiały komunikat błędu;
+  wyłączony „Importuj” wyraźnie szary. Nowy i edytowany przepis zapisuje się jako szkic i wraca po zmianie zakładki.
+  Krótsze podpowiedzi w formularzu (reszta pod „?”).
+- Zakupy i W domu: działy jako zaokrąglone, półprzezroczyste karty. „Usuń kupione” przy nagłówku kupionych,
+  „Wyczyść listę” pod ⋯, podpowiedź o gestach tylko na początku. Komunikaty z „Cofnij” na dole ekranu.
+- Plan: zaczyna od dziś (minione dni zwinięte), przepis dodaje się z panelu od dołu. Plan od AI: miniatury,
+  stuknięcie otwiera przepis, a propozycja zostaje po zamknięciu lub powrocie.
+- Co ugotuję?: promocje przy przepisie jako krótkie podsumowanie.
+- Promocje: produkt z tekstu gazetki i ten sam ze strony gazetki łączą się w jedną pozycję ze zdjęciem.
+  Nocą AI czyta do 150 stron gazetek (było 50), więc więcej produktów dostaje zdjęcie i cenę.
+- Ustawienia: krótka lista grup, każda na osobnej podstronie. „Jak używać”: tematy rozwijane stuknięciem.
+- Ikona 🗓️ zamiast 📅 (iPhone pokazywał „JUL 17”); przy otwartym „Więcej” podświetlona tylko ta zakładka.
+
+## 0.27.5
+
+- Lista przepisów: tło motywu nie urywa się już pod nagłówkiem. Pole szukania dostaje pełniejsze tło
+  dopiero po przewinięciu, gdy lista chowa się pod nim.
+
+## 0.27.4
+
+- iPhone: powrót do paska stanu z 0.27.1. Tło pod godziną w iOS 26 włączało z powrotem rozmycie góry ekranu,
+  więc zostaje ciemny pasek, ale bez rozmycia. Trzeba znowu usunąć i dodać ikonę.
+- Efekty: przy przewijaniu listy przepisów chipy filtrów i zdjęcia nie prześwitują już nad polem szukania.
+
+## 0.27.3
+
+- „Co ugotuję?” i „Promocje” otwierają się od razu z ostatnio pobranymi wynikami (zapamiętanymi w telefonie),
+  a świeże dane z serwera podmieniają się w tle. Przez Tailscale albo w trakcie aktualizacji dodatku
+  ekran nie wisi już na „Ładowanie…”.
+- Gdy nie ma zapamiętanych wyników, a serwer nie odpowiada przez 15 sekund albo zwraca błąd, ekran pokazuje
+  komunikat i przycisk „Spróbuj ponownie” zamiast wiecznego ładowania.
+- Plakietki promocji przy składnikach też pokazują się od razu z pamięci telefonu; chwilowy błąd serwera
+  nie chowa ich już na 5 minut.
+
+## 0.27.2
+
+- iPhone (aplikacja z ekranu głównego): koniec z czarnym paskiem pod godziną i baterią - tło motywu
+  i efekty sięgają do samej góry ekranu, jak w Safari. Tytuł zaczyna się tuż pod godziną, przewijana
+  treść chowa się pod lekką zasłoną w kolorze tła. Żeby zadziałało, trzeba raz usunąć ikonę
+  z ekranu głównego i dodać ją ponownie (iOS czyta to ustawienie tylko przy dodawaniu ikony).
+
+## 0.27.1
+
+- Ikona „Dodaj” na dolnym pasku to teraz plus w kolorze tekstu - dobrze widoczny też po ciemku.
+- Efekty: pasek wyszukiwania nie zasłania już drobinek (też w „Subtelne”) i miękko przechodzi w tło.
+- Efekty „Na bogato”: poświata wybranego chipa (Wszystkie, Ulubione…) nie jest już ucinana od góry i dołu; wyłączony „Importuj” jest wyraźniejszy.
+
+## 0.27.0
+
+- Motywy kolorów: Ustawienia → Wygląd → Motyw. Do wyboru Klasyczny (dotychczasowy pomarańcz), Smocze złoto,
+  Leśne zioła, Księga czarów, Eliksir i Lodowy smok, każdy w wersji jasnej i ciemnej. Pod kafelkami
+  wybór trybu: jak w telefonie, zawsze jasny albo zawsze ciemny. Ustawienie dotyczy tego telefonu.
+- Efekty motywu: Bez, Subtelne (domyślnie: gradienty na przyciskach, połysk na „Gotuj”, drobinki
+  nad listą przepisów) albo Na bogato (żywe tło z fakturą motywu, przezroczyste karty z poświatą,
+  mieniące się tytuły, iskry/śnieg/liście/bąbelki na całym ekranie poza trybem gotowania).
+  Zmiana motywu rozlewa się kołem od stukniętego kafelka. Ograniczony ruch w iOS wyłącza animacje.
+- iPhone (aplikacja z ekranu głównego): ten sam odstęp 8 px pod nagłówkiem na każdym ekranie
+  (Przepisy, Dodaj, Zakupy, Plan, Ustawienia). Kostka losowania nie podnosi już nagłówka Przepisów.
+
+## 0.26.5
+
+- iPhone (aplikacja z ekranu głównego): jeszcze mniej miejsca nad nagłówkiem - tytuł tuż pod paskiem stanu,
+  niższy pasek nagłówka (36 px) i mniejszy odstęp nad wyszukiwarką na liście przepisów. Pasek chroniący
+  przed rozmyciem iOS jest teraz niewidoczny, więc nie zajmuje miejsca.
+
+## 0.26.4
+
+- iPhone (aplikacja z ekranu głównego): mniej pustego miejsca nad nagłówkiem ekranu - tytuł
+  zaczyna się zaraz pod paskiem stanu (ok. 10 px wyżej niż w 0.26.3).
+
+## 0.26.3
+
+- iPhone: pasek pod paskiem stanu z 0.26.2 miał w aplikacji z ekranu głównego wysokość 0 (iOS 26 nie podaje
+  tam marginesu), więc góra ekranu dalej była rozmyta. Teraz ma co najmniej 12 px, a treść zaczyna się pod nim.
+
+## 0.26.2
+
+- iPhone (iOS 26, aplikacja z ekranu głównego): górna część każdego ekranu nie jest już rozmyta.
+  Pod paskiem stanu jest teraz cienki pasek w kolorze tła, przy którym Safari nie rozmywa nagłówków
+  (Dodaj przepis, Zakupy, przycisków w przepisie).
+
+## 0.26.1
+
+- Ostrzejsze zdjęcia przepisów. Przy imporcie aplikacja bierze zdjęcie z danych przepisu
+  (zwykle pełny rozmiar), z kilku rozmiarów na stronie wybiera największy, a adresy miniatur
+  (WordPress „-300x200”, „?w=300”, Blogger, Wix) zamienia na pełną wersję. Z filmów TikTok/Instagram
+  bierze największą okładkę. Szukanie zdjęć w internecie pomija rozmazane, gdy są lepsze.
+- Przepis z rozmazanym zdjęciem ma pod nim „Zdjęcie jest w słabej jakości · 🔍 Znajdź lepsze”.
+- Ustawienia → Porządki → „🖼️ Popraw rozmazane zdjęcia”: szuka na stronie źródłowej tego samego
+  zdjęcia w większym rozmiarze i podmienia je tylko wtedy, gdy to na pewno to samo zdjęcie.
+
+## 0.26.0
+
+- Czat nie gubi rozmowy: po wysłaniu pytania można przejść na inną zakładkę, odpowiedź przychodzi
+  dalej i czeka po powrocie. Rozmowa zostaje też po zamknięciu aplikacji (do „Nowa rozmowa”);
+  gdy aplikacja zamknie się w trakcie odpowiedzi, jest „Spróbuj ponownie”.
+- Ustawienia → Wygląd: nowa grupa „Czat” (dymki i karty przepisów w czacie) i dymki czatu w podglądzie.
+  Karty przepisów w czacie są domyślnie mniejsze niż na liście przepisów.
+
+## 0.25.5
+
+- Ekran aktualizacji: zamiast ikonki 🔄 smok z logo miesza w kotle – nad kotłem unosi się para,
+  w zupie bulgocze, pod kotłem migocze ogień. Nowe teksty w klimacie D&D i smoczej kuchni
+  („Smok warzy nową miksturę”, a pod spodem co 5 s losowy dopisek z questu smoka). Ten sam smok na ekranie startowym, gdy serwer nie odpowiada.
+
+## 0.25.4
+
+- Ekran ładowania z logo smoka i nazwą „Smocza strawa” zamiast samego napisu „Ładowanie…”,
+  przy starcie aplikacji i na stronach, które czekają na dane.
+- Aplikacja otwiera się od razu: nie czeka na serwer z logowaniem, a lista przepisów rysuje się
+  z pamięci telefonu i odświeża w tle.
+- Zapytania wolniejsze niż 1 s trafiają do logu dodatku (łatwiej sprawdzić, czy czeka serwer, czy sieć).
+
+## 0.25.3
+
+- Przepis: górny pasek (Wróć, Inny, serce, …) zostaje na górze z pełnym tłem. Na iPhonie z iOS 26
+  przyciski nie są już rozmyte i wyblakłe zaraz pod paskiem stanu, a zdjęcie przewija się pod paskiem.
+
+## 0.25.1
+
+- Minutnik nie ginie, gdy dodatek się zrestartuje albo zaktualizuje w trakcie gotowania: powiadomienie
+  z Home Assistant przyjdzie o czasie, a jeśli czas minął w trakcie restartu, przyjdzie od razu z dopiskiem.
+- Link „źródło” w przepisie przyjmuje tylko adresy http/https; adres bez „https://” dostaje go sam.
+- Domownik nie może już anulować minutnika właściciela.
+
 ## 0.25.0
 
 - Spiżarnia nazywa się wszędzie „W domu” (Zakupy, Ustawienia, Co ugotuję?, Pomoc, komunikaty).

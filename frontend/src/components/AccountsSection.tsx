@@ -26,7 +26,6 @@ function OwnerAccounts({ auth }: { auth: AuthStatus }) {
   if (!auth.auth_required) {
     return (
       <section className="box">
-        <h2>Konta</h2>
         <p className="muted small">Konta dla domowników działają, gdy aplikacja ma hasło (opcja app_password dodatku).</p>
       </section>
     );
@@ -72,7 +71,6 @@ function OwnerAccounts({ auth }: { auth: AuthStatus }) {
 
   return (
     <section className="box">
-      <h2>Konta</h2>
       <p className="muted small">
         Przepisy są wspólne. Każde konto ma własny plan, listę zakupów, „W domu”, ulubione i oceny. Domownik zmienia tylko przepisy, które
         sam dodał, i nie widzi kopii zapasowych ani Home Assistant.
@@ -158,7 +156,6 @@ function OwnPassword({ name }: { name: string }) {
 
   return (
     <section className="box">
-      <h2>Twoje konto</h2>
       <p className="muted small">
         Zalogowano jako <b>{name}</b>. Przepisy są wspólne z właścicielem aplikacji; plan, zakupy, „W domu”, ulubione i oceny masz swoje.
       </p>

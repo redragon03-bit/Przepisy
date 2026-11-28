@@ -21,19 +21,58 @@
         justify-content: center; gap: 8px; padding: 24px; text-align: center; background: #fffaf5;
         color: #6f6256; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
       .boot strong { color: #2b2118; font-size: 22px; }
+      .boot-logo { width: 112px; height: 112px; border-radius: 26px; margin-bottom: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); animation: boot-breathe 1.8s ease-in-out infinite; }
+      @keyframes boot-breathe { 50% { transform: scale(1.05); } }
+      /* Smok gotuje - ta sama animacja co w aplikacji (.dragon-cook w styles.css) */
+      .dragon-cook { position: relative; width: 168px; height: 168px; margin: 56px 0 8px; }
+      .dragon-cook img { display: block; width: 100%; height: 100%; border-radius: 22%; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22); }
+      .dragon-cook span { position: absolute; border-radius: 50%; }
+      .dc-fire { left: 44%; top: 70%; width: 26%; height: 20%; mix-blend-mode: screen;
+        background: radial-gradient(closest-side, rgba(255,200,80,.9), rgba(255,120,30,.45) 55%, transparent);
+        animation: dc-flicker .9s ease-in-out infinite alternate; }
+      .dc-bubble { top: 60%; width: 4.5%; height: 4.5%;
+        background: radial-gradient(circle at 35% 35%, #fff4dc, #ffb566 60%, #e8692c); opacity: 0; animation: dc-bubble 1.8s ease-out infinite; }
+      .b1 { left: 49%; } .b2 { left: 57%; animation-delay: .6s ; } .b3 { left: 63%; animation-delay: 1.2s ; }
+      .dc-steam { top: 46%; width: 26%; height: 26%; filter: blur(2px); opacity: 0; animation: dc-steam 3s ease-out infinite;
+        background: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,0)); }
+      .s1 { left: 40%; } .s2 { left: 52%; animation-delay: 1s ; } .s3 { left: 46%; animation-delay: 2s ; }
+      @keyframes dc-flicker { from { opacity: .55; transform: scale(.92); } to { opacity: 1; transform: scale(1.08); } }
+      @keyframes dc-bubble { 0% { opacity: 0; transform: translateY(6px) scale(.4); } 30% { opacity: 1; }
+        80% { opacity: 1; transform: translateY(-4px) scale(1.15); } 100% { opacity: 0; transform: translateY(-6px) scale(1.6); } }
+      @keyframes dc-steam { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 25% { opacity: .9; }
+        100% { opacity: 0; transform: translate(12%, -230%) scale(2); } }
+      @media (prefers-reduced-motion: reduce) { .boot-logo, .dragon-cook span { animation: none; } .dc-bubble, .dc-steam { display: none; } }
       @media (prefers-color-scheme: dark) {
         .boot { background: #1b1714; color: #b8a99c; }
         .boot strong { color: #f3ebe4; }
       }
     </style>
-    <div id="root"><div class="boot" id="boot"><span id="boot-text">Ładowanie…</span></div></div>
+    <!-- iOS 26 w aplikacji z ekranu głównego rozmywa pas pod paskiem stanu (nagłówki wyglądały
+         na rozmazane). Safari pomija to rozmycie, gdy przy górnej krawędzi jest stały (fixed),
+         pełnej szerokości i nieprzezroczysty element - ten pasek. Wysokość = pasek stanu,
+         w aplikacji z ekranu głównego co najmniej 12 px (iOS 26 podaje tam 0), w przeglądarce 0. Styl w styles.css (.top-edge), tu kopia na pierwszą klatkę. -->
+    <style>
+      .top-edge { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: var(--safe-top, env(safe-area-inset-top, 0px)); background-color: #fffaf5; }
+      @media (display-mode: standalone) { .top-edge { height: var(--safe-top, max(env(safe-area-inset-top, 0px), 12px)); } }
+      @media (prefers-color-scheme: dark) { .top-edge { background-color: #1b1714; } }
+    </style>
+    <div class="top-edge" aria-hidden="true"></div>
+    <div id="root"><div class="boot" id="boot">
+      <img class="boot-logo" src="/apple-touch-icon.png" alt="" width="112" height="112" />
+      <strong>Smocza strawa</strong>
+      <span id="boot-text">Ładowanie…</span>
+    </div></div>
     <script>
       setTimeout(function () {
         var boot = document.getElementById("boot");
         if (!boot) return; // aplikacja już działa
         boot.innerHTML =
-          "<div style='font-size:48px'>🔄</div><strong>Trwa aktualizacja</strong>" +
-          "<span>Serwer aplikacji jest chwilowo niedostępny.<br>Strona odświeży się sama, gdy wróci.</span>";
+          "<div class='dragon-cook' aria-hidden='true'><img src='/apple-touch-icon.png' alt=''>" +
+          "<span class='dc-fire'></span><span class='dc-bubble b1'></span><span class='dc-bubble b2'></span>" +
+          "<span class='dc-bubble b3'></span><span class='dc-steam s1'></span><span class='dc-steam s2'></span>" +
+          "<span class='dc-steam s3'></span></div><strong>Smok warzy nową miksturę</strong>" +
+          "<span>Trwa aktualizacja albo restart Home Assistanta. Karczma zaraz otworzy podwoje – świeża strawa już się grzeje.</span>";
         setInterval(function () {
           fetch("/api/health", { cache: "no-store" }).then(function (r) {
             if (r.ok) location.reload();

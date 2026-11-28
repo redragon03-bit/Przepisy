@@ -391,3 +391,18 @@ class AisleGuess(Base):
 
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     aisle: Mapped[str] = mapped_column(String(50))
+
+
+class ActiveTimer(Base):
+    """Minutnik właściciela, który jeszcze odlicza (services/timer_notify.py).
+
+    Zapisany w bazie, żeby restart albo aktualizacja dodatku w trakcie gotowania
+    nie zgubiły powiadomienia z Home Assistant.
+    """
+
+    __tablename__ = "active_timers"
+
+    # Numer nadany przez telefon (Date.now())
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    label: Mapped[str] = mapped_column(String(300))
+    ends_at: Mapped[datetime]

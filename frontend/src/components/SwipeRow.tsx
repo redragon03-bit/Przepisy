@@ -59,11 +59,14 @@ export default function SwipeRow({ className, checked, onClick, onLongPress, onD
 
   return (
     <li className={`swipe-row ${className ?? ""}`}>
-      <span className={`swipe-delete ${dx <= -DELETE_AT ? "ready" : ""}`} aria-hidden="true">
-        {deleteLabel}
-      </span>
+      {/* Czerwona warstwa "usuń" tylko w trakcie przesuwania - wiersz jest przezroczysty i widać tło motywu */}
+      {dx < 0 && (
+        <span className={`swipe-delete ${dx <= -DELETE_AT ? "ready" : ""}`} aria-hidden="true">
+          {deleteLabel}
+        </span>
+      )}
       <div
-        className="swipe-content"
+        className={dx ? "swipe-content swiping" : "swipe-content"}
         role={checked === undefined ? undefined : "checkbox"}
         aria-checked={checked}
         tabIndex={checked === undefined ? undefined : 0}

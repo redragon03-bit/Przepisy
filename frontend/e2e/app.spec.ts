@@ -1,4 +1,4 @@
-import { APIRequestContext, expect, Page, request, test } from "@playwright/test";
+import { APIRequestContext, expect, Page, request, Route, test } from "@playwright/test";
 
 // Główne ścieżki aplikacji na ekranie telefonu. Dane tworzymy przez API (szybciej niż klikając).
 let server: APIRequestContext;
@@ -65,7 +65,16 @@ test("przewodnik „Jak używać” pod „Więcej”", async ({ page }) => {
   await page.getByRole("button", { name: "Więcej" }).click();
   await page.getByRole("link", { name: "Jak używać" }).click();
   await expect(page.getByRole("heading", { name: "Jak używać" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Tryb gotowania/ })).toBeVisible();
+  // Tematy zwinięte - widać wszystkie tytuły, treść po stuknięciu
+  const cooking = page.locator("details.help-section", { hasText: "Tryb gotowania" });
+  await expect(cooking.locator("summary")).toBeVisible();
+  await expect(cooking.locator(".help-list")).toBeHidden();
+  // Wszystkie tematy mieszczą się na jednym ekranie iPhone'a, nad dolnym paskiem
+  const lastBottom = await page.locator("details.help-section").last().evaluate((el) => el.getBoundingClientRect().bottom);
+  const tabBarTop = await page.getByRole("button", { name: "Więcej" }).evaluate((el) => el.closest("nav")!.getBoundingClientRect().top);
+  expect(lastBottom).toBeLessThanOrEqual(tabBarTop);
+  await cooking.locator("summary").click();
+  await expect(cooking.locator(".help-list")).toBeVisible();
 });
 
 test("menu ⋯ na przepisie, przeliczanie ilości w krokach i minutnik na innych ekranach", async ({ page }) => {
@@ -119,7 +128,9 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
     await page.getByPlaceholder("Dopisz, np. papier do pieczenia").fill(item);
     await page.getByRole("button", { name: "Dodaj" }).click();
   }
-  // Działy przychodzą z serwera po zapisaniu
+  // Działy przychodzą z serwera po zapisaniu. Przeładowanie dopiero, gdy kolejka zmian jest pusta:
+  // przeładowanie w trakcie wysyłania zostawia w kolejce wysłane już „mleko” i dodaje je drugi raz.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("shopping-queue") ?? "[]").length)).toBe(0);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Warzywa i owoce" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nabiał i jajka" })).toBeVisible();
@@ -127,10 +138,40 @@ test("lista zakupów: działy sklepu, odhaczanie i czyszczenie z „Cofnij”", 
 
   await page.getByText("mleko").click();
   await expect(page.getByRole("heading", { name: "Kupione" })).toBeVisible();
+  // Komunikat na dole nad paskiem zakładek - nie zasłania nagłówka strony
+  const toast = (await page.getByRole("status").boundingBox())!;
+  const tabbar = (await page.locator(".tabbar").boundingBox())!;
+  const header = (await page.getByRole("heading", { name: "Zakupy" }).boundingBox())!;
+  expect(toast.y + toast.height).toBeLessThanOrEqual(tabbar.y);
+  expect(toast.y).toBeGreaterThan(header.y + header.height);
+  await page.screenshot({ path: "test-results/zakupy-toast.png" });
+  // Bez menu „⋯” - „Wyczyść listę” widać od razu na dole listy
+  await expect(page.getByRole("button", { name: "Opcje listy" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Usuń kupione" }).click();
+  await expect(page.getByRole("heading", { name: "Kupione" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cofnij" }).click();
+  await expect(page.getByRole("heading", { name: "Kupione" })).toBeVisible();
   await page.getByRole("button", { name: "Wyczyść listę" }).click();
   await expect(page.getByText("Lista jest pusta")).toBeVisible();
   await page.getByRole("button", { name: "Cofnij" }).click();
   await expect(page.getByText("2 pomidory")).toBeVisible();
+});
+
+test("lista zakupów: podpowiedź o gestach tylko do pierwszego użycia gestu", async ({ page }) => {
+  await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
+  await server.post("/api/shopping", { data: { text: "chleb" } });
+  await login(page);
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  const hint = page.getByText("przesuń w lewo, aby usunąć");
+  await expect(hint).toBeVisible();
+  // Przytrzymanie wiersza (zmiana tekstu) = gest znany, podpowiedź znika na stałe
+  const row = page.locator(".swipe-row", { hasText: "chleb" });
+  const box = (await row.boundingBox())!;
+  await touchHold(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.getByRole("dialog", { name: "Zmień pozycję" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("chleb")).toBeVisible();
+  await expect(hint).toHaveCount(0);
 });
 
 test("lista zakupów: podobna pozycja nie dubluje się, a dwie podobne można połączyć", async ({ page }) => {
@@ -178,15 +219,15 @@ test("edycja: Anuluj bez zmian nie pyta, wklejenie kilku linijek dodaje składni
   const { id } = await addRecipe("Placki", ["1 jajko"], ["Smaż."]);
   await login(page);
   await page.goto(`/przepis/${id}/edytuj`);
-  const first = page.getByPlaceholder("200 g mąki pszennej").first();
+  const first = page.getByPlaceholder("np. 200 g mąki").first();
   await first.focus();
   await page.evaluate(() => {
     const data = new DataTransfer();
     data.setData("text", "2 jajka\n- 200 g mąki\n• 300 ml mleka");
     document.activeElement!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
-  await expect(page.getByPlaceholder("200 g mąki pszennej")).toHaveCount(3);
-  await expect(page.getByPlaceholder("200 g mąki pszennej").nth(2)).toHaveValue("300 ml mleka");
+  await expect(page.getByPlaceholder("np. 200 g mąki")).toHaveCount(3);
+  await expect(page.getByPlaceholder("np. 200 g mąki").nth(2)).toHaveValue("300 ml mleka");
 
   // Są zmiany - Anuluj pyta; odmowa zostawia formularz
   page.once("dialog", (dialog) => dialog.dismiss());
@@ -345,9 +386,9 @@ test("otwarty wcześniej przepis działa bez internetu", async ({ page, context 
 test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
   await server.post("/api/shopping/clear", { params: { only_checked: "false" } });
   const recipe = await addRecipe("Gulasz na plan", ["500 g wołowiny"], ["Duś 90 min."]);
-  const monday = new Date();
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const day = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  // Dziś - minione dni tygodnia są zwinięte
+  const now = new Date();
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   await server.post("/api/plan", { data: { day, recipe_id: recipe.id } });
   await login(page);
   await page.getByRole("button", { name: "Więcej" }).click();
@@ -359,6 +400,78 @@ test("plan: porcje przeliczają listę zakupów", async ({ page }) => {
   await expect(page.getByText(/Dodano do listy zakupów/)).toBeVisible();
   const items = (await (await server.get("/api/shopping")).json()) as { text: string }[];
   expect(items.map((i) => i.text)).toContain("1000 g wołowiny");
+});
+
+test("rząd kategorii zanika po prawej, gdy jest więcej do przewinięcia", async ({ page }) => {
+  const names = ["Zupa", "Obiad", "Śniadanie", "Kolacja", "Desery", "Przekąski", "Ciasta", "Sałatki"];
+  await page.route("**/api/categories", (route) => route.fulfill({ json: names.map((name) => ({ name, recipe_count: 1 })) }));
+  await login(page);
+  const bar = page.locator(".category-bar");
+  await expect(bar).toHaveClass(/more-right/);
+  await expect(bar).toHaveCSS("mask-image", /linear-gradient/);
+  await page.screenshot({ path: "test-results/kategorie-zanikanie.png" });
+  // Na końcu rzędu nic już nie ma - bez zanikania
+  await bar.evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
+  await expect(bar).not.toHaveClass(/more-right/);
+});
+
+test("plan: tydzień od dziś, minione dni zwinięte, przepis dodaje się z panelu", async ({ page }) => {
+  // Czysty plan na ten tydzień: wcześniejsze testy planują na „Jutro”, a w sobotę to ostatnia
+  // karta tygodnia, której ten test używa
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const monday = new Date();
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const planned = await server.get("/api/plan", { params: { start: iso(monday), end: iso(sunday) } });
+  expect(planned.ok()).toBeTruthy();
+  for (const entry of (await planned.json()) as { id: number }[]) {
+    expect((await server.delete(`/api/plan/${entry.id}`)).ok()).toBeTruthy();
+  }
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  // Przy otwartym panelu „Więcej” wyróżniona jest tylko ta zakładka
+  await expect(page.locator(".tabbar .active")).toHaveCount(1);
+  await expect(page.locator(".tabbar .active")).toHaveText(/Więcej/);
+  await page.getByRole("link", { name: "Plan" }).click();
+  await expect(page.locator(".tabbar .active")).toHaveText(/Więcej/);
+  const weekday = (new Date().getDay() + 6) % 7; // 0 = poniedziałek
+  // Pierwsza karta to dziś; minione dni w jednym wierszu
+  await expect(page.locator(".plan-day")).toHaveCount(7 - weekday);
+  await expect(page.locator(".plan-day").first()).toHaveClass(/today/);
+  if (weekday > 0) {
+    const past = page.getByRole("button", { name: `Wcześniej w tym tygodniu (${weekday})` });
+    await past.click();
+    await expect(page.locator(".plan-day")).toHaveCount(7);
+    await past.click();
+    await expect(page.locator(".plan-day")).toHaveCount(7 - weekday);
+  }
+  // Bez „+ Dodaj” w każdej karcie
+  await expect(page.getByRole("button", { name: "+ Dodaj" })).toHaveCount(0);
+
+  // Ostatni dzień tygodnia (karta przy dole): panel z wyszukiwarką, wyniki nad paskiem zakładek
+  const last = page.locator(".plan-day").last();
+  await last.locator("h2").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByPlaceholder("Szukaj przepisu…")).toBeFocused();
+  await dialog.getByPlaceholder("Szukaj przepisu…").fill("naleśn");
+  const result = dialog.getByRole("button", { name: "Naleśniki" });
+  await expect(result).toBeVisible();
+  const tabbar = (await page.locator(".tabbar").boundingBox())!;
+  const box = (await result.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(tabbar.y);
+  await page.screenshot({ path: "test-results/plan-panel.png" });
+  await result.click();
+  await expect(dialog).toHaveCount(0);
+  await expect(last).toContainText("Naleśniki");
+
+  // „+” w karcie też otwiera panel; usuwanie pozycji działa jak wcześniej
+  await last.getByRole("button", { name: /^Dodaj przepis/ }).click();
+  await expect(page.getByRole("dialog").getByPlaceholder("Szukaj przepisu…")).toBeVisible();
+  await page.locator(".sheet-backdrop").click({ position: { x: 10, y: 10 } });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await last.getByRole("button", { name: "Usuń z planu" }).click();
+  await expect(last).not.toContainText("Naleśniki");
 });
 
 test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", async ({ page }) => {
@@ -424,15 +537,15 @@ test("promocje: lista ze sklepami, dodanie do zakupów i przepisy z promocji", a
   });
   await page.getByRole("link", { name: "Co ugotuję?" }).click();
   await expect(page.getByRole("heading", { name: "🏷️ Z promocji" })).toBeVisible();
-  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toBeVisible();
+  await expect(page.getByText("🏷️ 1 w promocji: mleko")).toBeVisible();
   // Wybór sklepu w sekcji: bez Biedronki przepis znika
   const promoBox = page.locator("section.box", { has: page.getByRole("heading", { name: "🏷️ Z promocji" }) });
   await promoBox.getByRole("button", { name: "Biedronka" }).click();
-  await expect(page.getByText("🏷️ mleko (Biedronka 1,99 zł)")).toHaveCount(0);
+  await expect(page.getByText("🏷️ 1 w promocji: mleko")).toHaveCount(0);
   await promoBox.getByRole("button", { name: "Biedronka" }).click();
 
   // Plakietka przy składniku w przepisie
-  await page.getByText("🏷️ mleko (Biedronka 1,99 zł)").click();
+  await page.getByText("🏷️ 1 w promocji: mleko").click();
   await expect(page.getByRole("heading", { name: "Naleśniki" })).toBeVisible();
 });
 
@@ -494,6 +607,62 @@ test("import: zawieszony import da się anulować", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Ostatnie importy" })).toHaveCount(0);
 });
 
+test("import: gotowy wpis usuwa się z historii, a „usuń przepis” kasuje też przepis (z Cofnij)", async ({ page }) => {
+  let jobs = [
+    { id: 2, kind: "url", source: "https://example.pl/bigos", status: "done", error: "", recipe_id: 77, recipe_count: 1, created_at: "2026-11-10T08:00:00", recipe_title: "Bigos", recipe_thumb: "" },
+    { id: 3, kind: "url", source: "https://example.pl/zurek", status: "done", error: "", recipe_id: 78, recipe_count: 1, created_at: "2026-11-10T08:00:00", recipe_title: "Żurek", recipe_thumb: "" },
+  ];
+  const deleted: string[] = [];
+  await page.route("**/api/imports", (route) => route.fulfill({ json: jobs }));
+  await page.route(/\/api\/(imports|recipes)\/(2|3|77|78)$/, (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    deleted.push(new URL(route.request().url()).pathname);
+    jobs = jobs.filter((j) => !route.request().url().endsWith(`/imports/${j.id}`));
+    return route.fulfill({ status: 204 });
+  });
+  await login(page);
+  await page.goto("/dodaj");
+  // Zwarty wiersz: nazwa przepisu zamiast linku, akcje pod „⋯”
+  const bigos = page.locator(".jobs li", { hasText: "Bigos" });
+  await expect(page.getByText("example.pl/bigos")).toHaveCount(0);
+  const rowBox = (await bigos.boundingBox())!;
+  expect(rowBox.height).toBeLessThan(70);
+  await bigos.getByRole("button", { name: "Opcje importu" }).click();
+  // W panelu widać wprowadzony adres, można go skopiować albo otworzyć
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText("https://example.pl/bigos")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Kopiuj adres" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Otwórz link" })).toBeVisible();
+  await sheet.getByRole("button", { name: "Usuń z listy" }).click();
+  await expect(bigos).toHaveCount(0);
+  expect(deleted).toEqual(["/api/imports/2"]);
+  const zurek = page.locator(".jobs li", { hasText: "Żurek" });
+  await zurek.getByRole("button", { name: "Opcje importu" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Usuń przepis" }).click();
+  await expect(zurek).toHaveCount(0);
+  await expect(page.getByText("Usunięto przepis")).toBeVisible();
+  // Po kilku sekundach (czas na "Cofnij") serwer usuwa przepis i wpis
+  await expect.poll(() => deleted, { timeout: 10000 }).toEqual(["/api/imports/2", "/api/recipes/78", "/api/imports/3"]);
+});
+
+test("lista przepisów: wybór widoku (lista, kafelki) zostaje zapamiętany", async ({ page }) => {
+  await login(page);
+  await expect(page.locator(".grid.view-medium")).toBeVisible();
+  // Przyciski w nagłówku mają podpisy, nie same ikony
+  await expect(page.locator(".topbar .head-chip").filter({ hasText: "Widok" })).toBeVisible();
+  await expect(page.locator(".topbar .head-chip").filter({ hasText: "Losuj" })).toBeVisible();
+  await page.getByRole("button", { name: "Widok przepisów: Średnie kafelki" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: /^Średnie kafelki/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("3 w rzędzie")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: /^Lista/ }).click();
+  await expect(page.locator(".grid.view-list")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".grid.view-list")).toBeVisible();
+  await page.getByRole("button", { name: "Widok przepisów: Lista" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /^Średnie kafelki/ }).click();
+  await expect(page.locator(".grid.view-medium")).toBeVisible();
+});
+
 test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", async ({ page }) => {
   const promo = (id: number, name: string, ingredient: string, price: string) => ({
     id, store: "Biedronka", name, category: "jedzenie", ingredient, price, note: "", leaflet: "Gazetka",
@@ -516,7 +685,7 @@ test("ceny z promocji przy składnikach można wyłączyć w Ustawieniach", asyn
   await expect(page.locator(".checklist .tag-promo")).toHaveCount(1);
   await expect(page.locator(".checklist li", { hasText: "schabu" }).locator(".tag-promo")).toHaveText("🏷️ Biedronka 14,99 zł/kg");
 
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/zakupy");
   const toggle = page.getByRole("switch", { name: "Pokazuj ceny z promocji przy składnikach" });
   await expect(toggle).toBeChecked();
   await toggle.click();
@@ -556,11 +725,14 @@ test("zakupy: promocje z każdego sklepu, bez sklepów odznaczonych w Promocjach
 test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia tylko swoje", async ({ page }) => {
   await login(page);
   await page.goto("/ustawienia");
+  await page.getByRole("link", { name: /^Konto i domownicy/ }).click();
   await page.getByPlaceholder("Nazwa nowego konta, np. imię").fill("Naszman");
   await page.getByPlaceholder("Hasło (min. 4 znaki)").fill("brat123");
   await page.getByRole("button", { name: "Dodaj konto" }).click();
   await expect(page.locator(".account-list")).toContainText("Naszman");
   await page.screenshot({ path: "test-results/konta-wlasciciel.png" });
+  // Wylogowanie jest na głównym ekranie Ustawień
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
   await page.getByRole("button", { name: /^Wyloguj/ }).click();
 
   await page.getByPlaceholder("Nazwa konta").fill("Naszman");
@@ -576,15 +748,60 @@ test("konta: właściciel dodaje domownika, a ten widzi przepisy, ale zmienia ty
   await expect(page.getByRole("button", { name: "Usuń" })).toHaveCount(0);
 
   await page.goto("/ustawienia");
+  await expect(page.getByRole("link", { name: /^Twoje konto/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Kopia zapasowa/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Porządki/ })).toHaveCount(0);
+  // Podstrony właściciela wracają na listę
+  await page.goto("/ustawienia/kopia");
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  await page.getByRole("link", { name: /^Twoje konto/ }).click();
   await expect(page.getByRole("heading", { name: "Twoje konto" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Kopia zapasowa" })).toHaveCount(0);
+  await expect(page.getByPlaceholder("Obecne hasło")).toBeVisible();
   await page.screenshot({ path: "test-results/konta-domownik.png" });
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
   await page.getByRole("button", { name: /^Wyloguj/ }).click();
+});
+
+test("ustawienia: krótka lista grup, wejście do podstrony i powrót", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Ustawienia" }).click();
+  await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
+  // Na głównym ekranie tylko lista grup ze stanem - bez suwaków i przycisków sekcji
+  const rows = page.locator(".settings-row");
+  await expect(rows).toHaveText([/Konto i domownicy/, /Wygląd.*Motyw: Klasyczny/, /Zakupy i promocje.*Ceny z gazetek: wł\./, /Kopia zapasowa/, /Porządki/, /Informacje/]);
+  await expect(page.getByRole("button", { name: "Przywróć 100%" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Wyloguj/ })).toBeVisible();
+  for (const row of await rows.all()) {
+    const box = (await row.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  }
+
+  await page.getByRole("link", { name: /^Wygląd/ }).click();
+  await expect(page).toHaveURL(/\/ustawienia\/wyglad$/);
+  await expect(page.getByRole("heading", { name: "Wygląd", level: 1 })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Motyw" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Wyloguj/ })).toHaveCount(0);
+  // Zakładka "Więcej" dalej podświetlona na podstronie
+  await expect(page.locator(".tabbar button.active")).toHaveText(/Więcej/);
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  await expect(page.getByRole("heading", { name: "Ustawienia" })).toBeVisible();
+
+  // Kopia zapasowa jako osobna podstrona; otwarta z linku wraca na listę Ustawień
+  await page.goto("/ustawienia/kopia");
+  await expect(page.getByRole("heading", { name: "Kopia zapasowa", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Pobierz kopię" })).toBeVisible();
+  await page.getByRole("button", { name: "‹ Wróć" }).click();
+  await expect(page).toHaveURL(/\/ustawienia$/);
+  // Nieznana grupa - lista Ustawień
+  await page.goto("/ustawienia/cos-innego");
+  await expect(page).toHaveURL(/\/ustawienia$/);
 });
 
 test("wygląd: skala grup co 5% w Ustawieniach, zapamiętana w telefonie", async ({ page }) => {
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const smaller = page.getByRole("button", { name: "Tytuły: mniejsze" });
   await smaller.click();
   await smaller.click();
@@ -610,7 +827,7 @@ test("pola do pisania mają co najmniej 16 px także przy mniejszym tekście (iP
   await login(page);
   // Przybliżanie po stuknięciu w pole blokuje też maximum-scale=1
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute("content", /maximum-scale=1/);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const smaller = page.getByRole("button", { name: "Tekst: mniejsze" });
   for (let i = 0; i < 4; i++) await smaller.click();
   await expect(page.getByLabel("Tekst: wielkość")).toHaveText("80%");
@@ -618,20 +835,20 @@ test("pola do pisania mają co najmniej 16 px także przy mniejszym tekście (iP
     page.evaluate(() =>
       Math.min(...[...document.querySelectorAll("input, textarea, select")].map((e) => parseFloat(getComputedStyle(e).fontSize))),
     );
-  for (const path of ["/ustawienia", "/", "/dodaj", "/zakupy"]) {
+  for (const path of ["/ustawienia/konto", "/", "/dodaj", "/zakupy"]) {
     await page.goto(path);
     await page.locator("input, textarea, select").first().waitFor({ state: "attached" });
     expect(await smallestField(), path).toBeGreaterThanOrEqual(16);
   }
   // Zwykły tekst dalej się zmniejsza
   expect(await page.locator("body").evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeLessThan(16);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   await page.getByRole("button", { name: "Przywróć 100%" }).click();
 });
 
 test("wygląd: podgląd przepisu, stuknięty element zmienia się od razu", async ({ page }) => {
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/wyglad");
   const preview = page.getByLabel("Podgląd wyglądu");
   await preview.scrollIntoViewIfNeeded();
   const title = preview.getByRole("heading", { name: "Placki ziemniaczane" });
@@ -692,13 +909,13 @@ test("aktualizacja dodatku: ekran „Trwa aktualizacja” zamiast czarnego, pote
   // Tailscale/HA odpowiada 502 bez treści, gdy dodatek się aktualizuje
   await page.route("**/api/**", (route) => route.fulfill({ status: 502, body: "" }));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pracuj bez połączenia" })).toBeVisible();
 
   // Serwer wraca - aplikacja sama się przeładowuje
   await page.unroute("**/api/**");
   await expect(page.getByRole("heading", { name: "Przepisy" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toHaveCount(0);
 });
 
 test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", async ({ page }) => {
@@ -707,7 +924,7 @@ test("błąd AI (502 z opisem) nie zasłania aplikacji ekranem aktualizacji", as
   await page.route("**/api/recipes?**", (route) => route.fulfill({ status: 502, json: { detail: "Gemini nie odpowiada" } }));
   await page.reload();
   await page.waitForTimeout(1000);
-  await expect(page.getByRole("heading", { name: "Trwa aktualizacja" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Smok warzy nową miksturę" })).toHaveCount(0);
 });
 
 // Przeciągnięcie palcem (zdarzenia dotyku jak na iPhonie, nie myszą)
@@ -759,7 +976,7 @@ test("sekcje: kroki i składniki w sekcjach, przeciąganie kroku palcem", async 
   // Sekcja w składnikach
   await page.locator(".add-buttons").first().getByRole("button", { name: "+ Sekcja" }).click();
   await page.getByLabel("Nazwa sekcji").first().fill("Kapusta");
-  await page.getByPlaceholder("200 g mąki pszennej").last().fill("1 cebula");
+  await page.getByPlaceholder("np. 200 g mąki").last().fill("1 cebula");
   await page.screenshot({ path: "test-results/sekcje-edycja.png", fullPage: true });
 
   await page.getByRole("button", { name: "Zapisz" }).click();
@@ -895,7 +1112,7 @@ test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, kt�
   await addRecipe("Ciasto z rabarbarem", ["rabarbary"], ["Piecz."]);
   await addRecipe("Konfitura z rabarbaru", ["rabarbaru"], ["Smaż."]);
   await login(page);
-  await page.goto("/ustawienia");
+  await page.goto("/ustawienia/porzadki");
   await page.getByRole("button", { name: "🧹 Znajdź podwójne składniki" }).click();
   const card = page.locator(".duplicate-card", { hasText: "rabarbar" });
   await expect(card.locator(".chip")).toHaveCount(3);
@@ -912,4 +1129,467 @@ test("porządki: podwójne składniki - wybór nazw do połączenia i nazwy, kt�
   await expect(again.locator(".chip")).toHaveText([/rabarbary/, /rabarbaru/]);
   await again.getByRole("button", { name: "To różne produkty" }).click();
   await expect(page.locator(".duplicate-card", { hasText: "rabarbar" })).toHaveCount(0);
+});
+
+test("start: ekran z logo, a potem lista od razu z pamięci telefonu", async ({ page }) => {
+  // Pierwsze otwarcie: serwer odpowiada wolno - widać ekran ładowania ze smokiem, nie goły napis
+  await page.route("**/api/auth/status", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue().catch(() => undefined);
+  });
+  await page.goto("/");
+  await expect(page.getByText("Smocza strawa")).toBeVisible();
+  await expect(page.locator(".boot-logo")).toBeVisible();
+  await page.getByPlaceholder("Hasło").fill("test");
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  await expect(page.getByText("Naleśniki")).toBeVisible();
+
+  // Kolejne otwarcie: serwer (np. Tailscale) wolno odpowiada, a lista jest od razu
+  await page.route("**/api/**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    await route.continue().catch(() => undefined);
+  });
+  await page.reload();
+  await expect(page.getByText("Naleśniki")).toBeVisible({ timeout: 2000 });
+});
+
+test("górny pasek przepisu zostaje na górze z pełnym tłem (bez rozmycia przycisków)", async ({ page }) => {
+  const steps = Array.from({ length: 30 }, (_, i) => `Krok numer ${i + 1}, długi opis, żeby strona się przewijała.`);
+  const { id } = await addRecipe("Długi przepis do paska", ["1 jajko"], steps);
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  const bar = page.locator(".recipe > .topbar");
+  await expect(bar.getByRole("button", { name: "‹ Wróć" })).toBeVisible();
+  // Pełne tło, nie przezroczyste - Safari na iPhonie nie rozmywa wtedy przycisków
+  const bg = await bar.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+  expect((await bar.boundingBox())!.y).toBeLessThanOrEqual(0.5);
+  await page.mouse.wheel(0, 1500);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  expect((await bar.boundingBox())!.y).toBeLessThanOrEqual(0.5);
+  await expect(bar.getByRole("button", { name: "‹ Wróć" })).toBeInViewport();
+});
+
+test("pasek pod paskiem stanu: stały, pełna szerokość, jednolite tło (iOS 26 nie rozmywa góry)", async ({ page }) => {
+  await login(page);
+  for (const path of ["/", "/dodaj", "/zakupy"]) {
+    await page.goto(path);
+    const band = page.locator(".top-edge");
+    await expect(band).toHaveCount(1);
+    const style = await band.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { position: s.position, top: s.top, bg: s.backgroundColor, events: s.pointerEvents, width: el.getBoundingClientRect().width };
+    });
+    expect(style.position).toBe("fixed");
+    expect(style.top).toBe("0px");
+    expect(style.bg).not.toBe("rgba(0, 0, 0, 0)");
+    expect(style.events).not.toBe("none");
+    expect(style.width).toBe(page.viewportSize()!.width);
+  }
+  // W aplikacji z ekranu głównego iOS 26 podaje safe-area-inset-top = 0, a pasek musi mieć > 10 px
+  const standaloneRule = await page.evaluate(() =>
+    [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).some(
+      (rule) => rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone") && rule.cssText.includes("12px"),
+    ),
+  );
+  expect(standaloneRule).toBe(true);
+  // Tryb aplikacji (reguły z @media display-mode: standalone włączone na stałe): pasek 12 px
+  // nie zasłania nagłówka, a nad nagłówkiem nie ma zbędnego odstępu
+  await page.goto("/dodaj");
+  await page.evaluate(() => {
+    for (const sheet of [...document.styleSheets]) {
+      for (const rule of [...sheet.cssRules]) {
+        if (rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone")) {
+          for (const inner of [...rule.cssRules]) sheet.insertRule(inner.cssText, sheet.cssRules.length);
+        }
+      }
+    }
+  });
+  expect((await page.locator(".top-edge").boundingBox())!.height).toBe(12);
+  // Pasek ma kolor tła dla Safari, ale go nie widać (background-clip: text), więc tytuł może być tuż pod paskiem stanu
+  expect(await page.locator(".top-edge").evaluate((el) => getComputedStyle(el).backgroundClip)).toBe("text");
+  const titleY = (await page.getByRole("heading", { name: "Dodaj przepis" }).boundingBox())!.y;
+  expect(titleY).toBeGreaterThan(2);
+  expect(titleY).toBeLessThan(12);
+});
+
+test("ten sam odstęp pod nagłówkiem na każdym ekranie (aplikacja z ekranu głównego)", async ({ page }) => {
+  await login(page);
+  for (const path of ["/", "/dodaj", "/zakupy", "/plan", "/ustawienia"]) {
+    await page.goto(path);
+    await expect(page.locator(".page .topbar")).toBeVisible();
+    await page.evaluate(() => {
+      for (const sheet of [...document.styleSheets]) {
+        for (const rule of [...sheet.cssRules]) {
+          if (rule instanceof CSSMediaRule && rule.conditionText.includes("display-mode: standalone")) {
+            for (const inner of [...rule.cssRules]) sheet.insertRule(inner.cssText, sheet.cssRules.length);
+          }
+        }
+      }
+    });
+    const gap = await page.locator(".page .topbar").evaluate((bar) => {
+      const next = bar.nextElementSibling as HTMLElement;
+      const content = next.classList.contains("search") ? next.querySelector("input")! : next;
+      return content.getBoundingClientRect().top - bar.getBoundingClientRect().bottom;
+    });
+    expect(Math.round(gap), path).toBe(8);
+    expect((await page.locator(".page .topbar").boundingBox())!.height, path).toBeLessThanOrEqual(36);
+  }
+  expect(await page.goto("/").then(() => page.locator(".head-chip-emoji").evaluate((el) => getComputedStyle(el).lineHeight))).toBe("17px");
+});
+
+test("czat: odpowiedź nie ginie po przejściu na inną zakładkę, wielkość czatu z Ustawień", async ({ page }) => {
+  // AI włączone na niby; odpowiedź przychodzi po chwili, gdy jesteśmy już na innej zakładce
+  await page.route("**/api/auth/status", async (route) => {
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
+  });
+  let calls = 0;
+  await page.route("**/api/chat", async (route) => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 1500));
+    route.fulfill({ json: { text: "Może owsianka z owocami?", new_recipe: null, recipes: [] } });
+  });
+  await login(page);
+  await page.getByRole("link", { name: "Czat" }).click();
+  await page.getByLabel("Wiadomość").fill("Coś zdrowego na śniadanie");
+  await page.getByRole("button", { name: "Wyślij" }).click();
+  await expect(page.getByRole("status", { name: "Myślę…" })).toBeVisible();
+  await page.getByRole("link", { name: "Zakupy" }).click();
+  await expect(page.getByRole("heading", { name: "Zakupy" })).toBeVisible();
+  await page.getByRole("link", { name: "Czat" }).click();
+  await expect(page.getByText("Coś zdrowego na śniadanie")).toBeVisible();
+  await expect(page.getByText("Może owsianka z owocami?")).toBeVisible();
+  expect(calls).toBe(1);
+
+  // Czat ma własną grupę w Ustawieniach → Wygląd
+  const bubble = page.locator(".bubble.assistant").first();
+  expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("16px");
+  await page.goto("/ustawienia/wyglad");
+  const smaller = page.getByRole("button", { name: "Czat: mniejsze" });
+  await smaller.click();
+  await smaller.click();
+  await expect(page.getByLabel("Czat: wielkość")).toHaveText("90%");
+  expect(await page.locator(".scale-preview .bubble.user").evaluate((e) => getComputedStyle(e).fontSize)).toBe("14.4px");
+  // Rozmowa przetrwała też przeładowanie aplikacji
+  await page.goto("/czat");
+  await expect(page.getByText("Może owsianka z owocami?")).toBeVisible();
+  expect(await bubble.evaluate((e) => getComputedStyle(e).fontSize)).toBe("14.4px");
+  await page.screenshot({ path: "test-results/czat-po.png" });
+  await page.getByRole("button", { name: "Nowa rozmowa" }).click();
+  await page.goto("/ustawienia/wyglad");
+  await page.getByRole("button", { name: "Przywróć 100%" }).click();
+});
+
+test("motyw: wybór w Wyglądzie zmienia kolory od razu i zostaje po ponownym otwarciu", async ({ page }) => {
+  await login(page);
+  await page.goto("/ustawienia/wyglad");
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const before = await bg();
+  await page.getByRole("radio", { name: /Leśne zioła/ }).click();
+  await expect(page.getByRole("radio", { name: /Leśne zioła/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Ciemny" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-scheme", "dark");
+  await expect.poll(bg).toBe("rgb(17, 24, 19)");
+  expect(before).not.toBe("rgb(17, 24, 19)");
+  // Zostaje po przeładowaniu, na każdym ekranie
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "las");
+  await expect.poll(bg).toBe("rgb(17, 24, 19)");
+  // Efekty: "Na bogato" pokazuje drobinki na każdym ekranie, "Bez" je chowa
+  await page.goto("/ustawienia/wyglad");
+  await page.getByRole("button", { name: "Na bogato" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-fx", "bold");
+  await expect(page.locator(".ambient")).toBeVisible();
+  await page.getByRole("button", { name: "Bez", exact: true }).click();
+  await expect(page.locator(".ambient")).toBeHidden();
+  await page.getByRole("button", { name: "Subtelne" }).click();
+  // Powrót do domyślnego, żeby nie zmieniać innych testów
+  await page.getByRole("radio", { name: /Klasyczny/ }).click();
+  await page.getByRole("button", { name: "Jak w telefonie" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-scheme", "light");
+});
+
+test("co ugotuję i promocje: zapamiętane wyniki od razu, a bez nich błąd zamiast wiecznego ładowania", async ({ page }) => {
+  const promo = {
+    id: 1, store: "Biedronka", name: "Mleko UHT 3,2%", category: "jedzenie", ingredient: "mleko", price: "1,99 zł", note: "",
+    leaflet: "Gazetka", valid_from: null, valid_to: null, discount: 0, aisle: "Nabiał i jajka", aisle_order: 4, image_url: "",
+    key: "mleko", favorite: false,
+  };
+  let hang = false;
+  // Gdy serwer „wisi” (np. aktualizacja dodatku), odpowiedź nie przychodzi wcale
+  const maybeHang = (json: unknown) => (route: Route) => (hang ? new Promise<void>(() => {}) : route.fulfill({ json }));
+  await page.route("**/api/promotions", maybeHang([promo]));
+  await page.route("**/api/promotions/favorites", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/promotions/status", (route) =>
+    route.fulfill({ json: { stores: ["Biedronka"], running: false, progress: "", last_check: null, errors: [], leaflets: [] } }),
+  );
+  await page.route("**/api/pantry/items", async (route) => (hang ? new Promise<void>(() => {}) : route.fallback()));
+
+  await login(page);
+  await page.getByRole("button", { name: "Więcej" }).click();
+  await page.getByRole("link", { name: "Promocje" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+  await page.getByRole("link", { name: "Co ugotuję?" }).click();
+  await expect(page.getByRole("heading", { name: "Z tego, co masz w domu" })).toBeVisible();
+
+  // Serwer przestaje odpowiadać - oba ekrany i tak od razu pokazują ostatnie wyniki
+  hang = true;
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Z tego, co masz w domu" })).toBeVisible();
+  await page.goto("/promocje");
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+
+  // Bez zapamiętanych danych i z błędem serwera: komunikat i „Spróbuj ponownie” zamiast „Ładowanie…”
+  hang = false;
+  await page.evaluate(() => localStorage.removeItem("screen-cache:promotions"));
+  await page.route("**/api/promotions", (route) => route.fulfill({ status: 500, json: { detail: "Błąd serwera" } }));
+  await page.reload();
+  await expect(page.getByText("Błąd serwera")).toBeVisible();
+  await page.route("**/api/promotions", (route) => route.fulfill({ json: [promo] }));
+  await page.getByRole("button", { name: "↻ Spróbuj ponownie" }).click();
+  await expect(page.locator(".promo-row")).toHaveCount(1);
+});
+
+test("pasek szukania: przezroczysty pod nagłówkiem, pełniejsze tło dopiero po przyklejeniu", async ({ page }) => {
+  await login(page);
+  const search = page.locator(".search.sticky");
+  await expect(search).not.toHaveClass(/stuck/);
+  await page.evaluate(() => {
+    document.body.style.paddingBottom = "3000px";
+    window.scrollTo(0, 600);
+  });
+  await expect(search).toHaveClass(/stuck/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(search).not.toHaveClass(/stuck/);
+});
+
+// Przepis z sekcjami jak szarlotka z audytu: masło i mąka są i w "Cieście", i w "Kruszonce"
+async function addSzarlotka() {
+  const ingredient = (text: string, name: string, section: string) => ({ text, name, section });
+  return addRecipe("Szarlotka z sekcjami", [], [], {
+    servings: "8",
+    prep_minutes: 30,
+    ingredients: [
+      ingredient("300 g mąki pszennej", "mąka pszenna", "Ciasto"),
+      ingredient("200 g masła", "masło", "Ciasto"),
+      ingredient("100 g cukru", "cukier", "Ciasto"),
+      ingredient("2 jajka", "jajka", "Ciasto"),
+      ingredient("1,5 kg jabłek", "jabłka", "Nadzienie"),
+      ingredient("50 g masła", "masło", "Kruszonka"),
+      ingredient("80 g mąki", "mąka", "Kruszonka"),
+    ],
+    steps: [
+      { text: "Zagnieść ciasto z mąki, masła, cukru i jajek. Schłodzić 30 min w lodówce.", section: "Ciasto" },
+      { text: "Jabłka obrać i dusić 10 min.", section: "Nadzienie" },
+      { text: "Masło zetrzeć z mąką.", section: "Kruszonka" },
+    ],
+  });
+}
+
+test("tryb gotowania: składniki z sekcji kroku, odmiana „cukru” i minutnik nie zasłania kroku", async ({ page }) => {
+  const { id } = await addSzarlotka();
+  await login(page);
+  await page.goto(`/przepis/${id}/gotuj`);
+  await page.getByRole("button", { name: "Zaczynamy ›" }).click();
+  const used = page.locator(".step-ingredients li");
+  await expect(used).toHaveText(["300 g mąki pszennej", "200 g masła", "100 g cukru", "2 jajka"]);
+
+  await page.getByRole("button", { name: "⏱ Minutnik 30 min" }).click();
+  const bar = page.locator(".timers");
+  // W trybie gotowania tego przepisu sam krok, bez ucinanej nazwy przepisu
+  await expect(bar.locator(".timer-label")).toHaveText("Krok 1 · 30 min");
+  const barTop = (await bar.boundingBox())!.y;
+  // Treść kończy się nad paskiem, przycisk minutnika kroku da się stuknąć
+  const body = (await page.locator(".cooking-body").boundingBox())!;
+  expect(body.y + body.height).toBeLessThanOrEqual(barTop + 1);
+  const button = page.getByRole("button", { name: "⏱ Minutnik 30 min" });
+  await button.scrollIntoViewIfNeeded();
+  const box = (await button.boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(barTop + 1);
+  await page.screenshot({ path: "test-results/tryb-gotowania-sekcje.png" });
+  await page.getByRole("button", { name: "Dalej ›" }).click();
+  await page.getByRole("button", { name: "Dalej ›" }).click();
+  await expect(used).toHaveText(["50 g masła", "80 g mąki"]);
+  await page.getByRole("button", { name: "Zamknij minutnik" }).click();
+});
+
+test("przepis: porcje słownie, „Nie wygaszaj” w menu ⋯, niski pasek zdjęcia, „Gotuj” nad minutnikiem", async ({ page }) => {
+  const { id } = await addSzarlotka();
+  // Telefon pozwala trzymać włączony ekran (Chromium w testach nie zawsze)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "wakeLock", { configurable: true, value: { request: async () => ({ release: async () => {} }) } });
+  });
+  await server.put("/api/pantry", { data: { names: ["mąka pszenna"] } });
+  await login(page);
+  await page.goto(`/przepis/${id}`);
+  await expect(page.getByText(/^8 porcji · /)).toBeVisible();
+
+  // Bez zdjęcia: jedna linia, nie duża ramka
+  const photo = page.getByRole("button", { name: "🔍 Znajdź zdjęcie w internecie" });
+  expect((await photo.boundingBox())!.height).toBeLessThan(60);
+
+  // "brak": kreska z lewej nie przesuwa kółka
+  const checkX = async (text: string) => (await page.locator(".ingredients li", { hasText: text }).locator(".check").boundingBox())!.x;
+  await expect(page.locator(".ingredients li.missing", { hasText: "200 g masła" })).toBeVisible();
+  expect(await checkX("200 g masła")).toBe(await checkX("300 g mąki pszennej"));
+
+  // Zamiast pola na stronie - pozycja w menu ⋯
+  await expect(page.getByText("Nie wygaszaj ekranu")).toHaveCount(0);
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Nie wygaszaj: wył." }).click();
+  await expect(page.getByRole("status")).toContainText("Ekran nie zgaśnie");
+  await page.getByRole("button", { name: "Więcej akcji" }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Nie wygaszaj: wł." })).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.click(200, 100);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/przepis-bez-zdjecia.png" });
+
+  // "Gotuj" z napisem na górze, po przewinięciu sama ikona
+  const fab = page.locator(".fab");
+  await expect(fab.locator(".fab-label")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect(fab.locator(".fab-label")).toBeHidden();
+
+  // Minutnik ma całą szerokość i krótki opis, "Gotuj" stoi nad nim
+  await page.getByRole("button", { name: "⏱ 30 min" }).click();
+  const timer = page.locator(".timers .timer");
+  await expect(timer.locator(".timer-label")).toHaveText("Krok 1 · 30 min");
+  const timerBox = (await timer.boundingBox())!;
+  const fabBox = (await fab.boundingBox())!;
+  expect(timerBox.width).toBeGreaterThan(330);
+  expect(fabBox.y + fabBox.height).toBeLessThanOrEqual(timerBox.y);
+  await page.screenshot({ path: "test-results/przepis-minutnik.png" });
+  await page.getByRole("button", { name: "Zamknij minutnik" }).click();
+  await server.put("/api/pantry", { data: { names: [] } });
+});
+
+test("nowy przepis i edycja: szkic wraca po zmianie zakładki, znika po zapisaniu", async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    return dialog.dismiss();
+  });
+  await login(page);
+  await page.locator(".tabbar").getByRole("link", { name: "Dodaj" }).click();
+  await page.getByRole("link", { name: /Ręcznie/ }).click();
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Pierogi ruskie");
+  await page.getByPlaceholder("np. 200 g mąki").first().fill("500 g mąki");
+
+  // Podpowiedzi: jedno zdanie, reszta pod „?”
+  const hint = page.locator("details.form-hint").first();
+  await expect(hint.locator("p")).toBeHidden();
+  await hint.locator("summary").click();
+  await expect(hint.locator("p")).toBeVisible();
+
+  // Inna zakładka i powrót - wpisane dane są na miejscu
+  await page.locator(".tabbar").getByRole("link", { name: "Przepisy" }).click();
+  await expect(page.getByRole("heading", { name: "Przepisy" })).toBeVisible();
+  await page.locator(".tabbar").getByRole("link", { name: "Dodaj" }).click();
+  await page.getByRole("link", { name: /Ręcznie/ }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Pierogi ruskie");
+  await expect(page.getByPlaceholder("np. 200 g mąki").first()).toHaveValue("500 g mąki");
+  await expect(page.getByText("Przywrócono szkic")).toBeVisible();
+  await page.screenshot({ path: "test-results/szkic.png" });
+
+  // „Wyczyść” zaczyna od nowa
+  await page.getByRole("button", { name: "Wyczyść" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("");
+  await expect(page.getByText("Przywrócono szkic")).toHaveCount(0);
+
+  // Po zapisaniu szkic znika
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Pierogi ruskie");
+  await page.getByRole("button", { name: "Zapisz" }).click();
+  await expect(page.getByRole("heading", { name: "Pierogi ruskie" })).toBeVisible();
+  await page.goto("/nowy");
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("");
+  await expect(page.getByText("Przywrócono szkic")).toHaveCount(0);
+
+  // Edycja: osobny szkic dla każdego przepisu
+  const { id } = await addRecipe("Kopytka", ["1 kg ziemniaków"], ["Ugotuj."]);
+  await page.goto(`/przepis/${id}/edytuj`);
+  await page.getByRole("textbox", { name: "Nazwa" }).fill("Kopytka z masłem");
+  await page.locator(".tabbar").getByRole("link", { name: "Zakupy" }).click();
+  await page.goto(`/przepis/${id}/edytuj`);
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Kopytka z masłem");
+  await page.getByRole("button", { name: "Wyczyść" }).click();
+  await expect(page.getByRole("textbox", { name: "Nazwa" })).toHaveValue("Kopytka");
+  // Bez okien z pytaniami
+  expect(dialogs).toEqual([]);
+});
+
+test("dodaj: zrozumiały błąd importu, wyłączony „Importuj” wyraźnie nieaktywny", async ({ page }) => {
+  await login(page);
+  await page.goto("/dodaj");
+  const importButton = page.getByRole("button", { name: "Importuj" });
+  await expect(importButton).toBeDisabled();
+  // Wyłączony: szary, bez gradientu - nie wygląda jak aktywny (we wszystkich efektach)
+  const look = (el: HTMLElement) => {
+    const s = getComputedStyle(el);
+    return { image: s.backgroundImage, background: s.backgroundColor, color: s.color };
+  };
+  const off = await importButton.evaluate(look);
+  expect(off.image).toBe("none");
+  for (const fx of ["off", "bold"]) {
+    await page.evaluate((v) => document.documentElement.setAttribute("data-fx", v), fx);
+    expect((await importButton.evaluate(look)).image).toBe("none");
+  }
+  await page.evaluate(() => document.documentElement.removeAttribute("data-fx"));
+  await page.getByPlaceholder("https://… albo tekst przepisu").fill("https://nie-ma-takiej-strony.invalid/przepis");
+  await expect(importButton).toBeEnabled();
+  expect(await importButton.evaluate(look)).not.toEqual(off);
+
+  // Błąd połączenia po ludzku, bez nazwy wyjątku (np. „ProxyError”)
+  await importButton.click();
+  const job = page.locator(".jobs li", { hasText: "nie-ma-takiej-strony.invalid" });
+  await expect(job.locator(".error")).toHaveText("Strona nie odpowiada – spróbuj później.", { timeout: 25_000 });
+  await page.screenshot({ path: "test-results/dodaj-blad.png" });
+});
+
+test("przed zalogowaniem aplikacja nie pyta o plan (bez 401)", async ({ page }) => {
+  const planRequests: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/plan")) planRequests.push(r.url());
+  });
+  await page.goto("/");
+  await expect(page.getByPlaceholder("Hasło")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(planRequests).toEqual([]);
+  await page.getByPlaceholder("Hasło").fill("test");
+  await page.getByRole("button", { name: "Zaloguj" }).click();
+  // Po zalogowaniu przepisy z planu trafiają do pamięci telefonu
+  await expect.poll(() => planRequests.length).toBeGreaterThan(0);
+});
+
+test("czat: stuknięcie w pole chowa pasek zakładek, pole siedzi na dole (klawiatura iPhone)", async ({ page }) => {
+  await page.route("**/api/auth/status", async (route) => {
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ai_enabled: true } });
+  });
+  // Długa rozmowa - po stuknięciu w pole ma być widać jej koniec
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ json: { text: "Pomysł.\n\n".repeat(30) + "Ostatnia odpowiedź", new_recipe: null, recipes: [] } }),
+  );
+  await login(page);
+  await page.getByRole("link", { name: "Czat" }).click();
+  await page.getByLabel("Wiadomość").fill("Coś na obiad");
+  await page.getByRole("button", { name: "Wyślij" }).click();
+  await expect(page.getByText("Ostatnia odpowiedź")).toBeVisible();
+  await page.getByLabel("Wiadomość").blur();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const html = page.locator("html");
+  await expect(html).not.toHaveClass(/kb-open/);
+  await expect(page.locator(".tabbar")).toBeVisible();
+  // W aplikacji z ekranu głównego wysokości okna się nie różnią - liczy się samo stuknięcie w pole
+  await page.getByLabel("Wiadomość").tap();
+  await expect(html).toHaveClass(/kb-open/);
+  // Widać ostatnią wiadomość, nie początek rozmowy
+  await expect(page.getByText("Ostatnia odpowiedź")).toBeInViewport();
+  await expect(page.locator(".tabbar")).toBeHidden();
+  const input = (await page.locator(".chat-input").boundingBox())!;
+  const height = await page.evaluate(() => window.visualViewport!.height);
+  expect(Math.abs(input.y + input.height - height)).toBeLessThan(2);
+  await page.getByLabel("Wiadomość").blur();
+  await expect(html).not.toHaveClass(/kb-open/);
+  await expect(page.locator(".tabbar")).toBeVisible();
 });

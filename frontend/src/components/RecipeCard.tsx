@@ -56,7 +56,7 @@ export default function RecipeCard({ recipe, children }: { recipe: RecipeSummary
       {menu === "menu" && (
         <Sheet title={recipe.title} onClose={() => setMenu(null)}>
           <SheetTile icon={favorite ? "🤍" : "❤️"} label={favorite ? "Usuń z ulubionych" : "Do ulubionych"} onClick={toggleFavorite} />
-          <SheetTile icon="📅" label="Zaplanuj" onClick={() => setMenu("plan")} />
+          <SheetTile icon="🗓️" label="Zaplanuj" onClick={() => setMenu("plan")} />
           <SheetTile icon="🛒" label="Do zakupów" onClick={toShopping} />
         </Sheet>
       )}

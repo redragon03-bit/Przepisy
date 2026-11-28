@@ -56,6 +56,15 @@ def vtt_to_text(vtt: str) -> str:
     return " ".join(lines)
 
 
+def _best_thumbnail(info: dict) -> str | None:
+    """Największa miniatura filmu. yt-dlp w "thumbnail" daje zwykle dobrą, ale przy
+    TikToku/Instagramie bywa to mała okładka - gdy znamy rozmiary, bierzemy największą."""
+    sized = [t for t in info.get("thumbnails") or [] if t.get("url") and t.get("width") and t.get("height")]
+    if sized:
+        return max(sized, key=lambda t: t["width"] * t["height"])["url"]
+    return info.get("thumbnail")
+
+
 def read_video(url: str) -> PageContent:
     """Tytuł, opis i napisy filmu jako "strona" dla AI. Miniatura filmu to jedyny obrazek."""
     download_error = ytdlp_update.module().utils.DownloadError
@@ -77,5 +86,5 @@ def read_video(url: str) -> PageContent:
             parts.append("Napisy (to, co mówi autor):\n" + text[:MAX_SUBTITLE_CHARS])
         except fetcher.FetchError:
             pass  # napisy to dodatek - opis zwykle wystarcza
-    thumbnail = info.get("thumbnail")
+    thumbnail = _best_thumbnail(info)
     return PageContent(url=url, recipe=None, text="\n\n".join(parts), image_urls=[thumbnail] if thumbnail else [])

@@ -3,11 +3,12 @@
 To nie są tabele bazy (te są w models.py) - to "umowa" z frontendem.
 """
 
+import re
 from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel as PydanticModel
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 
 from .services.ai import AiRecipe
 
@@ -89,6 +90,8 @@ class CookLogOut(BaseModel):
 class RecipeOut(RecipeSummary):
     # Czy zalogowana osoba może zmienić albo usunąć przepis (domownik - tylko swoje)
     can_edit: bool = True
+    # Zdjęcie jest za małe i na telefonie wygląda na rozmazane (patrz images.LOW_RES)
+    image_low_res: bool = False
     description: str
     servings: str
     prep_minutes: int | None
@@ -126,6 +129,19 @@ class RecipeIn(BaseModel):
     ingredients: list[IngredientLine] = []
     steps: list[StepIn] = []
     categories: list[str] = []
+
+    @field_validator("source_url")
+    @classmethod
+    def _safe_source_url(cls, value: str) -> str:
+        """Link do źródła tylko http(s): "javascript:..." albo "data:..." w linku na stronie przepisu
+        mogłyby uruchomić kod. Adres bez schematu (www.kwestiasmaku.com/...) dostaje https://,
+        a inny tekst (np. "od babci") znika, żeby zapis przepisu się nie wywracał."""
+        value = value.strip()
+        if not value or re.match(r"https?://", value, re.IGNORECASE):
+            return value
+        if re.fullmatch(r"[\w-]+(\.[\w-]+)+(/\S*)?", value):
+            return "https://" + value
+        return ""
 
 
 class SectionsIn(BaseModel):
@@ -334,6 +350,16 @@ class MoreImageCandidates(BaseModel):
     round: int = Field(1, ge=0, le=50)  # która prośba o "inne"
 
 
+class ImageUpgradeProgress(BaseModel):
+    running: bool
+    done: int
+    # Ile zdjęć udało się podmienić na większe
+    improved: int
+    total: int
+    # Ile przepisów nadal ma rozmazane zdjęcie
+    low_res: int
+
+
 class ImageSearchProgress(BaseModel):
     running: bool
     done: int
@@ -440,6 +466,9 @@ class ImportJobOut(BaseModel):
     recipe_id: int | None
     recipe_count: int
     created_at: datetime
+    # Nazwa i miniatura zaimportowanego przepisu (lista "Ostatnie importy"), "" gdy brak
+    recipe_title: str = ""
+    recipe_thumb: str = ""
 
 
 class LoginIn(BaseModel):

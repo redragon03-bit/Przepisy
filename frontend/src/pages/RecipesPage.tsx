@@ -3,11 +3,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Category, ImageSearchProgress, RecipeSummary } from "../api";
 import IngredientPicker from "../components/IngredientPicker";
 import RecipeCard from "../components/RecipeCard";
+import ViewIcon from "../components/ViewIcon";
+import Sheet from "../components/Sheet";
 import { isHidden } from "../lib/hidden";
 import { currentRandom, pickRandom } from "../lib/random";
 import { recentRecipeIds } from "../lib/recent";
-import { listRecipes } from "../lib/recipeCache";
+import { listRecipes, storedRecipeList } from "../lib/recipeCache";
+import { RECIPE_VIEWS, useRecipeView } from "../lib/recipeView";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
+import Loading from "../components/Loading";
 
 // Filtry i miejsce przewinięcia trzymamy w pamięci karty przeglądarki, żeby po wejściu
 // w przepis i cofnięciu lista wyglądała tak samo jak przed chwilą.
@@ -92,21 +96,35 @@ function RecipeStrip({ title, recipes }: { title: string; recipes: RecipeSummary
 // i móc przewinąć w to samo miejsce, zanim przyjdą świeże dane.
 let cache: { recipes: RecipeSummary[]; categories: Category[]; uncategorized: number; total: number } | null = null;
 
+// Rząd kategorii zanika po prawej, gdy dalej są jeszcze chipy do przewinięcia
+function markMoreRight(bar: HTMLElement | null) {
+  bar?.classList.toggle("more-right", bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 4);
+}
+
 // Strona główna: lista przepisów z wyszukiwaniem (nazwa, składniki, opis, kroki, notatki), kategorią i składnikami.
 export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
   const [saved] = useState(loadSaved);
+  const [view, setView] = useRecipeView();
+  const current = RECIPE_VIEWS.find((v) => v.id === view) ?? RECIPE_VIEWS[2];
+  const [viewSheet, setViewSheet] = useState(false);
   const [q, setQ] = useState(saved.q);
   const searchInput = useRef<HTMLInputElement>(null);
+  const categoryBar = useRef<HTMLDivElement>(null);
   const [ingredients, setIngredients] = useState<string[]>(saved.ingredients);
   const [category, setCategory] = useState(saved.category);
   const [favorites, setFavorites] = useState(saved.favorites);
   const [categories, setCategories] = useState<Category[]>(cache?.categories ?? []);
   const [uncategorized, setUncategorized] = useState(cache?.uncategorized ?? 0);
-  const [total, setTotal] = useState(cache?.total ?? 0);
+  // Po starcie aplikacji (pusta pamięć strony) rysujemy od razu listę zapamiętaną w telefonie,
+  // a świeżą z serwera podmieniamy, gdy przyjdzie - zamiast czekać na serwer z pustym ekranem
+  const [stored] = useState(() =>
+    cache || saved.q || saved.ingredients.length || saved.category || saved.favorites ? null : storedRecipeList(),
+  );
+  const [total, setTotal] = useState(cache?.total ?? stored?.length ?? 0);
   const [showFilters, setShowFilters] = useState(saved.showFilters);
   const [sort, setSort] = useState<Sort>(saved.sort);
   const navigate = useNavigate();
-  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? null);
+  const [recipes, setRecipes] = useState<RecipeSummary[] | null>(cache?.recipes ?? stored);
   const [images, setImages] = useState<ImageSearchProgress | null>(null);
 
   useEffect(() => {
@@ -131,10 +149,30 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
     window.scrollTo(0, saved.scrollY);
   }, [recipes]);
 
+  // Pasek szukania dostaje pełniejsze tło dopiero, gdy przyklei się u góry (lista przewija się
+  // pod nim). Wcześniej jest przezroczysty, żeby tło motywu nie urywało się pod nagłówkiem.
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [searchStuck, setSearchStuck] = useState(false);
+
   useLayoutEffect(() => {
-    const onScroll = () => save({ ...loadSaved(), scrollY: window.scrollY });
+    const onScroll = () => {
+      save({ ...loadSaved(), scrollY: window.scrollY });
+      const el = searchRef.current;
+      if (el) {
+        const stuck = el.getBoundingClientRect().top <= parseFloat(getComputedStyle(el).top) + 1 && window.scrollY > 0;
+        setSearchStuck((prev) => (prev === stuck ? prev : stuck));
+      }
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Zanikanie rzędu kategorii: po każdej zmianie listy i po obrocie ekranu
+  useLayoutEffect(() => markMoreRight(categoryBar.current));
+  useEffect(() => {
+    const onResize = () => markMoreRight(categoryBar.current);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // W trakcie szukania zdjęć co 3 sekundy sprawdzamy postęp; listę pobieramy od nowa
@@ -203,13 +241,43 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       )}
       <header className="topbar">
         <h1>Przepisy</h1>
+        <button
+          type="button"
+          className="head-chip"
+          onClick={() => setViewSheet(true)}
+          aria-label={`Widok przepisów: ${current.label}`}
+        >
+          <ViewIcon view={view} />
+          Widok
+        </button>
         {shown && shown.length > 1 && (
-          <button type="button" className="link random-link" onClick={randomRecipe} aria-label="Losuj przepis">
-            🎲
+          <button type="button" className="head-chip" onClick={randomRecipe} aria-label="Losuj przepis">
+            <span className="head-chip-emoji" aria-hidden="true">🎲</span>
+            Losuj
           </button>
         )}
       </header>
-      <div className="search sticky">
+      {viewSheet && (
+        <Sheet title="Jak pokazać przepisy?" className="sheet-views" onClose={() => setViewSheet(false)}>
+          {RECIPE_VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              className={`sheet-tile view-tile ${v.id === view ? "active" : ""}`}
+              aria-pressed={v.id === view}
+              onClick={() => {
+                setView(v.id);
+                setViewSheet(false);
+              }}
+            >
+              <ViewIcon view={v.id} size={32} />
+              <b>{v.label}</b>
+              <small>{v.hint}</small>
+            </button>
+          ))}
+        </Sheet>
+      )}
+      <div ref={searchRef} className={searchStuck ? "search sticky stuck" : "search sticky"}>
         <div className="search-field">
           <input
             ref={searchInput}
@@ -241,7 +309,7 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
         </button>
       </div>
       {recipes !== null && (recipes.length > 0 || category || favorites) && (
-        <div className="category-bar">
+        <div className="category-bar" ref={categoryBar} onScroll={(e) => markMoreRight(e.currentTarget)}>
           <button type="button" className={`chip ${category === "" && !favorites ? "selected" : ""}`} onClick={() => { setCategory(""); setFavorites(false); }}>
             Wszystkie <span className="muted">{total}</span>
           </button>
@@ -286,13 +354,13 @@ export default function RecipesPage({ aiEnabled }: { aiEnabled: boolean }) {
       <RecipeStrip title="Ostatnio oglądane" recipes={recent} />
       <RecipeStrip title="Dawno nie gotowane" recipes={forgotten} />
       {shown === null ? (
-        <p className="muted center">Ładowanie…</p>
+        <Loading />
       ) : shown.length === 0 ? (
         <p className="muted center">
           {filtering ? "Nic nie znaleziono." : "Nie masz jeszcze przepisów. Dodaj pierwszy w zakładce „Dodaj”."}
         </p>
       ) : (
-        <div className="grid">
+        <div className={`grid view-${view}`}>
           {shown.map((r) => (
             <RecipeCard key={r.id} recipe={r} />
           ))}

@@ -11,6 +11,7 @@ import { findSame, sameProduct } from "../lib/similar";
 import { applyChange, cachedItems, cacheItems, Change, pendingChanges, queueChange, sendChanges } from "../lib/offlineShopping";
 import { useToast } from "../lib/toast";
 import { usePullToRefresh } from "../lib/usePullToRefresh";
+import Loading from "../components/Loading";
 
 // Zakupy mają dwa widoki: "Do kupienia" (lista zakupów) i "W domu" (spiżarnia, PantryView).
 // Lista jest pogrupowana działami sklepu. Pozycje dodaje się z przepisu, z planu tygodnia
@@ -31,6 +32,8 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
   const [busy, setBusy] = useState(false);
   // Pozycja, której tekst zmieniamy (przytrzymanie wiersza)
   const [editing, setEditing] = useState<ShoppingItem | null>(null);
+  // Gest (przytrzymanie, przesunięcie) użyty choć raz - podpowiedź już niepotrzebna
+  const [gesturesKnown, setGesturesKnown] = useRemembered<boolean>("shopping-gestures-known", false);
   const { toast, undoable, run } = useToast();
   const [showPromos] = usePromoBadges();
   // Tylko sklepy zaznaczone w Promocjach
@@ -204,7 +207,7 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
     return (
       <>
         {switcher}
-        <p className="muted center">{offline ? "Brak połączenia - lista pojawi się po połączeniu." : "Ładowanie…"}</p>
+        {offline ? <p className="muted center">Brak połączenia - lista pojawi się po połączeniu.</p> : <Loading />}
       </>
     );
   const open = items.filter((i) => !i.checked);
@@ -218,8 +221,14 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
       className={item.checked ? "done" : ""}
       checked={item.checked}
       onClick={() => check(item)}
-      onLongPress={() => setEditing(item)}
-      onDelete={() => removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }])}
+      onLongPress={() => {
+        setGesturesKnown(true);
+        setEditing(item);
+      }}
+      onDelete={() => {
+        setGesturesKnown(true);
+        removeLater(`Usunięto „${item.text}”`, [item], [{ op: "delete", id: item.id }]);
+      }}
     >
       <span className="check" aria-hidden="true" />
       <span className="grow">
@@ -293,21 +302,23 @@ export default function ShoppingPage({ haEnabled, owner }: { haEnabled: boolean;
           ))}
           {done.length > 0 && (
             <>
-              <h2 className="aisle">Kupione - już w domu</h2>
+              <div className="aisle-row">
+                <h2 className="aisle">Kupione - już w domu</h2>
+                <button type="button" className="link small" onClick={() => removeLater("Usunięto kupione z listy (zostają w „W domu”)", done, [{ op: "clear", onlyChecked: true }])}>
+                  Usuń kupione
+                </button>
+              </div>
               <ul className="checklist shopping">{done.map(row)}</ul>
             </>
           )}
-          <p className="muted small center">Przytrzymaj pozycję, żeby ją zmienić. Przesuń w lewo, żeby usunąć.</p>
-          <div className="actions">
-            {done.length > 0 && (
-              <button type="button" onClick={() => removeLater("Usunięto kupione z listy (zostają w „W domu”)", done, [{ op: "clear", onlyChecked: true }])}>
-                Usuń kupione
-              </button>
-            )}
-            <button type="button" className="danger" onClick={() => removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }])}>
+          {/* Podpowiedź o gestach tylko przy krótkiej liście, póki ktoś nie użyje gestu */}
+          {!gesturesKnown && items.length <= 5 && <p className="muted small center gesture-hint">Przytrzymaj, aby zmienić; przesuń w lewo, aby usunąć.</p>}
+          {/* Jedyna rzadka akcja listy - na dole, bez chowania pod "⋯" (z Cofnij) */}
+          <p className="center">
+            <button type="button" className="link small danger" onClick={() => removeLater("Wyczyszczono listę", items, [{ op: "clear", onlyChecked: false }])}>
               Wyczyść listę
             </button>
-          </div>
+          </p>
         </>
       )}
       {editing && (

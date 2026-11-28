@@ -4,8 +4,10 @@ import { api, Category, IngredientLine, Recipe, RecipeInput } from "../api";
 import type { StepIn } from "../api-types";
 import AutoTextarea from "../components/AutoTextarea";
 import { cachedRecipe, forgetRecipe } from "../lib/recipeCache";
+import { clearDraft, draftKey, loadDraft, saveDraft } from "../lib/recipeDraft";
 import { applyOrder, fromRows, isHeading, Row, toRows } from "../lib/sections";
 import { useReorder } from "../lib/useReorder";
+import Loading from "../components/Loading";
 
 // Formularz: składniki i kroki jako wiersze, wśród których są nagłówki sekcji
 type EditForm = Omit<RecipeInput, "ingredients" | "steps"> & {
@@ -28,22 +30,24 @@ const EMPTY: EditForm = {
 };
 
 const emptyIngredient = (): IngredientLine => ({ text: "", name: "", amount: null, unit: "", original_text: "", section: "" });
+const blankForm = (): EditForm => ({ ...EMPTY, ingredients: [{ item: emptyIngredient() }], steps: [{ item: { text: "", image: null } }] });
 
 // Formularz dodawania (adres /nowy) i edycji (/przepis/:id/edytuj) przepisu.
 export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: boolean }) {
   const params = useParams();
   const id = params.id ? Number(params.id) : null;
   const navigate = useNavigate();
-  const [form, setForm] = useState<EditForm | null>(
-    id ? null : { ...EMPTY, ingredients: [{ item: emptyIngredient() }], steps: [{ item: { text: "", image: null } }] },
-  );
+  // Szkic w pamięci telefonu - wpisane dane przetrwają przejście na inną zakładkę
+  const draftId = draftKey(id);
+  const [restored, setRestored] = useState(() => !id && !!loadDraft(draftId));
+  const [form, setForm] = useState<EditForm | null>(() => (id ? null : (loadDraft<EditForm>(draftId) ?? blankForm())));
   const [sectioning, setSectioning] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
   // Formularz tuż po wczytaniu - żeby "Anuluj" pytał tylko wtedy, gdy coś zmieniono
-  const initial = useRef(form ? JSON.stringify(form) : "");
+  const initial = useRef(id ? "" : JSON.stringify(blankForm()));
 
   useEffect(() => {
     api.listCategories().then(setAllCategories, () => {});
@@ -70,22 +74,26 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
     });
     // Przepis zapamiętany w telefonie pokazujemy od razu (jak ekran przepisu), świeży z serwera podmieniamy w tle
     const cached = cachedRecipe(id);
+    const draft = loadDraft<EditForm>(draftKey(id));
     let shown = cached ? JSON.stringify(toForm(cached)) : "";
-    if (cached) {
-      initial.current = shown;
-      setForm(toForm(cached));
-    }
+    if (cached) initial.current = shown;
+    setRestored(!!draft);
+    if (draft) {
+      setForm(draft);
+      shown = "szkic"; // dane z serwera nie nadpisują przywróconego szkicu
+    } else if (cached) setForm(toForm(cached));
     setError("");
     api
       .getRecipe(id)
       .then((r) => {
         if (!active) return;
         const loaded = toForm(r);
+        // Punkt odniesienia dla "Anuluj" i "Wyczyść" - przepis tak, jak jest zapisany
+        initial.current = JSON.stringify(loaded);
         // Nie nadpisujemy tego, co ktoś zdążył już zmienić w formularzu
         setForm((current) => {
           if (current && JSON.stringify(current) !== shown) return current;
-          shown = JSON.stringify(loaded);
-          initial.current = shown;
+          shown = initial.current;
           return loaded;
         });
       })
@@ -101,6 +109,13 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
   const ingredientOrder = useReorder(form?.ingredients ?? [], (ingredients) => form && setForm({ ...form, ingredients }));
   const stepOrder = useReorder(form?.steps ?? [], (steps) => form && setForm({ ...form, steps }));
 
+  // Każda zmiana od razu trafia do szkicu; formularz bez zmian nie zostawia szkicu
+  useEffect(() => {
+    if (!form) return;
+    if (JSON.stringify(form) === initial.current) clearDraft(draftId);
+    else saveDraft(draftId, form);
+  }, [form, draftId]);
+
   if (!form)
     return error ? (
       <div className="center">
@@ -110,12 +125,26 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
         </button>
       </div>
     ) : (
-      <p className="muted center">Ładowanie…</p>
+      <Loading />
     );
 
   const cancel = () => {
-    if (JSON.stringify(form) !== initial.current && !window.confirm("Odrzucić zmiany w przepisie?")) return;
+    if (JSON.stringify(form) !== initial.current) {
+      if (!window.confirm("Odrzucić zmiany w przepisie?")) return;
+      clearDraft(draftId);
+    }
     navigate(-1);
+  };
+
+  // "Wyczyść" przy przywróconym szkicu: pusty formularz albo przepis tak, jak jest zapisany
+  const discardDraft = () => {
+    clearDraft(draftId);
+    setRestored(false);
+    if (initial.current) setForm(JSON.parse(initial.current) as EditForm);
+    else {
+      setForm(null);
+      setAttempt(attempt + 1);
+    }
   };
 
   // Wklejenie kilku linijek (np. listy z kartki albo strony) robi z nich osobne składniki
@@ -186,6 +215,7 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
       const data: RecipeInput = { ...form, ingredients: fromRows(form.ingredients), steps: fromRows(form.steps) };
       const saved = id ? await api.updateRecipe(id, data) : await api.createRecipe(data);
       forgetRecipe(saved.id);
+      clearDraft(draftId);
       navigate(`/przepis/${saved.id}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -204,6 +234,14 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
           Zapisz
         </button>
       </header>
+      {restored && (
+        <p className="draft-note small">
+          Przywrócono szkic ·{" "}
+          <button type="button" className="link" onClick={discardDraft}>
+            Wyczyść
+          </button>
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
 
       <label>
@@ -251,10 +289,13 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
       </div>
 
       <h2>Składniki</h2>
-      <p className="muted small">
-        Druga kolumna to nazwa do wyszukiwania, np. „mąka pszenna” dla „200 g mąki pszennej”. Kolejność zmienisz, przeciągając za ⠿. Wklejenie kilku
-        linijek doda kilka składników. Sekcja (np. „Krem”) obejmuje wszystko pod nią, aż do następnej.
-      </p>
+      <details className="form-hint small">
+        <summary>Każda linijka to jeden składnik.</summary>
+        <p>
+          Druga kolumna to nazwa do wyszukiwania, np. „mąka” dla „200 g mąki”. Kolejność zmienisz, przeciągając za ⠿. Wklejenie kilku linijek doda
+          kilka składników. Sekcja (np. „Krem”) obejmuje wszystko pod nią, aż do następnej.
+        </p>
+      </details>
       {aiEnabled && (
         <button type="button" className="link small" onClick={suggestSections} disabled={sectioning}>
           {sectioning ? "AI dzieli przepis na sekcje…" : "✨ Podziel składniki i kroki na sekcje (AI)"}
@@ -280,13 +321,13 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
               value={row.item.text}
               onChange={(e) => setIngredient(i, { text: e.target.value.replace(/\n/g, " ") })}
               onPaste={(e) => pasteIngredients(i, e)}
-              placeholder="200 g mąki pszennej"
+              placeholder="np. 200 g mąki"
             />
             <AutoTextarea
               singleLine
               value={row.item.name}
               onChange={(e) => setIngredient(i, { name: e.target.value.replace(/\n/g, " ") })}
-              placeholder="mąka pszenna"
+              placeholder="np. mąka"
               autoCapitalize="none"
             />
             <button type="button" className="icon" onClick={() => removeRow("ingredients", i)} aria-label="Usuń">
@@ -305,7 +346,10 @@ export default function EditRecipePage({ aiEnabled = false }: { aiEnabled?: bool
       </div>
 
       <h2>Kroki</h2>
-      <p className="muted small">Kolejność zmienisz, przeciągając za numer kroku albo ⠿ przy sekcji.</p>
+      <details className="form-hint small">
+        <summary>Przeciągnij numer, żeby zmienić kolejność.</summary>
+        <p>Sekcję przesuniesz za ⠿. Sekcja (np. „Ciasto”) obejmuje kroki pod nią, aż do następnej.</p>
+      </details>
       {form.steps.map((row, i) =>
         isHeading(row) ? (
           <SectionRow

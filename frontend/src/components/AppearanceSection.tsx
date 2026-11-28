@@ -1,5 +1,6 @@
 import { MouseEvent, useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import ThemePicker from "./ThemePicker";
 import {
   applyScales,
   clampScale,
@@ -69,7 +70,8 @@ export default function AppearanceSection() {
 
   return (
     <section className="box">
-      <h2>Wygląd</h2>
+      <ThemePicker />
+      <h3 className="appearance-sub">Wielkość</h3>
       <p className="muted small">Wielkość każdej grupy osobno, co {SCALE_STEP}%. Podgląd zmienia się od razu, ustawienia dotyczą tego telefonu.</p>
       {/* Podgląd: przykładowy przepis z prawdziwymi stylami aplikacji - zmienia się od razu */}
       <div className={`scale-preview${picked === "space" ? " picked" : ""}`} onClick={pickFromPreview} aria-label="Podgląd wyglądu">
@@ -107,6 +109,11 @@ export default function AppearanceSection() {
             <b>krok 1: 5 min</b>
           </span>
           <strong className="timer-time">4:59</strong>
+        </div>
+        <p className="muted small scale-preview-label">Czat</p>
+        <div className={`chat scale-preview-chat${picked === "chat" ? " picked" : ""}`} data-group="chat">
+          <div className="bubble user">Coś zdrowego na śniadanie?</div>
+          <div className="bubble assistant">Może owsianka z owocami?</div>
         </div>
       </div>
       <div className="scale-preview-bar" aria-live="polite">
